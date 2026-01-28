@@ -9,11 +9,11 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 
 **Arithmetic Logic Unit (ALU)**:
 - Input buffers:
-    - I0 (input left)
+    - I (input left)
 - Output buffers:
     - A (accumulator)
     - C (carry)
-- Note that the input buffer (i.e., I0) is there to prevent simultaneous read/write operations on the output accumulator (i.e., A). E.g., before performing the add operation (i.e., ADD), A would first be written to I0, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input. 
+- Note that the input buffer (i.e., I) is there to prevent simultaneous read/write operations on the output accumulator (i.e., A). E.g., before performing the add operation (i.e., ADD), A would first be written to I, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input. 
 
 ## Instruction Set
 
