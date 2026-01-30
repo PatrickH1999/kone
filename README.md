@@ -37,20 +37,20 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 6  | ORR      | 0010 0RRR              | -                      | Perform bitwise-OR on Accumulator with Register RRR |
 | 7  | AND      | 0010 1RRR              | -                      | Perform bitwise-AND on Accumulator with Register RRR |
 | 8  | XOR      | 0011 0RRR              | -                      | Perform bitwise-XOR on Accumulator with Register RRR |
-| 9  | NOT      | 0011 1000              | -                      | Perform bitwise-NOT on Accumulator |
+| 9  | NOT      | 0000 1000              | -                      | Perform bitwise-NOT on Accumulator |
 
 ### Shift/Rotation Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 10 | BSL      | 0xxx x                 | -                      | Perform bit shift left on Accumulator |
-| 11 | BSR      | 0xxx x                 | -                      | Perform bit shift right on Accumulator |
-| 12 | BRL      | 0xxx x                 | -                      | Perform bit rotation left on Accumulator |
-| 13 | BRR      | 0xxx x                 | -                      | Perform bit rotation right on Accumulator |
+| 10 | BSL      | 0100 0000              | -                      | Perform bit shift left on Accumulator |
+| 11 | BSR      | 0100 1000              | -                      | Perform bit shift right on Accumulator |
+| 12 | BRL      | 0101 0000              | -                      | Perform bit rotation left on Accumulator |
+| 13 | BRR      | 0101 1000              | -                      | Perform bit rotation right on Accumulator |
 
 ### Math Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 14 | ADD      | 0xxx xRRR              | -                      | Perform ADD on Accumulator with Register RRR |
+| 14 | ADD      | 0x11 1RRR              | -                      | Perform ADD on Accumulator with Register RRR |
 
 ### (Conditional) Jump Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |

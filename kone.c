@@ -4,12 +4,32 @@
 #include <string.h>
 
 #define NOP 0b00000000
+#define NOT 0b00001000
+
 #define LDR 0b00010000
 #define STR 0b00011000
+
 #define ORR 0b00100000
 #define AND 0b00101000
 #define XOR 0b00110000
-#define NOT 0b00111000
+#define ADD 0b00111000
+
+#define BSL 0b01000000
+#define BSR 0b01001000
+#define BRL 0b01010000
+#define BRR 0b01011000
+
+uint8_t brl8(uint8_t x, unsigned n)
+{
+    n &= 7;  // n mod 8
+    return (x << n) | (x >> (8 - n));
+}
+
+uint8_t brr8(uint8_t x, unsigned n)
+{
+    n &= 7;  // n mod 8
+    return (x >> n) | (x << (8 - n));
+}
 
 typedef struct {
     uint8_t B;   // bus
@@ -73,16 +93,44 @@ void alu_not(CPU *cpu) {
     cpu->A = ~cpu->I;
 }
 
+void alu_add(CPU *cpu) {
+    uint8_t reg_id = cpu->IR0 & 0b00000111;
+    cpu->I = cpu->A;
+    cpu->A = cpu->I + cpu->R[reg_id];
+    cpu->C = (cpu->A < cpu->I);
+}
+
+void alu_bsl(CPU *cpu) {
+    cpu->I = cpu->A;
+    cpu->A = cpu->I << 1;
+}
+
+void alu_bsr(CPU *cpu) {
+    cpu->I = cpu->A;
+    cpu->A = cpu->I >> 1;
+}
+
+void alu_brl(CPU *cpu) {
+    cpu->I = cpu->A;
+    cpu->A = brl8(cpu->I, 1);
+}
+
+void alu_brr(CPU *cpu) {
+    cpu->I = cpu->A;
+    cpu->A = brr8(cpu->I, 1);
+}
+
 void cpu_exec(CPU *cpu) {
     uint8_t opcode = cpu->IR0 & 0b11111000;
     switch (opcode) {
         case NOP: break;
+        case NOT: alu_not(cpu); break;
         case LDR: alu_ldr(cpu); break;
         case STR: alu_str(cpu); break;
         case ORR: alu_orr(cpu); break;
         case AND: alu_and(cpu); break;
         case XOR: alu_xor(cpu); break;
-        case NOT: alu_not(cpu); break;
+        case ADD: alu_add(cpu); break;
     }
 }
 
