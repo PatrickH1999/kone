@@ -34,10 +34,10 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 ### Bitwise Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 6  | ORR      | 0xxx xRRR              | -                      | Perform bitwise-OR on Accumulator with Register RRR |
-| 7  | AND      | 0xxx xRRR              | -                      | Perform bitwise-AND on Accumulator with Register RRR |
-| 8  | XOR      | 0xxx xRRR              | -                      | Perform bitwise-XOR on Accumulator with Register RRR |
-| 9  | NOT      | 0000 1000              | -                      | Perform bitwise-NOT on Accumulator |
+| 6  | ORR      | 0010 0RRR              | -                      | Perform bitwise-OR on Accumulator with Register RRR |
+| 7  | AND      | 0010 1RRR              | -                      | Perform bitwise-AND on Accumulator with Register RRR |
+| 8  | XOR      | 0011 0RRR              | -                      | Perform bitwise-XOR on Accumulator with Register RRR |
+| 9  | NOT      | 0011 1000              | -                      | Perform bitwise-NOT on Accumulator |
 
 ### Shift/Rotation Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
