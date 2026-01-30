@@ -4,8 +4,12 @@
 #include <string.h>
 
 #define NOP 0b00000000
-#define LDR 0b00001000
-#define STR 0b00010000
+#define LDR 0b00010000
+#define STR 0b00011000
+#define ORR 0b00100000
+#define AND 0b00101000
+#define XOR 0b00110000
+#define NOT 0b00111000
 
 typedef struct {
     uint8_t B;   // bus
@@ -36,31 +40,60 @@ void cpu_fetch(CPU *cpu) {
     cpu->IR1 = cpu->M[cpu->PC + 1];
 }
 
-void cpu_ldr(CPU *cpu) {
+void alu_ldr(CPU *cpu) {
     uint8_t reg_id = cpu->IR0 & 0b00000111;
     cpu->A = cpu->R[reg_id];
 }
 
-void cpu_str(CPU *cpu) {
+void alu_str(CPU *cpu) {
     uint8_t reg_id = cpu->IR0 & 0b00000111;
     cpu->R[reg_id] = cpu->A;
+}
+
+void alu_orr(CPU *cpu) {
+    uint8_t reg_id = cpu->IR0 & 0b00000111;
+    cpu->I = cpu->A;
+    cpu->A = cpu->I | cpu->R[reg_id];
+}
+
+void alu_and(CPU *cpu) {
+    uint8_t reg_id = cpu->IR0 & 0b00000111;
+    cpu->I = cpu->A;
+    cpu->A = cpu->I & cpu->R[reg_id];
+}
+
+void alu_xor(CPU *cpu) {
+    uint8_t reg_id = cpu->IR0 & 0b00000111;
+    cpu->I = cpu->A;
+    cpu->A = cpu->I ^ cpu->R[reg_id];
+}
+
+void alu_not(CPU *cpu) {
+    cpu->I = cpu->A;
+    cpu->A = ~cpu->I;
 }
 
 void cpu_exec(CPU *cpu) {
     uint8_t opcode = cpu->IR0 & 0b11111000;
     switch (opcode) {
         case NOP: break;
-        case LDR: cpu_ldr(cpu); break;
-        case STR: cpu_str(cpu); break;
+        case LDR: alu_ldr(cpu); break;
+        case STR: alu_str(cpu); break;
+        case ORR: alu_orr(cpu); break;
+        case AND: alu_and(cpu); break;
+        case XOR: alu_xor(cpu); break;
+        case NOT: alu_not(cpu); break;
     }
 }
 
 int main() {
     CPU cpu;
     cpu_reset(&cpu);
-    cpu.R[2] = 184;
-    cpu.M[0] = 0b00001010;
+    cpu.A = 0b00111011;
+    printf("%b\n", cpu.A);
+    cpu.R[2] = 0b01001010;
+    cpu.M[0] = 0b00111010;
     cpu_fetch(&cpu);
     cpu_exec(&cpu);
-    printf("%u\n", cpu.A);
+    printf("%b\n", cpu.A);
 }

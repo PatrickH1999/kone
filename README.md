@@ -25,8 +25,8 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 ### Input/Output Operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 1  | LDR      | 0000 1RRR              | -                      | Load data from Register RRR into Accumulator |
-| 2  | STR      | 0001 0RRR              | -                      | Store data from Accumulator in Register RRR |
+| 1  | LDR      | 0001 0RRR              | -                      | Load data from Register RRR into Accumulator |
+| 2  | STR      | 0001 1RRR              | -                      | Store data from Accumulator in Register RRR |
 | 3  | LDM      | 1xxx xMMM              | MMMM MMMM              | Load data from Memory address MMM MMMM MMMM into Accumulator |
 | 4  | STM      | 1xxx xMMM              | MMMM MMMM              | Store data from Accumulator in Memory address MMM MMMM MMMM |
 | 5  | LDI      | 1xxx x000              | IIII IIII              | Load immediate IIII IIII into Accumulator |
