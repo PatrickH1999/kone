@@ -1,7 +1,7 @@
-#include <stdbool.h>
-#include <stdint.h>
 #include <stdio.h>
-#include <string.h>
+
+#include "cpu_struct.h"
+#include "cpu_functions.h"
 
 #define NOP 0b00000000
 #define NOT 0b00001000
@@ -38,39 +38,6 @@ uint8_t brr8(uint8_t x, unsigned n)
 {
     n &= 7;  // n mod 8
     return (x >> n) | (x << (8 - n));
-}
-
-typedef struct {
-    uint8_t B;   // bus
-    uint8_t A;   // accumulator
-    uint8_t I;   // input buffer
-    uint8_t R[8];   // register
-    uint8_t M[2048];   // memory
-    uint16_t PC;   // program counter
-    bool C;   // carry
-    uint8_t IR0;   // instruction register (cycle 0)
-    uint8_t IR1;   // instruction register (cycle 1)
-} CPU;
-
-void cpu_reset(CPU *cpu) {
-    cpu->B = 0;
-    cpu->A = 0;
-    cpu->I = 0;
-    memset(cpu->R, 0, sizeof(cpu->R));
-    memset(cpu->M, 0, sizeof(cpu->M));
-    cpu->PC = 0;
-    cpu->C = false;
-    cpu->IR0 = 0;
-    cpu->IR1 = 0;
-}
-
-void cpu_fetch(CPU *cpu) {
-    cpu->IR0 = cpu->M[cpu->PC];
-    if ((cpu->IR0 & 0b10000000) == 0b10000000) {
-        cpu->PC++;
-        cpu->IR1 = cpu->M[cpu->PC];
-    }
-    cpu->PC++;
 }
 
 void alu_ldr(CPU *cpu) {
