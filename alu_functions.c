@@ -114,3 +114,8 @@ void alu_ja1(CPU *cpu) {
         cpu->PC = addr;
     }
 }
+
+void alu_prn(CPU *cpu) {
+    uint8_t reg_id = cpu->IR0 & 0b00000111;
+    printf("%u\n", cpu->R[reg_id]);
+}

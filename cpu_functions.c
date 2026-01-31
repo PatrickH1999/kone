@@ -44,5 +44,6 @@ void cpu_decode_exec(CPU *cpu) {
         case JC1: alu_jc1(cpu); break;
         case JA0: alu_ja0(cpu); break;
         case JA1: alu_ja1(cpu); break;
+        case PRN: alu_prn(cpu); break;
     }
 }

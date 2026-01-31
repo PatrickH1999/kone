@@ -1,5 +1,3 @@
-#include <stdio.h>
-
 #include "cpu_struct.h"
 #include "cpu_functions.h"
 
@@ -13,13 +11,13 @@ int main() {
     cpu.M[4] = 0b00000000;   // """
     cpu.M[5] = 0b00111001;   // LOOP: add reg1 to acc
     cpu.M[6] = 0b00011000;   // store acc to reg0
-    cpu.M[7] = 0b10100000;   // jump to LOOP
-    cpu.M[8] = 0b00000101;   // """
+    cpu.M[7] = 0b01100000;   // print reg0
+    cpu.M[8] = 0b10100000;   // jump to LOOP
+    cpu.M[9] = 0b00000101;   // """
 
     while (true) {
         cpu_fetch(&cpu);
         cpu_decode_exec(&cpu);
-        printf("%u\n", cpu.R[0]);
     }
 
     return 0;

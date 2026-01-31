@@ -26,10 +26,12 @@
 #define JA0 0b11101000
 #define JA1 0b11110000
 
-#include "alu_functions.h"
-#include "cpu_struct.h"
+#define PRN 0b01100000
 
 #include <string.h>
+
+#include "alu_functions.h"
+#include "cpu_struct.h"
 
 void cpu_reset(CPU *cpu);
 void cpu_fetch(CPU *cpu);

@@ -1,6 +1,8 @@
 #ifndef ALU_FUNCTIONS_H
 #define ALU_FUNCTIONS_H
 
+#include <stdio.h>
+
 #include "cpu_struct.h"
 #include "utility.h"
 
@@ -23,5 +25,6 @@ void alu_jc0(CPU *cpu);
 void alu_jc1(CPU *cpu);
 void alu_ja0(CPU *cpu);
 void alu_ja1(CPU *cpu);
+void alu_prn(CPU *cpu);
 
 #endif
