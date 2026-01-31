@@ -1,5 +1,17 @@
 #include "cpu_functions.h"
 
+int cpu_boot_file(CPU *cpu, const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return -1;
+
+    size_t n = fread(cpu->M, 1, 2048, f);
+    fclose(f);
+
+    for (size_t i = n; i < 2048; ++i) cpu->M[i] = 0;
+    
+    return 0;
+}
+
 void cpu_reset(CPU *cpu) {
     cpu->B = 0;
     cpu->A = 0;

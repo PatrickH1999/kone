@@ -28,11 +28,14 @@
 
 #define PRN 0b01100000
 
+#include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 #include "alu_functions.h"
 #include "cpu_struct.h"
 
+int cpu_boot_file(CPU *cpu, const char *path);
 void cpu_reset(CPU *cpu);
 void cpu_fetch(CPU *cpu);
 void cpu_decode_exec(CPU *cpu);
