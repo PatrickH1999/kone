@@ -17,12 +17,12 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 
 ## Instruction Set
 
-### No Operation
-| #  | Mnemonic | Opcode (Cycle 1)         | Opcode (Cycle 2)       | Description |
+### No operation
+| #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 0  | NOP      | 0000 0000              |                        | Do nothing  |
+| 0  | NOP      | 0000 0000              | -                      | Do nothing  |
 
-### Input/Output Operations
+### Input/output operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 1  | LDR      | 0001 0RRR              | -                      | Load data from Register RRR into Accumulator |
@@ -31,7 +31,7 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 4  | STM      | 1001 1MMM              | MMMM MMMM              | Store data from Accumulator in Memory address MMM MMMM MMMM |
 | 5  | LDI      | 1000 1000              | IIII IIII              | Load immediate IIII IIII into Accumulator |
 
-### Bitwise Operations
+### bitwise operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 6  | ORR      | 0010 0RRR              | -                      | Perform bitwise-OR on Accumulator with Register RRR |
@@ -39,7 +39,7 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 8  | XOR      | 0011 0RRR              | -                      | Perform bitwise-XOR on Accumulator with Register RRR |
 | 9  | NOT      | 0000 1000              | -                      | Perform bitwise-NOT on Accumulator |
 
-### Shift/Rotation Operations
+### Shift/rotation operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 10 | BSL      | 0100 0000              | -                      | Perform bit shift left on Accumulator |
@@ -47,12 +47,12 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 12 | BRL      | 0101 0000              | -                      | Perform bit rotation left on Accumulator |
 | 13 | BRR      | 0101 1000              | -                      | Perform bit rotation right on Accumulator |
 
-### Math Operations
+### Math operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 14 | ADD      | 0011 1RRR              | -                      | Perform ADD on Accumulator with Register RRR |
 
-### (Conditional) Jump Operations
+### (Conditional) jump operations
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 15 | JMP      | 1010 0PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP in program memory |
@@ -60,3 +60,9 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 17 | JC1      | 1011 0PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP if Carry = 1 |
 | 18 | JA0      | 1110 1PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP if Accumulator = 0 |
 | 19 | JA1      | 1111 0PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP if Accumulator ≠ 0 |
+
+### Virtual operations (only available on virtual machine)
+| #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
+|----|----------|------------------------|------------------------|-------------|
+| 15 | PRN      | 0110 0RRR              | -                      | Send data from Register RRR to printf() |
+
