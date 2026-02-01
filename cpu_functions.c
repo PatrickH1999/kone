@@ -24,6 +24,15 @@ void cpu_reset(CPU *cpu) {
     cpu->IR1 = 0;
 }
 
+void cpu_pc_increment(CPU *cpu) { 
+    const struct timespec ts = {
+        .tv_sec = 0,
+        .tv_nsec = CYCLE_SLEEP * 1000000   // 0.01s
+    };
+    nanosleep(&ts, NULL);
+    cpu->PC++;
+}
+
 void cpu_fetch(CPU *cpu) {
     cpu->IR0 = cpu->M[cpu->PC];
     if ((cpu->IR0 & 0b10000000) == 0b10000000) {

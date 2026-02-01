@@ -1,0 +1,3 @@
+INN 0
+OUT 0
+JMP 0

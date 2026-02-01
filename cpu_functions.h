@@ -1,3 +1,7 @@
+#define _POSIX_C_SOURCE 199309L
+
+#define CYCLE_SLEEP 1   // [ms]
+
 #ifndef CPU_FUNCTIONS_H
 #define CPU_FUNCTIONS_H
 
@@ -32,6 +36,7 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <time.h>
 
 #include "alu_functions.h"
 #include "cpu_struct.h"
