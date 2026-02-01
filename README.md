@@ -65,4 +65,4 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
 | 15 | OUT      | 0110 0RRR              | -                      | Send data from Register RRR to printf() |
-
+| 16 | INN      | 0110 1RRR              | -                      | Send data from scanf() to Register RRR |
