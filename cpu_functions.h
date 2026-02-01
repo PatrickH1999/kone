@@ -26,7 +26,7 @@
 #define JA0 0b11101000
 #define JA1 0b11110000
 
-#define PRN 0b01100000
+#define OUT 0b01100000
 
 #include <stdio.h>
 #include <stdint.h>

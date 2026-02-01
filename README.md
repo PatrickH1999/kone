@@ -64,5 +64,5 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 ### Virtual operations (only available on virtual machine)
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 15 | PRN      | 0110 0RRR              | -                      | Send data from Register RRR to printf() |
+| 15 | OUT      | 0110 0RRR              | -                      | Send data from Register RRR to printf() |
 

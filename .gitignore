@@ -1,4 +1,5 @@
 anaconda_projects
 kone
 
-*.o
+**.o
+**.bin

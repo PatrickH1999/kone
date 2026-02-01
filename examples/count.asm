@@ -3,5 +3,5 @@ STR 1
 LDI 0
 ADD 1
 STR 0
-PRN 0
+OUT 0
 JMP 5
