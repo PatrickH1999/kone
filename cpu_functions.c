@@ -67,5 +67,6 @@ void cpu_decode_exec(CPU *cpu) {
         case JA1: alu_ja1(cpu); break;
         case OUT: alu_out(cpu); break;
         case INN: alu_inn(cpu); break;
+        case EXT: exit(0); break;
     }
 }

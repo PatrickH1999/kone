@@ -26,3 +26,4 @@ ADD 3
 STR 3     // R3 += 1
 JA1 6     // jump to LOOP (line 8) if bit counter is not zero
 OUT 2     // print result
+EXT       // exit

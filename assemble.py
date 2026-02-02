@@ -25,7 +25,8 @@ opcodes = {
     "JA0": 0b1110_1000,
     "JA1": 0b1111_0000,
     "OUT": 0b0110_0000,
-    "INN": 0b0110_1000
+    "INN": 0b0110_1000,
+    "EXT": 0b0111_0000
 }
 
 arglims = {
@@ -50,7 +51,8 @@ arglims = {
     "JA0": [0b111_1111_1111],
     "JA1": [0b111_1111_1111],
     "OUT": [0b111],
-    "INN": [0b111]
+    "INN": [0b111],
+    "EXT": []
 }
 
 parser = argparse.ArgumentParser(

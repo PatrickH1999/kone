@@ -2,6 +2,7 @@
 #define ALU_FUNCTIONS_H
 
 #include <stdio.h>
+#include <stdlib.h>
 
 #include "cpu_struct.h"
 #include "utility.h"

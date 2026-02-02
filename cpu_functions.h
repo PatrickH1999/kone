@@ -32,6 +32,7 @@
 
 #define OUT 0b01100000
 #define INN 0b01101000
+#define EXT 0b01110000
 
 #include <stdio.h>
 #include <stdint.h>
