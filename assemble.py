@@ -73,6 +73,12 @@ with open(infile_name) as infile:
     lines = infile.readlines()
 for line in lines:
     words = line.split()
+    for i, word in enumerate(words):
+        if (word[0:2] == "//"):
+            words = words[:i]
+            break
+    if (len(words) == 0):
+        continue
     opcode = words[0]
     assert opcode in opcodes, f"Unknown opcode: {opcode}"
     assert (len(words) == (len(arglims[opcode]) + 1)), f"Wrong number ({len(words) - 1}) arguments for opcode {opcode} (expects {len(arglims[opcode])})"
