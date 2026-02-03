@@ -117,10 +117,15 @@ void alu_ja1(CPU *cpu) {
 
 void alu_out(CPU *cpu) {
     uint8_t reg_id = cpu->IR0 & 0b00000111;
-    printf("%u\n", cpu->R[reg_id]);
+    printf("Output: %u\n", cpu->R[reg_id]);
 }
 
 void alu_inn(CPU *cpu) {
     uint8_t reg_id = cpu->IR0 & 0b00000111;
-    scanf_uint8(&cpu->R[reg_id]);
+    int ok = 0;
+    while (!ok) {
+        printf("Input (0...255): ");
+        ok = scanf_uint8(&cpu->R[reg_id]);
+        if (!ok) printf("Error: Format.\n");
+    }
 }

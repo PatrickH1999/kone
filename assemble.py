@@ -76,11 +76,11 @@ with open(infile_name) as infile:
 for line in lines:
     words = line.split()
     for i, word in enumerate(words):
-        if (word[0:2] == "//"):
-            words = words[:i]
+        if (word[0:2] == "//"):   # If comment
+            words = words[:i]   # Limit parsed code up until where "//" is encountered
             break
     if (len(words) == 0):
-        continue
+        continue   # No words in line -> go to next line
     opcode = words[0]
     assert opcode in opcodes, f"Unknown opcode: {opcode}"
     assert (len(words) == (len(arglims[opcode]) + 1)), f"Wrong number ({len(words) - 1}) arguments for opcode {opcode} (expects {len(arglims[opcode])})"
