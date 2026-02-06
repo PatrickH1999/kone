@@ -3,6 +3,13 @@
 import argparse
 import sys
 
+def is_uint(s):
+    try:
+        int(s, 0)
+        return True
+    except ValueError:
+        return False
+
 opcodes = {
     "NOP": 0b0000_0000,
     "NOT": 0b0000_1000,
@@ -113,13 +120,13 @@ for parse_cycle in ["addr_alias", "main"]:
             arg_str = words[1]
             arg = -1
             if (parse_cycle != "addr_alias"):
-                assert arg_str.isdigit() or (arg_str in addr_alias), (
+                assert is_uint(arg_str) or (arg_str in addr_alias), (
                     f"Opcode argument {arg_str} is neither an unsigned "
                     "decimal integer nor in list of address aliases!"
                 )
             
-            if arg_str.isdigit():
-                arg = int(arg_str)
+            if is_uint(arg_str):
+                arg = int(arg_str, 0)
                 assert 0 <= arg <= arglims[opcode][0], (
                     f"Opcode argument value {arg} out of bounds for opcode {opcode}!"
                 )
