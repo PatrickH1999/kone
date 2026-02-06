@@ -111,6 +111,7 @@ for parse_cycle in ["addr_alias", "main"]:
             machine_code.append(cycle0)
         elif (len(words) == 2):
             arg_str = words[1]
+            arg = -1
             if (parse_cycle != "addr_alias"):
                 assert arg_str.isdigit() or (arg_str in addr_alias), (
                     f"Opcode argument {arg_str} is neither an unsigned "
