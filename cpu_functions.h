@@ -5,6 +5,8 @@
 #ifndef CPU_FUNCTIONS_H
 #define CPU_FUNCTIONS_H
 
+#define MEM_SIZE 2048
+
 #define NOP 0b00000000
 #define NOT 0b00001000
 
@@ -30,9 +32,10 @@
 #define JA0 0b11101000
 #define JA1 0b11110000
 
-#define OUT 0b01100000
-#define INN 0b01101000
-#define EXT 0b01110000
+#define GPC 0b01100000
+#define OUT 0b01101000
+#define INN 0b01110000
+#define EXT 0b01111000
 
 #include <stdio.h>
 #include <stdint.h>

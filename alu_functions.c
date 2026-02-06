@@ -115,6 +115,11 @@ void alu_ja1(CPU *cpu) {
     }
 }
 
+void alu_gpc(CPU *cpu) {
+    cpu->R[6] = 0b11111111 & cpu->PC;
+    cpu->R[7] = 0b00000111 & (cpu->PC >> 8);
+}
+
 void alu_out(CPU *cpu) {
     uint8_t reg_id = cpu->IR0 & 0b00000111;
     printf("Output: %u\n", cpu->R[reg_id]);
@@ -128,4 +133,8 @@ void alu_inn(CPU *cpu) {
         ok = scanf_uint8(&cpu->R[reg_id]);
         if (!ok) printf("Error: Format.\n");
     }
+}
+
+void alu_ext(CPU *cpu) {
+    cpu->PC = 2048;   // set PC greater than PC limit
 }

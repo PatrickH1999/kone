@@ -61,9 +61,14 @@ The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to de
 | 18 | JA0      | 1110 1PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP if Accumulator = 0 |
 | 19 | JA1      | 1111 0PPP              | PPPP PPPP              | Jump to address PPP PPPP PPPP if Accumulator ≠ 0 |
 
+### Get Program Counter
+| #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
+|----|----------|------------------------|------------------------|-------------|
+| 20 | GPC      | 0110 0000              | -                      | Write PC to R (R6: First 8 bits, R7: Last 3 bits) |
+
 ### Virtual operations (only available on virtual machine)
 | #  | Mnemonic | Opcode (Cycle 1)       | Opcode (Cycle 2)       | Description |
 |----|----------|------------------------|------------------------|-------------|
-| 15 | OUT      | 0110 0RRR              | -                      | Send data from Register RRR to printf() |
-| 16 | INN      | 0110 1RRR              | -                      | Send data from scanf() to Register RRR |
-| 17 | EXT      | 0111 0RRR              | -                      | Call exit(0) |
+| 21 | OUT      | 0110 1RRR              | -                      | Send data from Register RRR to printf() |
+| 22 | INN      | 0111 0RRR              | -                      | Send data from scanf() to Register RRR |
+| 23 | EXT      | 0111 1RRR              | -                      | Call exit(0) |

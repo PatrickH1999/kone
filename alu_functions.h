@@ -26,7 +26,9 @@ void alu_jc0(CPU *cpu);
 void alu_jc1(CPU *cpu);
 void alu_ja0(CPU *cpu);
 void alu_ja1(CPU *cpu);
+void alu_gpc(CPU *cpu);
 void alu_out(CPU *cpu);
 void alu_inn(CPU *cpu);
+void alu_ext(CPU *cpu);
 
 #endif

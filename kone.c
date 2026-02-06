@@ -10,7 +10,7 @@ int main(int argc, char *argv[]) {
     cpu_reset(&cpu);
     const char *bootfile = argv[1];
     cpu_boot_file(&cpu, bootfile);
-    while (true) {
+    while (cpu.PC < MEM_SIZE) {
         cpu_fetch(&cpu);
         cpu_decode_exec(&cpu);
     }

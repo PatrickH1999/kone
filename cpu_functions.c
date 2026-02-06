@@ -30,16 +30,17 @@ void cpu_pc_increment(CPU *cpu) {
         .tv_nsec = CYCLE_SLEEP * 1000000   // 0.01s
     };
     nanosleep(&ts, NULL);
-    cpu->PC++;
+    if (cpu->PC < (MEM_SIZE-1)) cpu->PC++;
+    else cpu->PC = 0;
 }
 
 void cpu_fetch(CPU *cpu) {
     cpu->IR0 = cpu->M[cpu->PC];
     if ((cpu->IR0 & 0b10000000) == 0b10000000) {
-        cpu->PC++;
+        cpu_pc_increment(cpu);
         cpu->IR1 = cpu->M[cpu->PC];
     }
-    cpu->PC++;
+    cpu_pc_increment(cpu);
 }
 
 void cpu_decode_exec(CPU *cpu) {
@@ -65,8 +66,9 @@ void cpu_decode_exec(CPU *cpu) {
         case JC1: alu_jc1(cpu); break;
         case JA0: alu_ja0(cpu); break;
         case JA1: alu_ja1(cpu); break;
+        case GPC: alu_gpc(cpu); break;
         case OUT: alu_out(cpu); break;
         case INN: alu_inn(cpu); break;
-        case EXT: exit(0); break;
+        case EXT: alu_ext(cpu); break;
     }
 }
