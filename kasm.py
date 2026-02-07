@@ -61,13 +61,13 @@ def get_arg(
 
     if (parse_cycle == "main") and is_uint(arg_str):
         arg = int(arg_str, 0)
-        assert (
-            0 <= arg <= arglims[opcode][0]
-        ), f"Opcode argument value {arg} out of bounds for opcode {opcode}!"
+        assert 0 <= arg <= arglims[opcode][0], (
+            f"Opcode argument value {arg} out of bounds for opcode {opcode}!"
+        )
     elif (parse_cycle == "main") and (arg_str in addr_alias):
-        assert (
-            opcode in takes_addr_alias
-        ), f"Opcode {opcode} does not take address alias ({arg_str})!"
+        assert opcode in takes_addr_alias, (
+            f"Opcode {opcode} does not take address alias ({arg_str})!"
+        )
         arg = addr_alias[arg_str]
     return arg
 
