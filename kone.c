@@ -11,7 +11,6 @@ int main(int argc, char *argv[]) {
     const char *bootfile = argv[1];
     cpu_boot_file(&cpu, bootfile);
     while (cpu.PC < MEM_SIZE) {
-        printf("PC: %u, R6: %u, R7: %u\n", cpu.PC, cpu.R[6], cpu.R[7]);
         cpu_fetch(&cpu);
         cpu_decode_exec(&cpu);
     }
