@@ -1,6 +1,6 @@
 #define _POSIX_C_SOURCE 199309L
 
-#define CYCLE_SLEEP 1   // [ms]
+#define CYCLE_SLEEP 1 // [ms]
 
 #ifndef CPU_FUNCTIONS_H
 #define CPU_FUNCTIONS_H

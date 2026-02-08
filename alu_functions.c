@@ -136,5 +136,8 @@ void alu_inn(CPU *cpu) {
 }
 
 void alu_ext(CPU *cpu) {
-    cpu->PC = 2048;   // set PC greater than PC limit
+    cpu->PC = 2048; // set PC greater than PC limit
 }
+
+
+

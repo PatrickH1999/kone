@@ -10,12 +10,17 @@ OBJS := $(SRCS:.c=.o)
 all: $(TARGET)
 
 $(TARGET): $(OBJS)
-		$(CC) $(OBJS) $(LDFLAGS) -o $@
+	$(CC) $(OBJS) $(LDFLAGS) -o $@
 
-$.o: $.c
+%.o: %.c
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -f $(OBJS) $(TARGET)
+
+format:
+	clang-format -i *.c *.h
+
+check: format all
 
 .PHONY: all clean

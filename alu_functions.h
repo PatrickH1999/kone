@@ -7,7 +7,7 @@
 #include "cpu_struct.h"
 #include "utility.h"
 
-void alu_ldr(CPU *cpu); 
+void alu_ldr(CPU *cpu);
 void alu_str(CPU *cpu);
 void alu_ldm(CPU *cpu);
 void alu_stm(CPU *cpu);
