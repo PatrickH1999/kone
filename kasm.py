@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 
 
 def is_uint(s: str) -> bool:
@@ -126,19 +127,6 @@ arglims = {
     "EXT": [],
 }
 
-parser = argparse.ArgumentParser(
-    description="Assemble kone assembly to kone machine code."
-)
-parser.add_argument("input", help="input assembly file (.asm)")
-parser.add_argument("-o", "--output", required=True, help="output binary file (.bin)")
-args = parser.parse_args()
-
-infile_name = args.input
-with open(infile_name) as infile:
-    lines = infile.readlines()
-
-addr_alias = {}
-machine_code = []
 takes_addr_alias = [
     "JMP",
     "JC0",
@@ -146,6 +134,45 @@ takes_addr_alias = [
     "JA0",
     "JA1",
 ]  # Opcodes that accept address alias as argument
+
+parser = argparse.ArgumentParser(
+    description="Assemble kone assembly to kone machine code."
+)
+parser.add_argument("input", help="input assembly file (.asm)")
+parser.add_argument("-o", "--output", required=True, help="output binary file (.bin)")
+args = parser.parse_args()
+
+main_path = args.input
+main_dir = os.path.dirname(main_path)
+with open(main_path) as main:
+    lines = main.readlines()
+
+
+# Replace .include "<file.kasm>" with code from <file.kasm>:
+def replace_include_statements(lines: list[str], main_dir: str) -> list[str]:
+    for i, line in enumerate(lines):
+        words = line.split()
+        if len(words) == 0:
+            continue
+        if (words[0] == ".include") and (len(words) == 2):
+            assert len(words) == 2, (
+                f"Wrong number ({len(words) - 1}) arguments for '.include' statement "
+                "(expects {2})!"
+            )
+            include_file = words[1].strip('"')
+            include_path = os.path.join(main_dir, include_file)
+            with open(include_path) as include:
+                lines_ = include.readlines()
+            lines.pop(i)
+            lines[i:i] = lines_
+            lines = replace_include_statements(lines, main_dir)
+    return lines
+
+
+lines = replace_include_statements(lines, main_dir)
+
+addr_alias = {}
+machine_code = []
 
 for parse_cycle in ["addr_alias", "main"]:
     if parse_cycle == "addr_alias":
