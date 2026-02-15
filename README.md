@@ -1,6 +1,36 @@
 # Kone
 The goal of this project ('kone' means 'device' or 'gadget' in finnish) is to design and build a computer using simple logic chips (e.g., from the 74xx series) and other components. By any means, the use of ICs that resemble a full-blown CPU is strictly forbidden.
 
+## Usage
+This project provides a virtual machine (called `kone`), which is written in the C programming language and follows the __kone__ cpu architecture. To build the virtual machine, run:
+```bash
+cd kone
+make clean
+make
+```
+The Applications for __kone__ are written in __kasm__ (for 'kone assembly'). The assembler, `kasm.py`, does only generate machine code for the __kone__ cpu architecture. For an example, run:
+```bash
+./kasm.py examples/count.kasm -o examples/count.bin
+```
+This generates a __kone__ machine code binary (`count.bin`), which can be executed via the __kone__ virtual machine:
+```bash
+./kone examples/count.bin
+```
+The output should be:
+```bash
+./kone examples/count.bin
+Output: 1
+Output: 2
+Output: 3
+Output: 4
+Output: 5
+Output: 6
+Output: 7
+Output: 8
+Output: 9
+...
+```
+
 ## Architecture
 **General Features**:
 - Data bus: 8 bit
