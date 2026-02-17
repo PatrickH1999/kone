@@ -1,3 +1,11 @@
+// KONE STD LIBRARY:
+// =================
+// Register allocation:
+// - R6,R7 -> Jump address
+// - R4,R5 -> Stack pointer
+//
+//
+
 KONESTD___start:
     JMP main            // Line 0,1
 
@@ -7,13 +15,11 @@ KONESTD___jmp_placeholder:
 KONESTD___jmp:          // Jump to address R6,R7
     LDR 6
     STM 3
-    LDR 7
-    STR 3
     LDI 0b0000_0111
-    AND 3
-    STR 3
+    AND 7
+    STR 7
     LDM 2
-    ORR 3
+    ORR 7
     STM 2
     JMP KONESTD___jmp_placeholder
 
@@ -31,7 +37,6 @@ KONESTD___add_pc:
 
 main:
     GPC
-    LDI 50
     LDI 255
     STR 6
     JMP KONESTD___jmp
