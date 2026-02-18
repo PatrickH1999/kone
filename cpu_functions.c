@@ -3,7 +3,7 @@
 void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
-    
+
     cpu->PC[0] = &cpu->R[14];
     cpu->PC[1] = &cpu->R[15];
     cpu->IR[0] = &cpu->R[11];
@@ -37,10 +37,16 @@ void cpu_pc_increment(CPU *cpu) {
         .tv_nsec = CYCLE_SLEEP * 1000000 // 0.01s
     };
     nanosleep(&ts, NULL);
-    if (cpu->PC < (MEM_SIZE - 1))
-        cpu->PC++;
+
+    uint16_t PC16;
+    addr_convert_8_to_16(&PC16, cpu->PC);
+    
+    if (PC16 < (MEM_SIZE - 1))
+        PC16++;
     else
-        cpu->PC = 0;
+        PC16 = 0;
+    
+    addr_convert_16_to_8(cpu->PC, PC16);
 }
 
 void cpu_fetch(CPU *cpu) {
