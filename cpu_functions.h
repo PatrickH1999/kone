@@ -5,8 +5,6 @@
 #ifndef CPU_FUNCTIONS_H
 #define CPU_FUNCTIONS_H
 
-#define MEM_SIZE 2048
-
 #define NOP 0b00000000
 #define NOT 0b00001000
 
@@ -42,12 +40,15 @@
 #include <string.h>
 #include <time.h>
 
-#include "alu_functions.h"
+//#include "alu_functions.h"
 #include "cpu_struct.h"
 
+void cpu_init(CPU *cpu);
+/*
 int cpu_boot_file(CPU *cpu, const char *path);
 void cpu_reset(CPU *cpu);
 void cpu_fetch(CPU *cpu);
 void cpu_decode_exec(CPU *cpu);
+*/
 
 #endif

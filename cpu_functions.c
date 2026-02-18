@@ -1,5 +1,6 @@
 #include "cpu_functions.h"
 
+/*
 int cpu_boot_file(CPU *cpu, const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
@@ -12,7 +13,22 @@ int cpu_boot_file(CPU *cpu, const char *path) {
 
     return 0;
 }
+*/
 
+void cpu_init(CPU *cpu) {
+    cpu->IR[0] = &cpu->R[15];
+    cpu->IR[1] = &cpu->R[14];
+    cpu->IR[2] = &cpu->R[13];
+
+    cpu->F = &cpu->R[12];
+    cpu->A = &cpu->R[11];
+    cpu->I = &cpu->R[10];
+
+    cpu->SP[0] = &cpu->R[8];
+    cpu->SP[1] = &cpu->R[9];
+}
+
+/*
 void cpu_reset(CPU *cpu) {
     cpu->A = 0;
     cpu->I = 0;
@@ -121,3 +137,4 @@ void cpu_decode_exec(CPU *cpu) {
         break;
     }
 }
+*/

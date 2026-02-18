@@ -35,10 +35,11 @@ Output: 9
 **General Features**:
 - Data bus: 8 bit
 - Registers: 16 (R0 to R15):
-    - `R15`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
-    - `R14`: accumulator
-    - `R13`: ALU input left
-    - `R11`-`R12`: Stack pointer 
+    - `R13`-`R15`: Instruction register
+    - `R12`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+    - `R11`: accumulator
+    - `R10`: ALU input left
+    - `R8`-`R9`: Stack pointer 
 - RAM: 64 kiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:
@@ -46,7 +47,7 @@ Output: 9
     - `I` (input left -> `R13`)
 - Output buffers:
     - `A` (accumulator -> `R14`)
-    - `C` (carry -> `F7`)
+    - `C` (carry -> `F0`)
 - Note that the input buffer (i.e., `I`) is there to prevent simultaneous read/write operations on the output accumulator (i.e., `A`). E.g., before performing the add operation (i.e., `ADD`), A would first be written to I, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input.
 
 ## Instruction Set:

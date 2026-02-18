@@ -4,15 +4,20 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define REG_SIZE 16
+#define MEM_SIZE 65536
+
 typedef struct {
-    uint8_t A;       // accumulator
-    uint8_t I;       // input buffer
-    uint8_t R[8];    // register
-    uint8_t M[2048]; // memory
-    uint16_t PC;     // program counter
-    bool C;          // carry
-    uint8_t IR0;     // instruction register (cycle 0)
-    uint8_t IR1;     // instruction register (cycle 1)
+    uint8_t R[REG_SIZE];    // register
+    uint8_t M[MEM_SIZE];    // memory
+
+    uint8_t *IR[3];         // instruction register
+
+    uint8_t *F;             // flags (F7: 0, F6: 0, F5: 0, F4: 0, F3: 0, F2: 0, F1: 0, F0: CARRY)
+    uint8_t *A;             // accumulator
+    uint8_t *I;             // input buffer
+    
+    uint8_t *SP[2];         // stack pointer
 } CPU;
 
 #endif

@@ -1,9 +1,11 @@
-#include <stdbool.h>
+//#include <stdbool.h>
 
 #include "cpu_struct.h"
 #include "cpu_functions.h"
 
 int main(int argc, char *argv[]) {
+    CPU cpu;
+    /*
     if (argc != 2) return print_usage(argv);
 
     CPU cpu;
@@ -14,6 +16,7 @@ int main(int argc, char *argv[]) {
         cpu_fetch(&cpu);
         cpu_decode_exec(&cpu);
     }
+    */
 
     return 0;
 }
