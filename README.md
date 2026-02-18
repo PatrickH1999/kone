@@ -51,11 +51,11 @@ Output: 9
 
 ## Instruction Set:
 The __kone__ decoder first evaluates opcode flags, which tell the decoder what kind of arguments are to be expected and how long they are:
-No argument:                                                        0000 CCCC
-First digit -> 'register' flag (argument is register):              1CCC RRRR
-Second digit -> 'immediate' flag (argument is 8 bit immediate):     01CC CCCC | IIII IIII
-Third digit -> 'memory' flag (argument is memory address):          001C CCCC | MMMM MMMM | MMMM MMMM
-Fourth digit -> virtual opcode (argument is register):              0001 CCCC | 0000 RRRR
+- No argument:                                                        0000 CCCC
+- First digit -> 'register' flag (argument is register):              1CCC RRRR
+- Second digit -> 'immediate' flag (argument is 8 bit immediate):     01CC CCCC | IIII IIII
+- Third digit -> 'memory' flag (argument is memory address):          001C CCCC | MMMM MMMM | MMMM MMMM
+- Fourth digit -> virtual opcode (argument is register):              0001 CCCC | 0000 RRRR
 
 ### Operations with no argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
