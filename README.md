@@ -101,4 +101,4 @@ Output: 9
 |----|----------|------------------------|------------------------|-------------|
 | 21 | OUT      | 0110 1RRR              | -                      | Send data from Register RRR to printf() |
 | 22 | INN      | 0111 0RRR              | -                      | Send data from scanf() to Register RRR |
-| 23 | EXT      | 0111 1RRR              | -                      | Call exit(0) |
+| 23 | EXT      | 0111 1000              | -                      | Call exit(0) |
