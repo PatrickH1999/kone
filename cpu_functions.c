@@ -14,7 +14,6 @@ int cpu_boot_file(CPU *cpu, const char *path) {
 }
 
 void cpu_reset(CPU *cpu) {
-    cpu->B = 0;
     cpu->A = 0;
     cpu->I = 0;
     memset(cpu->R, 0, sizeof(cpu->R));

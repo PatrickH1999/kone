@@ -5,7 +5,6 @@
 #include <stdbool.h>
 
 typedef struct {
-    uint8_t B;       // bus
     uint8_t A;       // accumulator
     uint8_t I;       // input buffer
     uint8_t R[8];    // register
