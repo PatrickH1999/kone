@@ -35,67 +35,67 @@ Output: 9
 **General Features**:
 - Data bus: 8 bit
 - Registers: 16 (R0 to R15):
-    - R15: flag (F7, F6, F5, F4, F3, F2, F1, F0)
-    - R14: accumulator
-    - R13: ALU input left
-    - R11-R12: Stack pointer 
+    - `R15`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+    - `R14`: accumulator
+    - `R13`: ALU input left
+    - `R11`-`R12`: Stack pointer 
 - RAM: 64 kiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:
 - Input buffers:
-    - I (input left -> R13)
+    - `I` (input left -> `R13`)
 - Output buffers:
-    - A (accumulator -> R14)
-    - C (carry -> F7)
-- Note that the input buffer (i.e., I) is there to prevent simultaneous read/write operations on the output accumulator (i.e., A). E.g., before performing the add operation (i.e., ADD), A would first be written to I, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input.
+    - `A` (accumulator -> `R14`)
+    - `C` (carry -> `F7`)
+- Note that the input buffer (i.e., `I`) is there to prevent simultaneous read/write operations on the output accumulator (i.e., `A`). E.g., before performing the add operation (i.e., `ADD`), A would first be written to I, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input.
 
 ## Instruction Set:
 The __kone__ decoder first evaluates opcode flags, which tell the decoder what kind of arguments are to be expected and how long they are:
-- No argument:                                                        0000 CCCC
-- First digit -> 'register' flag (argument is register):              1CCC RRRR
-- Second digit -> 'immediate' flag (argument is 8 bit immediate):     01CC CCCC | IIII IIII
-- Third digit -> 'memory' flag (argument is memory address):          001C CCCC | MMMM MMMM | MMMM MMMM
-- Fourth digit -> virtual opcode (argument is register):              0001 CCCC | 0000 RRRR
+- No argument:                                                        `0000 CCCC` 
+- First digit -> 'register' flag (argument is register):              `1CCC RRRR` 
+- Second digit -> 'immediate' flag (argument is 8 bit immediate):     `01CC CCCC` | `IIII IIII` 
+- Third digit -> 'memory' flag (argument is memory address):          `001C CCCC` | `MMMM MMMM` | `MMMM MMMM`
+- Fourth digit -> virtual opcode (argument is register):              `0001 CCCC` | `0000 RRRR` 
 
 ### Operations with no argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| NOP      | 0000 0000        | -                | -                | Do nothing                                           |
-| NOT      | 0000 0001        | -                | -                | Perform bitwise-NOT on Accumulator                   |
-| BSL      | 0000 0100        | -                | -                | Perform bit shift left on Accumulator                |
-| BSR      | 0000 0101        | -                | -                | Perform bit shift right on Accumulator               |
-| BRL      | 0000 0110        | -                | -                | Perform bit rotation left on Accumulator             |
-| BRR      | 0000 0111        | -                | -                | Perform bit rotation right on Accumulator            |
+| `NOP`    | `0000 0000`      | -                | -                | Do nothing                                           |
+| `NOT`    | `0000 0001`      | -                | -                | Perform bitwise-NOT on Accumulator                   |
+| `BSL`    | `0000 0100`      | -                | -                | Perform bit shift left on Accumulator                |
+| `BSR`    | `0000 0101`      | -                | -                | Perform bit shift right on Accumulator               |
+| `BRL`    | `0000 0110`      | -                | -                | Perform bit rotation left on Accumulator             |
+| `BRR`    | `0000 0111`      | -                | -                | Perform bit rotation right on Accumulator            |
 
 ### Operations with 'register' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| LDR      | 1000 RRRR        | -                | -                | Load data from Register RRR into Accumulator         |
-| STR      | 1001 RRRR        | -                | -                | Store data from Accumulator in Register RRR          |
-| ORR      | 1100 RRRR        | -                | -                | Perform bitwise-OR on Accumulator with Register RRR  |
-| AND      | 1101 RRRR        | -                | -                | Perform bitwise-AND on Accumulator with Register RRR |
-| XOR      | 1110 RRRR        | -                | -                | Perform bitwise-XOR on Accumulator with Register RRR |
-| ADD      | 1111 RRRR        | -                | -                | Perform ADD on Accumulator with Register RRR         |
+| `LDR`    | `1000 RRRR`      | -                | -                | Load data from Register RRR into Accumulator         |
+| `STR`    | `1001 RRRR`      | -                | -                | Store data from Accumulator in Register RRR          |
+| `ORR`    | `1100 RRRR`      | -                | -                | Perform bitwise-OR on Accumulator with Register RRR  |
+| `AND`    | `1101 RRRR`      | -                | -                | Perform bitwise-AND on Accumulator with Register RRR |
+| `XOR`    | `1110 RRRR`      | -                | -                | Perform bitwise-XOR on Accumulator with Register RRR |
+| `ADD`    | `1111 RRRR`      | -                | -                | Perform ADD on Accumulator with Register RRR         |
 
 ### Operations with 'immediate' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| LDI      | 0100 0000        | IIII IIII        | -                | Load immediate into Accumulator                      |
+| `LDI`    | `0100 0000`      | `IIII IIII`      | -                | Load immediate into Accumulator                      |
 
 ### Operations with 'memory' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| LDM      | 0010 0000        | MMMM MMMM        | MMMM MMMM        | Load data from Memory into Accumulator               |
-| STM      | 0010 0001        | MMMM MMMM        | MMMM MMMM        | Store data from Accumulator in Memory                |
-| JMP      | 0010 1000        | PPPP PPPP        | PPPP PPPP        | Jump to address                                      |
-| JC0      | 0010 1010        | PPPP PPPP        | PPPP PPPP        | Jump if Carry = 0                                    |
-| JC1      | 0010 1011        | PPPP PPPP        | PPPP PPPP        | Jump if Carry = 1                                    |
-| JA0      | 0010 1100        | PPPP PPPP        | PPPP PPPP        | Jump if Accumulator = 0                              |
-| JA1      | 0010 1101        | PPPP PPPP        | PPPP PPPP        | Jump if Accumulator ≠ 0                              |
+| `LDM`    | `0010 0000`      | `MMMM MMMM`      | `MMMM MMMM`      | Load data from Memory into Accumulator               |
+| `STM`    | `0010 0001`      | `MMMM MMMM`      | `MMMM MMMM`      | Store data from Accumulator in Memory                |
+| `JMP`    | `0010 1000`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump to address                                      |
+| `JC0`    | `0010 1010`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 0                                    |
+| `JC1`    | `0010 1011`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 1                                    |
+| `JA0`    | `0010 1100`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator = 0                              |
+| `JA1`    | `0010 1101`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator ≠ 0                              |
 
 ### Virtual operations with register argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| vOUT     | 1000 RRRR        | -                | -                | VIRTUAL: Send data from register RRR to printf()     |
-| vINN     | 1001 RRRR        | -                | -                | VIRTUAL: Send data from scanf() to Register RRR      |
-| vEXT     | 1010 RRRR        | -                | -                | VIRTUAL: Call exit(0)                                |
+| `vOUT`   | `1000 RRRR`      | -                | -                | VIRTUAL: Send data from register RRR to printf()     |
+| `vINN`   | `1001 RRRR`      | -                | -                | VIRTUAL: Send data from scanf() to Register RRR      |
+| `vEXT`   | `1010 RRRR`      | -                | -                | VIRTUAL: Call exit(0)                                |
