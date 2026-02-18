@@ -35,11 +35,12 @@ Output: 9
 **General Features**:
 - Data bus: 8 bit
 - Registers: 16 (R0 to R15):
-    - `R13`-`R15`: Instruction register
-    - `R12`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
-    - `R11`: accumulator
-    - `R10`: ALU input left
-    - `R8`-`R9`: Stack pointer 
+    - `R14`-`R15`: Program counter
+    - `R11`-`R13`: Instruction register
+    - `R10`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+    - `R9`: accumulator
+    - `R8`: ALU input left
+    - `R6`-`R7`: Stack pointer 
 - RAM: 64 kiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:

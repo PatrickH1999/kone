@@ -1,5 +1,23 @@
 #include "cpu_functions.h"
 
+void cpu_reset(CPU *cpu) {
+    memset(cpu->R, 0, sizeof(cpu->R));
+    memset(cpu->M, 0, sizeof(cpu->M));
+    
+    cpu->PC[0] = &cpu->R[14];
+    cpu->PC[1] = &cpu->R[15];
+    cpu->IR[0] = &cpu->R[11];
+    cpu->IR[1] = &cpu->R[12];
+    cpu->IR[2] = &cpu->R[13];
+
+    cpu->F = &cpu->R[10];
+    cpu->A = &cpu->R[9];
+    cpu->I = &cpu->R[8];
+
+    cpu->SP[0] = &cpu->R[6];
+    cpu->SP[1] = &cpu->R[7];
+}
+
 int cpu_boot_file(CPU *cpu, const char *path) {
     FILE *f = fopen(path, "rb");
     if (!f) return -1;
@@ -11,31 +29,6 @@ int cpu_boot_file(CPU *cpu, const char *path) {
         cpu->M[i] = 0;
 
     return 0;
-}
-
-void cpu_init(CPU *cpu) {
-    cpu->IR[0] = &cpu->R[15];
-    cpu->IR[1] = &cpu->R[14];
-    cpu->IR[2] = &cpu->R[13];
-
-    cpu->F = &cpu->R[12];
-    cpu->A = &cpu->R[11];
-    cpu->I = &cpu->R[10];
-
-    cpu->SP[0] = &cpu->R[8];
-    cpu->SP[1] = &cpu->R[9];
-}
-
-/*
-void cpu_reset(CPU *cpu) {
-    cpu->A = 0;
-    cpu->I = 0;
-    memset(cpu->R, 0, sizeof(cpu->R));
-    memset(cpu->M, 0, sizeof(cpu->M));
-    cpu->PC = 0;
-    cpu->C = false;
-    cpu->IR0 = 0;
-    cpu->IR1 = 0;
 }
 
 void cpu_pc_increment(CPU *cpu) {
