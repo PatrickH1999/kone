@@ -6,34 +6,32 @@
 #define CPU_FUNCTIONS_H
 
 #define NOP 0b00000000
-#define NOT 0b00001000
+#define NOT 0b00000001
+#define BSL 0b00000100
+#define BSR 0b00000101
+#define BRL 0b00000110
+#define BRR 0b00000111
 
-#define LDR 0b00010000
-#define STR 0b00011000
-#define LDM 0b10010000
-#define STM 0b10011000
-#define LDI 0b10001000
+#define LDR 0b10000000
+#define STR 0b10010000
+#define ORR 0b11000000
+#define AND 0b11010000
+#define XOR 0b11100000
+#define ADD 0b11110000
 
-#define ORR 0b00100000
-#define AND 0b00101000
-#define XOR 0b00110000
-#define ADD 0b00111000
+#define LDI 0b01000000
 
-#define BSL 0b01000000
-#define BSR 0b01001000
-#define BRL 0b01010000
-#define BRR 0b01011000
+#define LDM 0b00100000
+#define STM 0b00100001
+#define JMP 0b00101000
+#define JC0 0b00101001
+#define JC1 0b00101010
+#define JA0 0b00101100
+#define JA1 0b00101101
 
-#define JMP 0b10100000
-#define JC0 0b10101000
-#define JC1 0b10110000
-#define JA0 0b11101000
-#define JA1 0b11110000
-
-#define GPC 0b01100000
-#define OUT 0b01101000
-#define INN 0b01110000
-#define EXT 0b01111000
+#define vOUT 0b10000000
+#define vINN 0b10010000
+#define vEXT 0b10100000
 
 #include <stdio.h>
 #include <stdint.h>
