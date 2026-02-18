@@ -40,7 +40,7 @@
 #include <string.h>
 #include <time.h>
 
-//#include "alu_functions.h"
+// #include "alu_functions.h"
 #include "cpu_struct.h"
 
 void cpu_init(CPU *cpu);
