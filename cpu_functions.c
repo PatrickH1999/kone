@@ -39,32 +39,50 @@ void cpu_pc_increment(CPU *cpu) {
     nanosleep(&ts, NULL);
 
     uint16_t PC16;
-    addr_convert_8_to_16(&PC16, cpu->PC);
-    
+    addr_convert_8_to_16(&PC16, *cpu->PC);
+
     if (PC16 < (MEM_SIZE - 1))
         PC16++;
     else
         PC16 = 0;
-    
-    addr_convert_16_to_8(cpu->PC, PC16);
+
+    addr_convert_16_to_8(*cpu->PC, PC16);
 }
 
 void cpu_fetch(CPU *cpu) {
-    cpu->IR0 = cpu->M[cpu->PC];
-    if ((cpu->IR0 & 0b10000000) == 0b10000000) {
+    uint16_t PC16;
+    addr_convert_8_to_16(&PC16, *cpu->PC);
+    *cpu->IR[0] = cpu->M[PC16];
+    if ((*cpu->IR[0] & 0b10000000) == 0b10000000) {
         cpu_pc_increment(cpu);
-        cpu->IR1 = cpu->M[cpu->PC];
+        addr_convert_8_to_16(&PC16, *cpu->PC);
+        *cpu->IR[1] = cpu->M[PC16];
     }
     cpu_pc_increment(cpu);
 }
 
 void cpu_decode_exec(CPU *cpu) {
-    uint8_t opcode = cpu->IR0 & 0b11111000;
+    uint8_t opcode = *cpu->IR[0] & 0b11111000;
     switch (opcode) {
     case NOP:
         break;
     case NOT:
         alu_not(cpu);
+        break;
+    case BSL:
+        alu_bsl(cpu);
+        break;
+    case BSR:
+        alu_bsr(cpu);
+        break;
+    case BRL:
+        alu_brl(cpu);
+        break;
+    case BRR:
+        alu_brr(cpu);
+        break;
+    case RET:
+        alu_ret(cpu);
         break;
     case LDR:
         alu_ldr(cpu);
@@ -72,14 +90,11 @@ void cpu_decode_exec(CPU *cpu) {
     case STR:
         alu_str(cpu);
         break;
-    case LDM:
-        alu_ldm(cpu);
+    case PSH:
+        alu_psh(cpu);
         break;
-    case STM:
-        alu_stm(cpu);
-        break;
-    case LDI:
-        alu_ldi(cpu);
+    case POP:
+        alu_pop(cpu);
         break;
     case ORR:
         alu_orr(cpu);
@@ -93,17 +108,14 @@ void cpu_decode_exec(CPU *cpu) {
     case ADD:
         alu_add(cpu);
         break;
-    case BSL:
-        alu_bsl(cpu);
+    case LDI:
+        alu_ldi(cpu);
         break;
-    case BSR:
-        alu_bsr(cpu);
+    case LDM:
+        alu_ldm(cpu);
         break;
-    case BRL:
-        alu_brl(cpu);
-        break;
-    case BRR:
-        alu_brr(cpu);
+    case STM:
+        alu_stm(cpu);
         break;
     case JMP:
         alu_jmp(cpu);
@@ -120,18 +132,8 @@ void cpu_decode_exec(CPU *cpu) {
     case JA1:
         alu_ja1(cpu);
         break;
-    case GPC:
-        alu_gpc(cpu);
-        break;
-    case OUT:
-        alu_out(cpu);
-        break;
-    case INN:
-        alu_inn(cpu);
-        break;
-    case EXT:
-        alu_ext(cpu);
+    case CLL:
+        alu_cll(cpu);
         break;
     }
 }
-*/

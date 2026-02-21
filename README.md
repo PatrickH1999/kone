@@ -98,10 +98,3 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 | `JA0`    | `0010 1100`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator = 0                              |
 | `JA1`    | `0010 1101`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator ≠ 0                              |
 | `CLL`    | `0011 0000`      | `PPPP PPPP`      | `PPPP PPPP`      | Call/jump to memory address, push PC to SP           |
-
-### Virtual operations with register argument:
-| Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
-| -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| `vOUT`   | `1000 RRRR`      | -                | -                | VIRTUAL: Send data from register RRR to printf()     |
-| `vINN`   | `1001 RRRR`      | -                | -                | VIRTUAL: Send data from scanf() to Register RRR      |
-| `vEXT`   | `1010 RRRR`      | -                | -                | VIRTUAL: Call exit(0)                                |

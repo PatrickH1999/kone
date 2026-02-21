@@ -4,7 +4,7 @@ LDFLAGS :=
 
 TARGET := kone
 
-SRCS := kone.c cpu_functions.c
+SRCS := kone.c alu_functions.c cpu_functions.c utility.c
 OBJS := $(SRCS:.c=.o)
 
 all: $(TARGET)

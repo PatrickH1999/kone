@@ -5,11 +5,11 @@ int print_usage(char *argv[]) {
     return 1;
 }
 
-static inline void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
+void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
     *addr16 = ((uint16_t)addr8[1] << 8) | addr8[0];
 }
 
-static inline void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16) {
+void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16) {
     addr8[0] = addr16 & 0xFF;
     addr8[1] = addr16 >> 8;
 }
