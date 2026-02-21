@@ -37,7 +37,8 @@ Output: 9
 - Registers: 16 (R0 to R15):
     - `R14`-`R15`: Program counter
     - `R11`-`R13`: Instruction register
-    - `R10`: flag (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+    - `R10`: flags (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+        - `F0`: carry flag
     - `R9`: accumulator
     - `R8`: ALU input left
     - `R6`-`R7`: Stack pointer 
