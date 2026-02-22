@@ -25,8 +25,9 @@ void alu_brr(CPU *cpu) {
     *cpu->A = brr8(*cpu->I, 1);
 }
 
+// TO BE IMPLEMENTED
 void alu_ret(CPU *cpu) {
-    // TO BE IMPLEMENTED.
+    cpu = cpu;
 }
 
 void alu_ldr(CPU *cpu) {
@@ -39,12 +40,14 @@ void alu_str(CPU *cpu) {
     cpu->R[reg_id] = *cpu->A;
 }
 
+// TO BE IMPLEMENTED
 void alu_psh(CPU *cpu) {
-    // TO BE IMPLEMENTED.
+    cpu = cpu;
 }
 
+// TO BE IMPLEMENTED
 void alu_pop(CPU *cpu) {
-    // TO BE IMPLEMENTED.
+    cpu = cpu;  
 }
 
 void alu_orr(CPU *cpu) {
@@ -69,7 +72,7 @@ void alu_add(CPU *cpu) {
     uint8_t reg_id = *cpu->IR[0] & 0b00001111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I + cpu->R[reg_id];
-    *cpu->F = (*cpu->A < *cpu->I);
+    alu_set_flag(cpu, FLAG_POS_CARRY, (*cpu->A < *cpu->I));
 }
 
 void alu_ldi(CPU *cpu) {
@@ -96,7 +99,7 @@ void alu_jmp(CPU *cpu) {
 }
 
 void alu_jc0(CPU *cpu) {
-    if (!*cpu->F) {
+    if (!alu_get_flag(cpu, FLAG_POS_CARRY)) {
         uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
         addr += *cpu->IR[1];
         *cpu->PC[0] = addr;
@@ -104,7 +107,7 @@ void alu_jc0(CPU *cpu) {
 }
 
 void alu_jc1(CPU *cpu) {
-    if (!*cpu->F) {
+    if (alu_get_flag(cpu, FLAG_POS_CARRY)) {
         uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
         addr += *cpu->IR[1];
         *cpu->PC[0] = addr;
@@ -127,8 +130,9 @@ void alu_ja1(CPU *cpu) {
     }
 }
 
+// TO BE IMPLEMENTED
 void alu_cll(CPU *cpu) {
-    // TO BE IMPLEMENTED.
+    cpu = cpu;
 }
 
 void alu_out(CPU *cpu) {
@@ -146,9 +150,15 @@ void alu_inn(CPU *cpu) {
     }
 }
 
+uint8_t alu_get_flag(CPU *cpu, uint8_t flag_pos) {
+    assert(flag_pos < (8 * sizeof(uint8_t)));
+    uint8_t value = (*cpu->F >> flag_pos) & 0b00000001;
+    return value;
+}
+
 void alu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
     assert(value == 0 || value == 1);
-    assert(0 <= flag_pos || flag_pos < (8 * sizeof(uint8_t)));
+    assert(flag_pos < (8 * sizeof(uint8_t)));
     uint8_t new_entry = value << flag_pos;
     *cpu->F = *cpu->F | new_entry;
 }

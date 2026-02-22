@@ -1,6 +1,9 @@
 #ifndef ALU_FUNCTIONS_H
 #define ALU_FUNCTIONS_H
 
+#define FLAG_POS_CARRY 0
+
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -31,5 +34,7 @@ void alu_jc1(CPU *cpu);
 void alu_ja0(CPU *cpu);
 void alu_ja1(CPU *cpu);
 void alu_cll(CPU *cpu);
+uint8_t alu_get_flag(CPU *cpu, uint8_t flag_pos);
+void alu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value);
 
 #endif
