@@ -32,10 +32,7 @@ int cpu_boot_file(CPU *cpu, const char *path) {
 }
 
 void cpu_pc_increment(CPU *cpu) {
-    const struct timespec ts = {
-        .tv_sec = 0,
-        .tv_nsec = CYCLE_SLEEP * 1000000 // 0.01s
-    };
+    const struct timespec ts = {.tv_sec = 0, .tv_nsec = CYCLE_SLEEP * 1000000};
     nanosleep(&ts, NULL);
 
     uint16_t PC16;
@@ -51,18 +48,32 @@ void cpu_pc_increment(CPU *cpu) {
 
 void cpu_fetch(CPU *cpu) {
     uint16_t PC16;
+
     addr_convert_8_to_16(&PC16, *cpu->PC);
     *cpu->IR[0] = cpu->M[PC16];
-    if ((*cpu->IR[0] & 0b10000000) == 0b10000000) {
-        cpu_pc_increment(cpu);
+    cpu_pc_increment(cpu);
+
+    uint8_t opcode = cpu->M[PC16];
+    int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
+
+    if (opcode_flag_pos == OC_FLAG_POS_I || opcode_flag_pos == OC_FLAG_POS_M ||
+        opcode_flag_pos == OC_FLAG_POS_V) {
         addr_convert_8_to_16(&PC16, *cpu->PC);
         *cpu->IR[1] = cpu->M[PC16];
+        cpu_pc_increment(cpu);
     }
-    cpu_pc_increment(cpu);
+    if (opcode_flag_pos == OC_FLAG_POS_M) {
+        addr_convert_8_to_16(&PC16, *cpu->PC);
+        *cpu->IR[2] = cpu->M[PC16];
+        cpu_pc_increment(cpu);
+    }
 }
 
 void cpu_decode_exec(CPU *cpu) {
-    uint8_t opcode = *cpu->IR[0] & 0b11111000;
+    uint8_t opcode = *cpu->IR[0];
+    int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
+    if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
+
     switch (opcode) {
     case NOP:
         break;
@@ -136,4 +147,17 @@ void cpu_decode_exec(CPU *cpu) {
         alu_cll(cpu);
         break;
     }
+}
+
+uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos) {
+    assert(flag_pos < (8 * sizeof(uint8_t)));
+    uint8_t value = (*cpu->F >> flag_pos) & 0b00000001;
+    return value;
+}
+
+void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
+    assert(value == 0 || value == 1);
+    assert(flag_pos < (8 * sizeof(uint8_t)));
+    uint8_t new_entry = value << flag_pos;
+    *cpu->F = *cpu->F | new_entry;
 }

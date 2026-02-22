@@ -45,3 +45,13 @@ uint8_t brr8(uint8_t x, unsigned n) {
     n &= 7; // n mod 8
     return (x >> n) | (x << (8 - n));
 }
+
+// Searches byte from left (7) to right (0) and returns position of first '1' found:
+int get_pos_first_1_in_byte(const uint8_t byte) {
+    for (int pos = 7; pos >= 0; pos--) {
+        if ((byte >> pos) & 0b00000001) {
+            return pos;
+        }
+    }
+    return -1;
+}
