@@ -25,9 +25,19 @@ void alu_brr(CPU *cpu) {
     *cpu->A = brr8(*cpu->I, 1);
 }
 
-// TO BE IMPLEMENTED
 void alu_ret(CPU *cpu) {
-    cpu = cpu;
+    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    uint16_t SP16;
+    addr_convert_8_to_16(&SP16, SP8);
+    *(cpu->PC[1]) = cpu->M[SP16];
+    cpu->M[SP16] = 0;
+    SP16++;
+    *(cpu->PC[0]) = cpu->M[SP16];
+    cpu->M[SP16] = 0;
+    SP16++;
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
 }
 
 void alu_ldr(CPU *cpu) {
@@ -40,14 +50,27 @@ void alu_str(CPU *cpu) {
     cpu->R[reg_id] = *cpu->A;
 }
 
-// TO BE IMPLEMENTED
 void alu_psh(CPU *cpu) {
-    cpu = cpu;
+    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    uint16_t SP16;
+    addr_convert_8_to_16(&SP16, SP8);
+    SP16--;
+    cpu->M[SP16] = *cpu->A;
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
 }
 
-// TO BE IMPLEMENTED
 void alu_pop(CPU *cpu) {
-    cpu = cpu;
+    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    uint16_t SP16;
+    addr_convert_8_to_16(&SP16, SP8);
+    *cpu->A = cpu->M[SP16];
+    cpu->M[SP16] = 0;
+    SP16++;
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
 }
 
 void alu_orr(CPU *cpu) {
@@ -81,58 +104,65 @@ void alu_ldi(CPU *cpu) {
 }
 
 void alu_ldm(CPU *cpu) {
-    uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-    addr += *cpu->IR[1];
-    *cpu->A = cpu->M[addr];
+    uint16_t addr16;
+    uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    *cpu->A = cpu->M[addr16];
 }
 
 void alu_stm(CPU *cpu) {
-    uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-    addr += *cpu->IR[1];
-    cpu->M[addr] = *cpu->A;
+    uint16_t addr16;
+    uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    cpu->M[addr16] = *cpu->A;
 }
 
 void alu_jmp(CPU *cpu) {
-    uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-    addr += *cpu->IR[1];
-    *cpu->PC[0] = addr;
+    *(cpu->PC[0]) = *(cpu->IR[1]);
+    *(cpu->PC[1]) = *(cpu->IR[2]);
 }
 
 void alu_jc0(CPU *cpu) {
     if (!cpu_get_flag(cpu, FLAG_POS_CARRY)) {
-        uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-        addr += *cpu->IR[1];
-        *cpu->PC[0] = addr;
+        *(cpu->PC[0]) = *(cpu->IR[1]);
+        *(cpu->PC[1]) = *(cpu->IR[2]);
     }
 }
 
 void alu_jc1(CPU *cpu) {
     if (cpu_get_flag(cpu, FLAG_POS_CARRY)) {
-        uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-        addr += *cpu->IR[1];
-        *cpu->PC[0] = addr;
+        *(cpu->PC[0]) = *(cpu->IR[1]);
+        *(cpu->PC[1]) = *(cpu->IR[2]);
     }
 }
 
 void alu_ja0(CPU *cpu) {
     if (*cpu->A == 0) {
-        uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-        addr += *cpu->IR[1];
-        *cpu->PC[0] = addr;
+        *(cpu->PC[0]) = *(cpu->IR[1]);
+        *(cpu->PC[1]) = *(cpu->IR[2]);
     }
 }
 
 void alu_ja1(CPU *cpu) {
     if (*cpu->A != 0) {
-        uint16_t addr = (0b00000111 & *cpu->IR[0]) << 8 * sizeof(uint8_t);
-        addr += *cpu->IR[1];
-        *cpu->PC[0] = addr;
+        *(cpu->PC[0]) = *(cpu->IR[1]);
+        *(cpu->PC[1]) = *(cpu->IR[2]);
     }
 }
 
-// TO BE IMPLEMENTED
 void alu_cll(CPU *cpu) {
-    cpu = cpu;
+    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    uint16_t SP16;
+    addr_convert_8_to_16(&SP16, SP8);
+    SP16--;
+    cpu->M[SP16] = *cpu->PC[0];
+    SP16--;
+    cpu->M[SP16] = *cpu->PC[1];
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
+    *(cpu->PC[0]) = *(cpu->IR[1]);
+    *(cpu->PC[1]) = *(cpu->IR[2]);
 }
 
 void alu_out(CPU *cpu) {

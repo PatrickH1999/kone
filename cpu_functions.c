@@ -16,6 +16,12 @@ void cpu_reset(CPU *cpu) {
 
     cpu->SP[0] = &cpu->R[6];
     cpu->SP[1] = &cpu->R[7];
+    // set stack pointer (SP) to (MEM_SIZE - 1):
+    uint16_t SP16 = MEM_SIZE - 1;
+    uint8_t SP8[2];
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {

@@ -15,12 +15,12 @@
 #define BSR 0b00000101
 #define BRL 0b00000110
 #define BRR 0b00000111
-#define RET 0b00001000
+#define PSH 0b00001000
+#define POP 0b00001001
+#define RET 0b00001010
 
 #define LDR 0b10000000
 #define STR 0b10010000
-#define PSH 0b10100000
-#define POP 0b10110000
 #define ORR 0b11000000
 #define AND 0b11010000
 #define XOR 0b11100000

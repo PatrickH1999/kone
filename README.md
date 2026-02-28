@@ -69,15 +69,15 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 | `BSR`    | `0000 0101`      | -                | -                | Perform bit shift right on Accumulator               |
 | `BRL`    | `0000 0110`      | -                | -                | Perform bit rotation left on Accumulator             |
 | `BRR`    | `0000 0111`      | -                | -                | Perform bit rotation right on Accumulator            |
-| `RET`    | `0000 1000`      | -                | -                | Return to address at SP                              |
+| `PSH`    | `0000 1000`      | -                | -                | Push Register Accumulator to stack                   |
+| `POP`    | `0000 1001`      | -                | -                | Pop stack top value to Accumulator                   |
+| `RET`    | `0000 1010`      | -                | -                | Return to address at SP                              |
 
 ### Operations with 'register' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
 | `LDR`    | `1000 RRRR`      | -                | -                | Load data from Register RRR into Accumulator         |
 | `STR`    | `1001 RRRR`      | -                | -                | Store data from Accumulator in Register RRR          |
-| `PSH`    | `1010 RRRR`      | -                | -                | Push Register RRR to stack                           |
-| `POP`    | `1011 RRRR`      | -                | -                | Pop stack top value to Register RRR                  |
 | `ORR`    | `1100 RRRR`      | -                | -                | Perform bitwise-OR on Accumulator with Register RRR  |
 | `AND`    | `1101 RRRR`      | -                | -                | Perform bitwise-AND on Accumulator with Register RRR |
 | `XOR`    | `1110 RRRR`      | -                | -                | Perform bitwise-XOR on Accumulator with Register RRR |

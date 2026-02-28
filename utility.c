@@ -6,12 +6,12 @@ int print_usage(char *argv[]) {
 }
 
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
-    *addr16 = ((uint16_t)addr8[1] << 8) | addr8[0];
+    *addr16 = ((uint16_t)addr8[1] << (8 * sizeof(uint8_t))) | (uint16_t)addr8[0];
 }
 
 void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16) {
-    addr8[0] = addr16 & 0xFF;
-    addr8[1] = addr16 >> 8;
+    addr8[0] = (uint8_t)(addr16 & 0xFF);
+    addr8[1] = (uint8_t)(addr16 >> (8 * sizeof(uint8_t)));
 }
 
 int scanf_uint8(uint8_t *out) {
