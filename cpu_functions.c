@@ -37,8 +37,8 @@ int cpu_boot_file(CPU *cpu, const char *path) {
     return 0;
 }
 
-void cpu_pc_increment(CPU *cpu) {
-    const struct timespec ts = {.tv_sec = 0, .tv_nsec = CYCLE_SLEEP * 1000000};
+void cpu_pc_increment(CPU *cpu, Args *args) {
+    const struct timespec ts = {.tv_sec = 0, .tv_nsec = args->cycle_sleep * 1000000};
     nanosleep(&ts, NULL);
 
     uint16_t PC16;
@@ -52,12 +52,12 @@ void cpu_pc_increment(CPU *cpu) {
     addr_convert_16_to_8(*cpu->PC, PC16);
 }
 
-void cpu_fetch(CPU *cpu) {
+void cpu_fetch(CPU *cpu, Args *args) {
     uint16_t PC16;
 
     addr_convert_8_to_16(&PC16, *cpu->PC);
     *cpu->IR[0] = cpu->M[PC16];
-    cpu_pc_increment(cpu);
+    cpu_pc_increment(cpu, args);
 
     uint8_t opcode = cpu->M[PC16];
     int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
@@ -66,12 +66,12 @@ void cpu_fetch(CPU *cpu) {
         opcode_flag_pos == OC_FLAG_POS_V) {
         addr_convert_8_to_16(&PC16, *cpu->PC);
         *cpu->IR[1] = cpu->M[PC16];
-        cpu_pc_increment(cpu);
+        cpu_pc_increment(cpu, args);
     }
     if (opcode_flag_pos == OC_FLAG_POS_M) {
         addr_convert_8_to_16(&PC16, *cpu->PC);
         *cpu->IR[2] = cpu->M[PC16];
-        cpu_pc_increment(cpu);
+        cpu_pc_increment(cpu, args);
     }
 }
 

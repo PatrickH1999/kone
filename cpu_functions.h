@@ -1,9 +1,6 @@
 #ifndef CPU_FUNCTIONS_H
 #define CPU_FUNCTIONS_H
 
-#define _POSIX_C_SOURCE 199309L
-#define CYCLE_SLEEP 1 // [ms]
-
 #define OC_FLAG_POS_R 7 // opcode flag: argument is register
 #define OC_FLAG_POS_I 6 // opcode flag: argument is immediate
 #define OC_FLAG_POS_M 5 // opcode flag: argument is memory address
@@ -45,11 +42,12 @@
 
 #include "alu_functions.h"
 #include "cpu_struct.h"
+#include "utility.h"
 
 void cpu_reset(CPU *cpu);
 int cpu_boot_file(CPU *cpu, const char *path);
-void cpu_pc_increment(CPU *cpu);
-void cpu_fetch(CPU *cpu);
+void cpu_pc_increment(CPU *cpu, Args *args);
+void cpu_fetch(CPU *cpu, Args *args);
 void cpu_decode_exec(CPU *cpu);
 uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos);
 void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value);
