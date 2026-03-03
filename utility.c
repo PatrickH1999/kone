@@ -1,8 +1,7 @@
 #include "utility.h"
 
 void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n", 
-            basename(argv[0]));
+    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n", basename(argv[0]));
     exit(EXIT_FAILURE);
 }
 
@@ -79,4 +78,10 @@ int get_pos_first_1_in_byte(const uint8_t byte) {
         }
     }
     return -1;
+}
+
+void print_bin(uint8_t x) {
+    for (int i = 7; i >= 0; i--) {
+        printf("%d", (x >> i) & 1);
+    }
 }

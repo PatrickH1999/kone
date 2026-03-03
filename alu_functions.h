@@ -11,28 +11,28 @@
 #include "cpu_struct.h"
 #include "utility.h"
 
-void alu_not(CPU *cpu);
-void alu_bsl(CPU *cpu);
-void alu_bsr(CPU *cpu);
-void alu_brl(CPU *cpu);
-void alu_brr(CPU *cpu);
-void alu_ret(CPU *cpu);
-void alu_ldr(CPU *cpu);
-void alu_str(CPU *cpu);
-void alu_psh(CPU *cpu);
-void alu_pop(CPU *cpu);
-void alu_orr(CPU *cpu);
-void alu_and(CPU *cpu);
-void alu_xor(CPU *cpu);
-void alu_add(CPU *cpu);
-void alu_ldi(CPU *cpu);
-void alu_ldm(CPU *cpu);
-void alu_stm(CPU *cpu);
-void alu_jmp(CPU *cpu);
-void alu_jc0(CPU *cpu);
-void alu_jc1(CPU *cpu);
-void alu_ja0(CPU *cpu);
-void alu_ja1(CPU *cpu);
-void alu_cll(CPU *cpu);
+void alu_not(CPU *cpu, Args *args);
+void alu_bsl(CPU *cpu, Args *args);
+void alu_bsr(CPU *cpu, Args *args);
+void alu_brl(CPU *cpu, Args *args);
+void alu_brr(CPU *cpu, Args *args);
+void alu_psh(CPU *cpu, Args *args);
+void alu_pop(CPU *cpu, Args *args);
+void alu_ret(CPU *cpu, Args *args);
+void alu_ldr(CPU *cpu, Args *args);
+void alu_str(CPU *cpu, Args *args);
+void alu_orr(CPU *cpu, Args *args);
+void alu_and(CPU *cpu, Args *args);
+void alu_xor(CPU *cpu, Args *args);
+void alu_add(CPU *cpu, Args *args);
+void alu_ldi(CPU *cpu, Args *args);
+void alu_ldm(CPU *cpu, Args *args);
+void alu_stm(CPU *cpu, Args *args);
+void alu_jmp(CPU *cpu, Args *args);
+void alu_jc0(CPU *cpu, Args *args);
+void alu_jc1(CPU *cpu, Args *args);
+void alu_ja0(CPU *cpu, Args *args);
+void alu_ja1(CPU *cpu, Args *args);
+void alu_cll(CPU *cpu, Args *args);
 
 #endif

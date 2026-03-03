@@ -50,6 +50,8 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
         PC16 = 0;
 
     addr_convert_16_to_8(*cpu->PC, PC16);
+
+    if (args->v > 0) printf("[%d]\n", PC16);
 }
 
 void cpu_fetch(CPU *cpu, Args *args) {
@@ -75,7 +77,7 @@ void cpu_fetch(CPU *cpu, Args *args) {
     }
 }
 
-void cpu_decode_exec(CPU *cpu) {
+void cpu_decode_exec(CPU *cpu, Args *args) {
     uint8_t opcode = *cpu->IR[0];
     int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
     if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
@@ -84,73 +86,73 @@ void cpu_decode_exec(CPU *cpu) {
     case NOP:
         break;
     case NOT:
-        alu_not(cpu);
+        alu_not(cpu, args);
         break;
     case BSL:
-        alu_bsl(cpu);
+        alu_bsl(cpu, args);
         break;
     case BSR:
-        alu_bsr(cpu);
+        alu_bsr(cpu, args);
         break;
     case BRL:
-        alu_brl(cpu);
+        alu_brl(cpu, args);
         break;
     case BRR:
-        alu_brr(cpu);
+        alu_brr(cpu, args);
         break;
     case RET:
-        alu_ret(cpu);
+        alu_ret(cpu, args);
         break;
     case LDR:
-        alu_ldr(cpu);
+        alu_ldr(cpu, args);
         break;
     case STR:
-        alu_str(cpu);
+        alu_str(cpu, args);
         break;
     case PSH:
-        alu_psh(cpu);
+        alu_psh(cpu, args);
         break;
     case POP:
-        alu_pop(cpu);
+        alu_pop(cpu, args);
         break;
     case ORR:
-        alu_orr(cpu);
+        alu_orr(cpu, args);
         break;
     case AND:
-        alu_and(cpu);
+        alu_and(cpu, args);
         break;
     case XOR:
-        alu_xor(cpu);
+        alu_xor(cpu, args);
         break;
     case ADD:
-        alu_add(cpu);
+        alu_add(cpu, args);
         break;
     case LDI:
-        alu_ldi(cpu);
+        alu_ldi(cpu, args);
         break;
     case LDM:
-        alu_ldm(cpu);
+        alu_ldm(cpu, args);
         break;
     case STM:
-        alu_stm(cpu);
+        alu_stm(cpu, args);
         break;
     case JMP:
-        alu_jmp(cpu);
+        alu_jmp(cpu, args);
         break;
     case JC0:
-        alu_jc0(cpu);
+        alu_jc0(cpu, args);
         break;
     case JC1:
-        alu_jc1(cpu);
+        alu_jc1(cpu, args);
         break;
     case JA0:
-        alu_ja0(cpu);
+        alu_ja0(cpu, args);
         break;
     case JA1:
-        alu_ja1(cpu);
+        alu_ja1(cpu, args);
         break;
     case CLL:
-        alu_cll(cpu);
+        alu_cll(cpu, args);
         break;
     }
 }
@@ -166,4 +168,28 @@ void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
     assert(flag_pos < (8 * sizeof(uint8_t)));
     uint8_t new_entry = value << flag_pos;
     *cpu->F = *cpu->F | new_entry;
+}
+
+void cpu_print_state(CPU *cpu) {
+    printf("\t\tR0: %d\n", cpu->R[0]);
+    printf("\t\tR1: %d\n", cpu->R[1]);
+    printf("\t\tR2: %d\n", cpu->R[2]);
+    printf("\t\tR3: %d\n", cpu->R[3]);
+    printf("\t\tR4: %d\n", cpu->R[4]);
+    printf("\t\tR5: %d\n\n", cpu->R[5]);
+    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    uint16_t SP16;
+    addr_convert_8_to_16(&SP16, SP8);
+    printf("\t\tR6-R7 (stack pointer): %d\n", SP16);
+    printf("\t\tR8 (input left): %d\n", *(cpu->I));
+    printf("\t\tR9 (accumulator): %d\n", *(cpu->A));
+    printf("\t\tR10 (flags): ");
+    print_bin(*(cpu->F));
+    printf("\n");
+    printf("\t\tR11-R13 (instruction register): %d %d %d\n", *(cpu->IR[0]), *(cpu->IR[1]),
+           *(cpu->IR[2]));
+    uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
+    uint16_t PC16;
+    addr_convert_8_to_16(&PC16, PC8);
+    printf("\t\tR14-15 (program counter): %d\n", PC16);
 }

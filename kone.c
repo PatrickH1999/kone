@@ -11,12 +11,13 @@ int main(int argc, char *argv[]) {
     cpu_reset(&cpu);
     cpu_boot_file(&cpu, args.bootfile);
 
-    uint16_t PC16;
+    uint16_t PC16 = 0;
+    if (args.v > 0) printf("[%d]\n", PC16);
     do {
-        printf("%d\n", *cpu.PC[0]);
         addr_convert_8_to_16(&PC16, *cpu.PC);
         cpu_fetch(&cpu, &args);
-        cpu_decode_exec(&cpu);
+        cpu_decode_exec(&cpu, &args);
+        if (args.v > 2) cpu_print_state(&cpu);
     } while (PC16 < MEM_SIZE);
 
     return 0;

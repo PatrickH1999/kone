@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define REG_SIZE 16
-#define MEM_SIZE 65536
+#define MEM_SIZE 65535
 
 typedef struct {
     uint8_t R[REG_SIZE]; // register
