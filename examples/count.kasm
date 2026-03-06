@@ -6,5 +6,5 @@ main:
 loop:
     ADD 1
     STR 0
-    OUT 0
+    //OUT 0
     JMP loop
