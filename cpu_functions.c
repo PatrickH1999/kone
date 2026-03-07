@@ -3,6 +3,7 @@
 void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
+    memset(cpu->D, 0, sizeof(cpu->D));
 
     cpu->PC[0] = &cpu->R[14];
     cpu->PC[1] = &cpu->R[15];

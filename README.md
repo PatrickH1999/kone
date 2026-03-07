@@ -41,7 +41,8 @@ Output: 9
         - `F0`: carry flag
     - `R9`: accumulator
     - `R8`: ALU input left
-    - `R6`-`R7`: Stack pointer 
+    - `R6`-`R7`: Stack pointer
+    - `R5`: Display buffer
 - RAM: 64 kiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:

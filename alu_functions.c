@@ -78,8 +78,9 @@ void alu_ldr(CPU *cpu, Args *args) {
 }
 
 void alu_str(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
-    cpu->R[reg_id] = *cpu->A;
+    uint8_t reg_id = *(cpu->IR[0]) & 0b00001111;
+    cpu->R[reg_id] = *(cpu->A);
+    if (reg_id == 5) shift_reg_shift_in(cpu->D, sizeof(cpu->D) / sizeof(cpu->D[0]), *(cpu->A));
     if (args->v > 1) printf("\tExecuted:\tSTR %d\n", reg_id);
 }
 
