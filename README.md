@@ -42,7 +42,7 @@ Output: 9
     - `R9`: accumulator
     - `R8`: ALU input left
     - `R6`-`R7`: Stack pointer
-    - `R5`: Display buffer
+    - `R5`: Display buffer `D` (shift register)
 - RAM: 64 kiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:
