@@ -156,21 +156,18 @@ takes_addr_alias = [
     "CLL",
 ]  # Opcodes that accept address alias as argument
 
+
 parser = argparse.ArgumentParser(
     description="Assemble kone assembly to kone machine code."
 )
 parser.add_argument("input", help="input assembly file (.asm)")
 parser.add_argument("-o", "--output", required=True, help="output binary file (.bin)")
 args = parser.parse_args()
-
 main_path = args.input
 main_dir = os.path.dirname(main_path)
 with open(main_path) as main:
     lines = main.readlines()
-
-
 lines = replace_include_statements(lines, main_dir)
-
 addr_alias = {}
 machine_code = []
 
@@ -178,7 +175,6 @@ for parse_cycle in ["addr_alias", "main"]:
     if parse_cycle == "addr_alias":
         addr_alias = {}
     pc = 0  # Program counter for jump-address-evaluation
-
     for line in lines:
         words = line.split()
         words = search_comment(words)
@@ -199,14 +195,12 @@ for parse_cycle in ["addr_alias", "main"]:
             arg = get_arg(
                 arg_str, parse_cycle, addr_alias, arglims, takes_addr_alias, opcode
             )
-
             if (cycle0 >> 5) == 1:
                 n_cycles = 3
             elif (cycle0 >> 6) == 1:
                 n_cycles = 2
             else:
                 n_cycles = 1
-
             if parse_cycle == "main":
                 cycles = []
                 if n_cycles == 1:
@@ -220,13 +214,7 @@ for parse_cycle in ["addr_alias", "main"]:
                     cycle2 = (arg >> 8) & 0b1111_1111
                     cycles = [cycle0, cycle1, cycle2]
                 machine_code.extend(cycles)
-
-        if n_cycles == 1:
-            pc += 1
-        elif n_cycles == 2:
-            pc += 2
-        elif n_cycles == 3:
-            pc += 3
+        pc += n_cycles
 
 outfile_name = args.output
 with open(outfile_name, "wb") as outfile:
