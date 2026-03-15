@@ -6,12 +6,13 @@
 
 #define REG_SIZE 16
 #define MEM_SIZE 65535
-#define DISP_BUFF_SIZE 40 * 25
+#define DISP_BUFF_NCOLS 40
+#define DISP_BUFF_NROWS 24
+#define DISP_BUFF_SIZE (DISP_BUFF_NCOLS * DISP_BUFF_NROWS)
 
 typedef struct {
-    uint8_t R[REG_SIZE];       // register
-    uint8_t M[MEM_SIZE];       // memory
-    uint8_t D[DISP_BUFF_SIZE]; // display buffer (shift register)
+    uint8_t R[REG_SIZE]; // register
+    uint8_t M[MEM_SIZE]; // memory
 
     uint8_t *PC[2]; // program counter
     uint8_t *IR[3]; // instruction register
@@ -21,6 +22,7 @@ typedef struct {
     uint8_t *I; // input buffer
 
     uint8_t *SP[2]; // stack pointer
+    uint8_t *DP[2]; // display pointer
 } CPU;
 
 #endif

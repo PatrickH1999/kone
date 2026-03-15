@@ -23,6 +23,5 @@ uint8_t brl8(uint8_t x, unsigned n);
 uint8_t brr8(uint8_t x, unsigned n);
 int get_pos_first_1_in_byte(uint8_t byte);
 void print_bin(uint8_t x);
-void shift_reg_shift_in(uint8_t *reg, size_t len, uint8_t value);
 
 #endif

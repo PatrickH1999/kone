@@ -3,7 +3,6 @@
 void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
-    memset(cpu->D, 0, sizeof(cpu->D));
 
     cpu->PC[0] = &cpu->R[14];
     cpu->PC[1] = &cpu->R[15];
@@ -23,6 +22,12 @@ void cpu_reset(CPU *cpu) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
+
+    cpu->DP[0] = &cpu->R[4];
+    cpu->DP[1] = &cpu->R[5];
+    // set display pointer (DP) to 0:
+    *(cpu->DP[0]) = 0;
+    *(cpu->DP[1]) = 0;
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {

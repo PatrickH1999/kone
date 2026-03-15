@@ -85,10 +85,3 @@ void print_bin(uint8_t x) {
         printf("%d", (x >> i) & 1);
     }
 }
-
-void shift_reg_shift_in(uint8_t *reg, size_t len, uint8_t value) {
-    for (size_t i = len - 1; i > 0; i--) {
-        reg[i] = reg[i - 1];
-    }
-    reg[0] = value;
-}

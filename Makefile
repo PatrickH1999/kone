@@ -1,6 +1,6 @@
 CC := gcc
 CFLAGS := -D_POSIX_C_SOURCE=200809L \
-		  -std=c2x -Wall -Wextra -Wpedantic -O2
+		  -std=c2x -Wall -Wextra -Wpedantic -Wunused-function -O2
 LDFLAGS := 
 
 TARGET := kone
