@@ -6,9 +6,9 @@
 
 #define REG_SIZE 16
 #define MEM_SIZE 65535
-#define DISP_BUFF_NCOLS 40
-#define DISP_BUFF_NROWS 24
-#define DISP_BUFF_SIZE (DISP_BUFF_NCOLS * DISP_BUFF_NROWS)
+#define DISP_NCOLS 40
+#define DISP_NROWS 24
+#define DISP_SIZE (DISP_NCOLS * DISP_NROWS)
 
 typedef struct {
     uint8_t R[REG_SIZE]; // register
