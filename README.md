@@ -65,38 +65,40 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
 | `NOP`    | `0000 0000`      | -                | -                | Do nothing                                           |
-| `NOT`    | `0000 0001`      | -                | -                | Perform bitwise-NOT on Accumulator                   |
-| `BSL`    | `0000 0100`      | -                | -                | Perform bit shift left on Accumulator                |
-| `BSR`    | `0000 0101`      | -                | -                | Perform bit shift right on Accumulator               |
-| `BRL`    | `0000 0110`      | -                | -                | Perform bit rotation left on Accumulator             |
-| `BRR`    | `0000 0111`      | -                | -                | Perform bit rotation right on Accumulator            |
-| `PSH`    | `0000 1000`      | -                | -                | Push Register Accumulator to stack                   |
-| `POP`    | `0000 1001`      | -                | -                | Pop stack top value to Accumulator                   |
+| `NOT`    | `0000 0001`      | -                | -                | Perform bitwise-NOT on accumulator                   |
+| `BSL`    | `0000 0100`      | -                | -                | Perform bit shift left on accumulator                |
+| `BSR`    | `0000 0101`      | -                | -                | Perform bit shift right on accumulator               |
+| `BRL`    | `0000 0110`      | -                | -                | Perform bit rotation left on accumulator             |
+| `BRR`    | `0000 0111`      | -                | -                | Perform bit rotation right on accumulator            |
+| `PSH`    | `0000 1000`      | -                | -                | Push accumulator to stack                            |
+| `POP`    | `0000 1001`      | -                | -                | Pop stack top value to accumulator                   |
 | `RET`    | `0000 1010`      | -                | -                | Return to address at SP                              |
+| `DSH`    | `0000 1100`      | -                | -                | Push accumulator to display stack                    |
+| `DOP`    | `0000 1101`      | -                | -                | Pop display stack top value to accumulator           |
 
 ### Operations with 'register' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| `LDR`    | `1000 RRRR`      | -                | -                | Load data from Register RRR into Accumulator         |
-| `STR`    | `1001 RRRR`      | -                | -                | Store data from Accumulator in Register RRR          |
-| `ORR`    | `1100 RRRR`      | -                | -                | Perform bitwise-OR on Accumulator with Register RRR  |
-| `AND`    | `1101 RRRR`      | -                | -                | Perform bitwise-AND on Accumulator with Register RRR |
-| `XOR`    | `1110 RRRR`      | -                | -                | Perform bitwise-XOR on Accumulator with Register RRR |
-| `ADD`    | `1111 RRRR`      | -                | -                | Perform ADD on Accumulator with Register RRR         |
+| `LDR`    | `1000 RRRR`      | -                | -                | Load data from Register RRR into accumulator         |
+| `STR`    | `1001 RRRR`      | -                | -                | Store data from accumulator in Register RRR          |
+| `ORR`    | `1100 RRRR`      | -                | -                | Perform bitwise-OR on accumulator with Register RRR  |
+| `AND`    | `1101 RRRR`      | -                | -                | Perform bitwise-AND on accumulator with Register RRR |
+| `XOR`    | `1110 RRRR`      | -                | -                | Perform bitwise-XOR on accumulator with Register RRR |
+| `ADD`    | `1111 RRRR`      | -                | -                | Perform ADD on accumulator with Register RRR         |
 
 ### Operations with 'immediate' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| `LDI`    | `0100 0000`      | `IIII IIII`      | -                | Load immediate into Accumulator                      |
+| `LDI`    | `0100 0000`      | `IIII IIII`      | -                | Load immediate into accumulator                      |
 
 ### Operations with 'memory' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| `LDM`    | `0010 0000`      | `MMMM MMMM`      | `MMMM MMMM`      | Load data from Memory into Accumulator               |
-| `STM`    | `0010 0001`      | `MMMM MMMM`      | `MMMM MMMM`      | Store data from Accumulator in Memory                |
+| `LDM`    | `0010 0000`      | `MMMM MMMM`      | `MMMM MMMM`      | Load data from Memory into accumulator               |
+| `STM`    | `0010 0001`      | `MMMM MMMM`      | `MMMM MMMM`      | Store data from accumulator in Memory                |
 | `JMP`    | `0010 1000`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump to address                                      |
 | `JC0`    | `0010 1010`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 0                                    |
 | `JC1`    | `0010 1011`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 1                                    |
-| `JA0`    | `0010 1100`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator = 0                              |
-| `JA1`    | `0010 1101`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Accumulator ≠ 0                              |
+| `JA0`    | `0010 1100`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if accumulator = 0                              |
+| `JA1`    | `0010 1101`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if accumulator ≠ 0                              |
 | `CLL`    | `0011 0000`      | `PPPP PPPP`      | `PPPP PPPP`      | Call/jump to memory address, push PC to SP           |

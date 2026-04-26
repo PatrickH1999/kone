@@ -160,7 +160,7 @@ takes_addr_alias = [
 parser = argparse.ArgumentParser(
     description="Assemble kone assembly to kone machine code."
 )
-parser.add_argument("input", help="input assembly file (.asm)")
+parser.add_argument("-i", "--input", required=True, help="input assembly file (.asm)")
 parser.add_argument("-o", "--output", required=True, help="output binary file (.bin)")
 args = parser.parse_args()
 main_path = args.input

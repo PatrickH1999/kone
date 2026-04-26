@@ -1,6 +1,6 @@
 # Issues
 
-- [ ] **Display Stack:** Finalize implementation of stack for displaying characters
+- [ ] __Display Stack:__ Finalize implementation of stack for displaying characters
     
     - [ ] Implement an equivalent to ``push`` and ``pop``
         
@@ -8,4 +8,8 @@
 
     - [ ] Implement a function that displays the current display stack to the screen
 
-    - [ ] Program counter needs to start at ``DISP_SIZE`` as ``DP`` lies in memory at addresses 0 to (DISP_SIZE - 1).
+    - [ ] Adjust memory layout
+        
+        - ``DP`` lies in memory at addresses (MEM_SIZE - DISP_SIZE) to (MEM_SIZE - 1) (constant size)
+   
+        - ``SP`` lies in memory at addresses SP to (MEM_SIZE - DISP_SIZE - 1) (variable size)

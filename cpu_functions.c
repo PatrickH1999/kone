@@ -6,6 +6,12 @@ void cpu_reset(CPU *cpu) {
 
     cpu->PC[0] = &cpu->R[14];
     cpu->PC[1] = &cpu->R[15];
+    // set program counter (PC) to (DISP_SIZE):
+    uint16_t PC16 = DISP_SIZE;
+    uint8_t PC8[2];
+    addr_convert_16_to_8(PC8, PC16);
+    *(cpu->PC[0]) = PC8[0];
+    *(cpu->PC[1]) = PC8[1];
     cpu->IR[0] = &cpu->R[11];
     cpu->IR[1] = &cpu->R[12];
     cpu->IR[2] = &cpu->R[13];
@@ -25,9 +31,6 @@ void cpu_reset(CPU *cpu) {
 
     cpu->DP[0] = &cpu->R[4];
     cpu->DP[1] = &cpu->R[5];
-    // set display pointer (DP) to 0:
-    *(cpu->DP[0]) = 0;
-    *(cpu->DP[1]) = 0;
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {

@@ -11,6 +11,7 @@
 #include "cpu_struct.h"
 #include "utility.h"
 
+// Operations with no argument:
 void alu_not(CPU *cpu, Args *args);
 void alu_bsl(CPU *cpu, Args *args);
 void alu_bsr(CPU *cpu, Args *args);
@@ -19,13 +20,21 @@ void alu_brr(CPU *cpu, Args *args);
 void alu_psh(CPU *cpu, Args *args);
 void alu_pop(CPU *cpu, Args *args);
 void alu_ret(CPU *cpu, Args *args);
+void alu_dsh(CPU *cpu, Args *args);
+void alu_dop(CPU *cpu, Args *args);
+
+// Operations with 'register' argument:
 void alu_ldr(CPU *cpu, Args *args);
 void alu_str(CPU *cpu, Args *args);
 void alu_orr(CPU *cpu, Args *args);
 void alu_and(CPU *cpu, Args *args);
 void alu_xor(CPU *cpu, Args *args);
 void alu_add(CPU *cpu, Args *args);
+
+// Operations with 'immediate' argument:
 void alu_ldi(CPU *cpu, Args *args);
+
+// Operations with 'memory' argument:
 void alu_ldm(CPU *cpu, Args *args);
 void alu_stm(CPU *cpu, Args *args);
 void alu_jmp(CPU *cpu, Args *args);
