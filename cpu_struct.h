@@ -5,7 +5,7 @@
 #include <stdbool.h>
 
 #define REG_SIZE 16
-#define MEM_SIZE 65535
+#define MEM_SIZE 65536
 #define DISP_NCOLS 40
 #define DISP_NROWS 24
 #define DISP_SIZE (DISP_NCOLS * DISP_NROWS)
