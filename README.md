@@ -97,8 +97,8 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 | `LDM`    | `0010 0000`      | `MMMM MMMM`      | `MMMM MMMM`      | Load data from Memory into accumulator               |
 | `STM`    | `0010 0001`      | `MMMM MMMM`      | `MMMM MMMM`      | Store data from accumulator in Memory                |
 | `JMP`    | `0010 1000`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump to address                                      |
-| `JC0`    | `0010 1010`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 0                                    |
-| `JC1`    | `0010 1011`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 1                                    |
+| `JC0`    | `0010 1001`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 0                                    |
+| `JC1`    | `0010 1010`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if Carry = 1                                    |
 | `JA0`    | `0010 1100`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if accumulator = 0                              |
 | `JA1`    | `0010 1101`      | `PPPP PPPP`      | `PPPP PPPP`      | Jump if accumulator ≠ 0                              |
 | `CLL`    | `0011 0000`      | `PPPP PPPP`      | `PPPP PPPP`      | Call/jump to memory address, push PC to SP           |
