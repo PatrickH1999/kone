@@ -42,8 +42,8 @@ Output: 9
     - `R9`: accumulator
     - `R8`: ALU input left
     - `R6`-`R7`: Stack pointer `SP` (data structure: FILO)
-    - `R4`-`R5`: Display pointer `DP` (data structure: FILO)
-- RAM: 64 kiB (16 bit addresses)
+    - `R4`, `R5`: Display row pointer `DRP`, display column pointer `DCP` (data structure: ring buffer)
+- RAM: 64 KiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:
 - Input buffers:
