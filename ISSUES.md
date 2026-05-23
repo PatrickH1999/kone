@@ -5,6 +5,12 @@
     - [ ] Implement an equivalent to ``push`` and ``pop``
         
         - This includes a functionality that deletes the first row and moves content up by one row once ``DP`` (display pointer) reaches the end of the stack
+        
+        - This can be implemented as a ring buffer with two registers: ``RP`` (row pointer) and ``CP`` (column pointer)
+
+        - The stack has the length ((``DISP_NROWS`` + 1) × ``DISP_NCOLS``) (i.e., all display rows plus a display row base)
+
+        - ``RP`` increments by 1 after each line is written
 
     - [ ] Implement a function that displays the current display stack to the screen
 
