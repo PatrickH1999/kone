@@ -29,8 +29,8 @@ void cpu_reset(CPU *cpu) {
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
 
-    cpu->DP[0] = &cpu->R[4];
-    cpu->DP[1] = &cpu->R[5];
+    cpu->DRP = &cpu->R[4];
+    cpu->DCP = &cpu->R[5];
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {

@@ -73,7 +73,7 @@ void alu_ret(CPU *cpu, Args *args) {
 
 // DRAFT:
 void alu_dsh(CPU *cpu, Args *args) {
-    uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
+    /*uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
     uint16_t DP16;
     addr_convert_8_to_16(&DP16, DP8);
     DP16++;
@@ -81,12 +81,12 @@ void alu_dsh(CPU *cpu, Args *args) {
     addr_convert_16_to_8(DP8, DP16);
     *(cpu->DP[0]) = DP8[0];
     *(cpu->DP[1]) = DP8[1];
-    if (args->v > 1) printf("\tExecuted:\tDSH\n");
+    if (args->v > 1) printf("\tExecuted:\tDSH\n");*/
 }
 
 // DRAFT:
 void alu_dop(CPU *cpu, Args *args) {
-    uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
+    /*uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
     uint16_t DP16;
     addr_convert_8_to_16(&DP16, DP8);
     *cpu->A = cpu->M[DP16];
@@ -95,7 +95,7 @@ void alu_dop(CPU *cpu, Args *args) {
     addr_convert_16_to_8(DP8, DP16);
     *(cpu->DP[0]) = DP8[0];
     *(cpu->DP[1]) = DP8[1];
-    if (args->v > 1) printf("\tExecuted:\tDOP\n");
+    if (args->v > 1) printf("\tExecuted:\tDOP\n");*/
 }
 
 void alu_ldr(CPU *cpu, Args *args) {

@@ -22,7 +22,8 @@ typedef struct {
     uint8_t *I; // input buffer
 
     uint8_t *SP[2]; // stack pointer
-    uint8_t *DP[2]; // display pointer
+    uint8_t *DRP; // display row pointer
+    uint8_t *DCP; // display column pointer
 } CPU;
 
 #endif
