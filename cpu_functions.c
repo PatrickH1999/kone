@@ -53,7 +53,8 @@ int cpu_boot_file(CPU *cpu, const char *path) {
 }
 
 void cpu_pc_increment(CPU *cpu, Args *args) {
-    const struct timespec ts = {.tv_sec = 0, .tv_nsec = args->cycle_sleep * 1000000};
+    const struct timespec ts = {.tv_sec = 0,
+                                .tv_nsec = args->cycle_sleep * 1000000};
     nanosleep(&ts, NULL);
 
     uint16_t PC16;
@@ -202,8 +203,8 @@ void cpu_print_state(CPU *cpu) {
     printf("\t\tR10 (flags): ");
     print_bin(*(cpu->F));
     printf("\n");
-    printf("\t\tR11-R13 (instruction register): %d %d %d\n", *(cpu->IR[0]), *(cpu->IR[1]),
-           *(cpu->IR[2]));
+    printf("\t\tR11-R13 (instruction register): %d %d %d\n", *(cpu->IR[0]),
+           *(cpu->IR[1]), *(cpu->IR[2]));
     uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, PC8);

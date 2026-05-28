@@ -1,7 +1,8 @@
 #include "utility.h"
 
 void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n", basename(argv[0]));
+    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n",
+            basename(argv[0]));
     exit(EXIT_FAILURE);
 }
 
@@ -32,7 +33,8 @@ void parse_args(Args *args, int argc, char *argv[]) {
 }
 
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
-    *addr16 = ((uint16_t)addr8[1] << (8 * sizeof(uint8_t))) | (uint16_t)addr8[0];
+    *addr16 =
+        ((uint16_t)addr8[1] << (8 * sizeof(uint8_t))) | (uint16_t)addr8[0];
 }
 
 void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16) {
@@ -70,7 +72,8 @@ uint8_t brr8(uint8_t x, unsigned n) {
     return (x >> n) | (x << (8 - n));
 }
 
-// Searches byte from left (7) to right (0) and returns position of first '1' found:
+// Searches byte from left (7) to right (0) and returns position of first '1'
+// found:
 int get_pos_first_1_in_byte(const uint8_t byte) {
     for (int pos = 7; pos >= 0; pos--) {
         if ((byte >> pos) & 0b00000001) {
