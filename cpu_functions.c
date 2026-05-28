@@ -4,33 +4,39 @@ void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
 
+    // Program counter (PC):
     cpu->PC[0] = &cpu->R[14];
     cpu->PC[1] = &cpu->R[15];
-    // set program counter (PC) to (DISP_SIZE):
-    uint16_t PC16 = DISP_SIZE;
+    uint16_t PC16 = 0;
     uint8_t PC8[2];
     addr_convert_16_to_8(PC8, PC16);
     *(cpu->PC[0]) = PC8[0];
     *(cpu->PC[1]) = PC8[1];
+    
+    // Instruction register (IC):
     cpu->IR[0] = &cpu->R[11];
     cpu->IR[1] = &cpu->R[12];
     cpu->IR[2] = &cpu->R[13];
 
+    // Flags (F), accumulator (A), input register (I)
     cpu->F = &cpu->R[10];
     cpu->A = &cpu->R[9];
     cpu->I = &cpu->R[8];
 
+    // Stack pointer (SP):
     cpu->SP[0] = &cpu->R[6];
     cpu->SP[1] = &cpu->R[7];
-    // set stack pointer (SP) to (MEM_SIZE - 1):
-    uint16_t SP16 = MEM_SIZE - 1;
+    uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
     uint8_t SP8[2];
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
 
+    // Display row pointer (DRP), display column pointer (DCP):
     cpu->DRP = &cpu->R[4];
     cpu->DCP = &cpu->R[5];
+    *(cpu->DRP) = 0;
+    *(cpu->DCP) = 0;
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {

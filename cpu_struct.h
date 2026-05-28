@@ -8,7 +8,6 @@
 #define MEM_SIZE 65536
 #define DISP_NCOLS 40
 #define DISP_NROWS 24
-#define DISP_SIZE (DISP_NCOLS * DISP_NROWS)
 
 typedef struct {
     uint8_t R[REG_SIZE]; // register
@@ -22,8 +21,8 @@ typedef struct {
     uint8_t *I; // input buffer
 
     uint8_t *SP[2]; // stack pointer
-    uint8_t *DRP; // display row pointer
-    uint8_t *DCP; // display column pointer
+    uint8_t *DRP;   // display row pointer
+    uint8_t *DCP;   // display column pointer
 } CPU;
 
 #endif
