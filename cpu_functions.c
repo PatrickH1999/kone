@@ -183,8 +183,9 @@ uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos) {
 void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
     assert(value == 0 || value == 1);
     assert(flag_pos < (8 * sizeof(uint8_t)));
-    uint8_t new_entry = value << flag_pos;
-    *cpu->F = *cpu->F | new_entry;
+    uint8_t mask = value << flag_pos;
+    *cpu->F &= ~(1 << flag_pos);
+    *cpu->F |= mask;
 }
 
 void cpu_print_state(CPU *cpu) {
