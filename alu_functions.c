@@ -71,31 +71,45 @@ void alu_ret(CPU *cpu, Args *args) {
     if (args->v > 1) printf("\tExecuted:\tRET\n");
 }
 
-// DRAFT:
 void alu_dsh(CPU *cpu, Args *args) {
-    /*uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
-    uint16_t DP16;
-    addr_convert_8_to_16(&DP16, DP8);
-    DP16++;
+    uint16_t DP16 = MEM_SIZE - (DISP_NROWS * DISP_NCOLS) 
+        + (*cpu->DRP * DISP_NCOLS) + *cpu->DCP;
     cpu->M[DP16] = *cpu->A;
-    addr_convert_16_to_8(DP8, DP16);
-    *(cpu->DP[0]) = DP8[0];
-    *(cpu->DP[1]) = DP8[1];
-    if (args->v > 1) printf("\tExecuted:\tDSH\n");*/
+    
+    if (*cpu->DCP < (DISP_NCOLS - 1)) {
+        *(cpu->DCP)++;
+    } else {
+        *(cpu->DCP) = 0;
+        if (*cpu->DRP < (DISP_NROWS - 1)) {
+            *(cpu->DRP)++;
+        } else {
+            *(cpu->DRP) = 0;
+        }
+        // clean up next row:
+        for (int j = 0; j < DISP_NCOLS; j++) {
+            DP16 = MEM_SIZE - (DISP_NROWS * DISP_NCOLS) 
+                + (*cpu->DRP * DISP_NCOLS) + j;
+            cpu->M[DP16] = 0;
+        }
+    }
 }
 
-// DRAFT:
 void alu_dop(CPU *cpu, Args *args) {
-    /*uint8_t DP8[2] = {*(cpu->DP[0]), *(cpu->DP[1])};
-    uint16_t DP16;
-    addr_convert_8_to_16(&DP16, DP8);
+    if (*cpu->DCP > 0) {
+        *(cpu->DCP)--;
+    } else {
+        *(cpu->DCP) = DISP_NCOLS - 1;
+        if (*cpu->DRP > 0) {
+            *(cpu->DRP)--;
+        } else {
+            *(cpu->DRP) = DISP_NROWS - 1;
+        }
+    }
+    
+    uint16_t DP16 = MEM_SIZE - (DISP_NROWS * DISP_NCOLS) 
+        + (*cpu->DRP * DISP_NCOLS) + *cpu->DCP;
     *cpu->A = cpu->M[DP16];
     cpu->M[DP16] = 0;
-    DP16--;
-    addr_convert_16_to_8(DP8, DP16);
-    *(cpu->DP[0]) = DP8[0];
-    *(cpu->DP[1]) = DP8[1];
-    if (args->v > 1) printf("\tExecuted:\tDOP\n");*/
 }
 
 void alu_ldr(CPU *cpu, Args *args) {

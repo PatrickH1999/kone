@@ -12,7 +12,7 @@ void cpu_reset(CPU *cpu) {
     addr_convert_16_to_8(PC8, PC16);
     *(cpu->PC[0]) = PC8[0];
     *(cpu->PC[1]) = PC8[1];
-    
+
     // Instruction register (IC):
     cpu->IR[0] = &cpu->R[11];
     cpu->IR[1] = &cpu->R[12];
