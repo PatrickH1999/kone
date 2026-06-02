@@ -34,16 +34,18 @@ Output: 9
 ## Architecture
 **General Features**:
 - Data bus: 8 bit
-- Registers: 16 (R0 to R15):
-    - `R14`-`R15`: Program counter
-    - `R11`-`R13`: Instruction register
-    - `R10`: flags (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+- Registers: 32:
+    - `R0`-`R19`: Custom registers
+    - `R21`: `DCP`, display column pointer (data structure: ring buffer)
+    - `R20`: `DRP`, display row pointer (data structure: ring buffer)
+    - `R22`-`R23`: `SP[2]`, stack pointer (data structure: FILO)
+    - `R24`: `I`, ALU input (left)
+    - `R25`: `A`, accumulator
         - `F0`: carry flag
-    - `R9`: accumulator
-    - `R8`: ALU input left
-    - `R6`-`R7`: Stack pointer `SP` (data structure: FILO)
-    - `R4`, `R5`: Display row pointer `DRP`, display column pointer `DCP` (data structure: ring buffer)
-- RAM: 64 KiB (16 bit addresses)
+    - `R26`: `F`, flags (`F7`, `F6`, `F5`, `F4`, `F3`, `F2`, `F1`, `F0`)
+    - `R27`-`R29`: `IR[3]`, instruction register 
+    - `R30`-`R31`: `PC[2]`, program counter
+- RM: 64 KiB (16 bit addresses)
 
 **Arithmetic Logic Unit (ALU)**:
 - Input buffers:
@@ -51,12 +53,12 @@ Output: 9
 - Output buffers:
     - `A` (accumulator -> `R14`)
     - `C` (carry -> `F0`)
-- Note that the input buffer (i.e., `I`) is there to prevent simultaneous read/write operations on the output accumulator (i.e., `A`). E.g., before performing the add operation (i.e., `ADD`), A would first be written to I, which is connected to the left ALU input, while the selected operand register would be directly connected to the right ALU input.
+- Note that the input buffer (i.e., `I`) is there to prevent simultaneous read/write operations on the output accumulator (i.e., `A`). E.g., before performing the add operation (i.e., `ADD`), A is first written to I, which is connected to the left ALU input, while the selected operand register is directly connected to the right ALU input.
 
 ## Instruction Set:
 The __kone__ decoder first evaluates opcode flags, which tell the decoder what kind of arguments are to be expected and how long they are:
 - No argument:                                                        `0000 CCCC` 
-- First digit -> 'register' flag (argument is register):              `1CCC RRRR` 
+- First digit -> 'register' flag (argument is register):              `1CCC 0000` | `000R RRRR`
 - Second digit -> 'immediate' flag (argument is 8 bit immediate):     `01CC CCCC` | `IIII IIII` 
 - Third digit -> 'memory' flag (argument is memory address):          `001C CCCC` | `MMMM MMMM` | `MMMM MMMM`
 - Fourth digit -> virtual opcode (argument is register):              `0001 CCCC` | `0000 RRRR` 
@@ -79,12 +81,12 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 ### Operations with 'register' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |
 | -------- | ---------------- | ---------------- | ---------------- | ---------------------------------------------------- |
-| `LDR`    | `1000 RRRR`      | -                | -                | Load data from Register RRR into accumulator         |
-| `STR`    | `1001 RRRR`      | -                | -                | Store data from accumulator in Register RRR          |
-| `ORR`    | `1100 RRRR`      | -                | -                | Perform bitwise-OR on accumulator with Register RRR  |
-| `AND`    | `1101 RRRR`      | -                | -                | Perform bitwise-AND on accumulator with Register RRR |
-| `XOR`    | `1110 RRRR`      | -                | -                | Perform bitwise-XOR on accumulator with Register RRR |
-| `ADD`    | `1111 RRRR`      | -                | -                | Perform ADD on accumulator with Register RRR         |
+| `LDR`    | `1000 0000`      | `000R RRRR`      | -                | Load data from Register RRR into accumulator         |
+| `STR`    | `1001 0000`      | `000R RRRR`      | -                | Store data from accumulator in Register RRR          |
+| `ORR`    | `1100 0000`      | `000R RRRR`      | -                | Perform bitwise-OR on accumulator with Register RRR  |
+| `AND`    | `1101 0000`      | `000R RRRR`      | -                | Perform bitwise-AND on accumulator with Register RRR |
+| `XOR`    | `1110 0000`      | `000R RRRR`      | -                | Perform bitwise-XOR on accumulator with Register RRR |
+| `ADD`    | `1111 0000`      | `000R RRRR`      | -                | Perform ADD on accumulator with Register RRR         |
 
 ### Operations with 'immediate' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |

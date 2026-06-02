@@ -199,6 +199,8 @@ for parse_cycle in ["addr_alias", "main"]:
                 n_cycles = 3
             elif (cycle0 >> 6) == 1:
                 n_cycles = 2
+            elif (cycle0 >> 7) == 1:
+                n_cycles = 2
             else:
                 n_cycles = 1
             if parse_cycle == "main":

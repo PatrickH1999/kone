@@ -113,40 +113,40 @@ void alu_dop(CPU *cpu, Args *args) {
 }
 
 void alu_ldr(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->A = cpu->R[reg_id];
     if (args->v > 1) printf("\tExecuted:\tLDR %d\n", reg_id);
 }
 
 void alu_str(CPU *cpu, Args *args) {
-    uint8_t reg_id = *(cpu->IR[0]) & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     cpu->R[reg_id] = *(cpu->A);
     if (args->v > 1) printf("\tExecuted:\tSTR %d\n", reg_id);
 }
 
 void alu_orr(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I | cpu->R[reg_id];
     if (args->v > 1) printf("\tExecuted:\tORR\n");
 }
 
 void alu_and(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I & cpu->R[reg_id];
     if (args->v > 1) printf("\tExecuted:\tAND\n");
 }
 
 void alu_xor(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I ^ cpu->R[reg_id];
     if (args->v > 1) printf("\tExecuted:\tXOR\n");
 }
 
 void alu_add(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[0] & 0b00001111;
+    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I + cpu->R[reg_id];
     cpu_set_flag(cpu, FLAG_POS_CARRY, (*cpu->A < *cpu->I));
