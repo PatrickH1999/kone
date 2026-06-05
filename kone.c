@@ -12,7 +12,7 @@ int main(int argc, char *argv[]) {
     cpu_boot_file(&cpu, args.bootfile);
 
     uint16_t PC16 = 0;
-    if (args.v > 0) printf("[%d]\n", PC16);
+    if (args.v > 0) printf("\n\n[ CC: %d / PC: %d ]\n", cpu.cycle, PC16);
     if (args.v > 2) cpu_print_state(&cpu);
     do {
         addr_convert_8_to_16(&PC16, *cpu.PC);

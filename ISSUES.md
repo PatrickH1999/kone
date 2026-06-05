@@ -20,4 +20,4 @@
    
         - ``SP`` lies in memory at addresses SP to (MEM_SIZE - DISP_SIZE - 1) (variable size)
 
-- [x] __Registers:__ Extend capacity from 16 to 32 bytes
+- [x] __Verbocity:__ Implement an indicator that shows both program counter and cycle counter as ```[CC: <cycle_counter>, PC: <program_counter>]```

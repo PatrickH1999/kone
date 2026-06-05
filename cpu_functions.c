@@ -1,6 +1,8 @@
 #include "cpu_functions.h"
 
 void cpu_reset(CPU *cpu) {
+    cpu->cycle = 0;    
+
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
 
@@ -60,6 +62,7 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, *cpu->PC);
 
+    cpu->cycle++;
     if (PC16 < (MEM_SIZE - 1))
         PC16++;
     else
@@ -67,7 +70,7 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
 
     addr_convert_16_to_8(*cpu->PC, PC16);
 
-    if (args->v > 0) printf("\n\n[%d]\n", PC16);
+    if (args->v > 0) printf("\n\n[ CC: %d / PC: %d ]\n", cpu->cycle, PC16);
     if (args->v > 2) cpu_print_state(cpu);
 }
 
