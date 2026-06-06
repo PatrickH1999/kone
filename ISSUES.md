@@ -2,6 +2,10 @@
 
 - [ ] __Display Stack:__ Finalize implementation of stack for displaying characters
     
+    - [ ] Discard display stack implementation, implement display and keyboard as 'devices' (each with its own process)
+        
+        - Symbols are sent/received via two registers (2x1B, one for ASCII-Code, the other as set-bit (for display, it gets set by sender so display can take ASCII-Code and unset the set-bit)
+    
     - [x] Implement an equivalent to ``push`` and ``pop``
         
         - This includes a functionality that deletes the first row and moves content up by one row once ``DP`` (display pointer) reaches the end of the stack

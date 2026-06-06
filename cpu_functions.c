@@ -1,7 +1,7 @@
 #include "cpu_functions.h"
 
 void cpu_reset(CPU *cpu) {
-    cpu->cycle = 0;    
+    cpu->cycle = 0;
 
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));

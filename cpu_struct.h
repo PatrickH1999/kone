@@ -10,7 +10,8 @@
 #define DISP_NROWS 24
 
 typedef struct {
-    uint32_t cycle; // cycle counter for debugging (not physical part of the real CPU)
+    uint32_t cycle; // cycle counter for debugging (not physical part of the
+                    // real CPU)
 
     uint8_t R[REG_SIZE]; // register
     uint8_t M[MEM_SIZE]; // memory
