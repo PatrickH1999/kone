@@ -70,7 +70,7 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
 
     addr_convert_16_to_8(*cpu->PC, PC16);
 
-    if (args->v > 0) printf("\n\n[ CC: %d / PC: %d ]\n", cpu->cycle, PC16);
+    if (args->v > 0) cpu_print_count(cpu);
     if (args->v > 2) cpu_print_state(cpu);
 }
 
@@ -189,6 +189,13 @@ void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
     uint8_t mask = value << flag_pos;
     *cpu->F &= ~(1 << flag_pos);
     *cpu->F |= mask;
+}
+
+void cpu_print_count(CPU *cpu) {
+    uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
+    uint16_t PC16;
+    addr_convert_8_to_16(&PC16, PC8);
+    printf("\n\n[ %d : %d ]\n", cpu->cycle, PC16);
 }
 
 void cpu_print_state(CPU *cpu) {

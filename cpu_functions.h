@@ -51,6 +51,7 @@ void cpu_fetch(CPU *cpu, Args *args);
 void cpu_decode_exec(CPU *cpu, Args *args);
 uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos);
 void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value);
+void cpu_print_count(CPU *cpu);
 void cpu_print_state(CPU *cpu);
 void cpu_print_d(CPU *cpu);
 
