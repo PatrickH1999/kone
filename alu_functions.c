@@ -75,15 +75,14 @@ void alu_dsh(CPU *cpu, Args *args) {
     uint16_t DP16 = MEM_SIZE - (DISP_NROWS * DISP_NCOLS) +
                     (*cpu->DRP * DISP_NCOLS) + *cpu->DCP;
     cpu->M[DP16] = *cpu->A;
-
     if (*cpu->DCP < (DISP_NCOLS - 1)) {
-        *(cpu->DCP)++;
+        (*cpu->DCP)++;
     } else {
-        *(cpu->DCP) = 0;
+        (*cpu->DCP) = 0;
         if (*cpu->DRP < (DISP_NROWS - 1)) {
-            *(cpu->DRP)++;
+            (*cpu->DRP)++;
         } else {
-            *(cpu->DRP) = 0;
+            (*cpu->DRP) = 0;
         }
         // clean up next row:
         for (int j = 0; j < DISP_NCOLS; j++) {
@@ -92,24 +91,25 @@ void alu_dsh(CPU *cpu, Args *args) {
             cpu->M[DP16] = 0;
         }
     }
+    if (args->v > 1) printf("\tExecuted:\tDSH\n");
 }
 
 void alu_dop(CPU *cpu, Args *args) {
     if (*cpu->DCP > 0) {
-        *(cpu->DCP)--;
+        (*cpu->DCP)--;
     } else {
         *(cpu->DCP) = DISP_NCOLS - 1;
         if (*cpu->DRP > 0) {
-            *(cpu->DRP)--;
+            (*cpu->DRP)--;
         } else {
-            *(cpu->DRP) = DISP_NROWS - 1;
+            (*cpu->DRP) = DISP_NROWS - 1;
         }
     }
-
     uint16_t DP16 = MEM_SIZE - (DISP_NROWS * DISP_NCOLS) +
                     (*cpu->DRP * DISP_NCOLS) + *cpu->DCP;
     *cpu->A = cpu->M[DP16];
     cpu->M[DP16] = 0;
+    if (args->v > 1) printf("\tExecuted:\tDOP\n");
 }
 
 void alu_ldr(CPU *cpu, Args *args) {

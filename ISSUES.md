@@ -4,7 +4,8 @@
     
     - [ ] Discard display stack implementation, implement display and keyboard as 'devices' (each with its own process)
         
-        - Symbols are sent/received via two registers (2x1B, one for ASCII-Code, the other as set-bit (for display, it gets set by sender so display can take ASCII-Code and unset the set-bit)
+        - Symbols are sent/received via two registers (2x1B, one for ASCII-Code (use accumulator!), the other as set-bit (for display, it gets set by sender so display can take ASCII-Code and unset the set-bit)
+        - Set-bit: Single register (`0000 0ABC`), with `A`: Clear buffer, `B`: clear last char, `C`: push char to disp. 
     
     - [x] Implement an equivalent to ``push`` and ``pop``
         
