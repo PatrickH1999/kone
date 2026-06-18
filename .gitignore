@@ -1,5 +1,5 @@
 anaconda_projects
-kone
 
-**.o
+bin/
+obj/
 **.bin
