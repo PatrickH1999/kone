@@ -2,7 +2,6 @@
 #define CPU_STRUCT_H
 
 #include <stdint.h>
-#include <stdbool.h>
 
 #define REG_SIZE 32
 #define MEM_SIZE 65536
