@@ -35,6 +35,7 @@ int main(int argc, char *argv[]) {
     if (display_pid == 0) {
         cpu_init(cpu);
         Display display;
+        display_reset(&display);
         display_print(&display);
         exit(0);
     }
