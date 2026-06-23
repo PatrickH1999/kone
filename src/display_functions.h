@@ -1,6 +1,8 @@
 #ifndef DISPLAY_FUNCTIONS_H
 #define DISPLAY_FUNCTIONS_H
 
+#include <stdio.h>
+
 #include "cpu_struct.h"
 #include "display_struct.h"
 

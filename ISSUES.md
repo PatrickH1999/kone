@@ -1,5 +1,7 @@
 # Issues
 
+- [ ] __Unit Tests:__ Write unit tests
+
 - [ ] __Display Stack:__ Finalize implementation of stack for displaying characters
     
     - [ ] Discard display stack implementation, implement display and keyboard as 'devices' (each with its own process)

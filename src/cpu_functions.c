@@ -1,25 +1,9 @@
 #include "cpu_functions.h"
 
-void cpu_reset(CPU *cpu) {
-    cpu->cycle = 0;
-
-    memset(cpu->R, 0, sizeof(cpu->R));
-    memset(cpu->M, 0, sizeof(cpu->M));
-
-    // Display row pointer (DRP), display column pointer (DCP):
-    cpu->DRP = &cpu->R[20];
-    cpu->DCP = &cpu->R[21];
-    *(cpu->DRP) = 0;
-    *(cpu->DCP) = 0;
-
+void cpu_init(CPU *cpu) {
     // Stack pointer (SP):
     cpu->SP[0] = &cpu->R[22];
     cpu->SP[1] = &cpu->R[23];
-    uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
-    uint8_t SP8[2];
-    addr_convert_16_to_8(SP8, SP16);
-    *(cpu->SP[0]) = SP8[0];
-    *(cpu->SP[1]) = SP8[1];
 
     // input register (I), accumulator (A), Flags (F)
     cpu->I = &cpu->R[24];
@@ -34,6 +18,20 @@ void cpu_reset(CPU *cpu) {
     // Program counter (PC):
     cpu->PC[0] = &cpu->R[30];
     cpu->PC[1] = &cpu->R[31];
+}
+
+void cpu_reset(CPU *cpu) {
+    cpu->cycle = 0;
+
+    memset(cpu->R, 0, sizeof(cpu->R));
+    memset(cpu->M, 0, sizeof(cpu->M));
+
+    uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
+    uint8_t SP8[2];
+    addr_convert_16_to_8(SP8, SP16);
+    *(cpu->SP[0]) = SP8[0];
+    *(cpu->SP[1]) = SP8[1];
+
     uint16_t PC16 = 0;
     uint8_t PC8[2];
     addr_convert_16_to_8(PC8, PC16);

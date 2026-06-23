@@ -36,8 +36,6 @@ Output: 9
 - Data bus: 8 bit
 - Registers: 32:
     - `R0`-`R19`: Custom registers
-    - `R21`: `DCP`, display column pointer (data structure: ring buffer)
-    - `R20`: `DRP`, display row pointer (data structure: ring buffer)
     - `R22`-`R23`: `SP[2]`, stack pointer (data structure: FILO)
     - `R24`: `I`, ALU input (left)
     - `R25`: `A`, accumulator
@@ -75,8 +73,6 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 | `PSH`    | `0000 1000`      | -                | -                | Push accumulator to stack                            |
 | `POP`    | `0000 1001`      | -                | -                | Pop stack top value to accumulator                   |
 | `RET`    | `0000 1010`      | -                | -                | Return to address at SP                              |
-| `DSH`    | `0000 1100`      | -                | -                | Push accumulator to display stack                    |
-| `DOP`    | `0000 1101`      | -                | -                | Pop display stack top value to accumulator           |
 
 ### Operations with 'register' argument:
 | Mnemonic | Opcode (Cycle 0) | Opcode (Cycle 1) | Opcode (Cycle 2) | Description                                          |

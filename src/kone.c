@@ -8,6 +8,7 @@ int main(int argc, char *argv[]) {
     parse_args(&args, argc, argv);
 
     CPU cpu;
+    cpu_init(&cpu);
     cpu_reset(&cpu);
     cpu_boot_file(&cpu, args.bootfile);
 

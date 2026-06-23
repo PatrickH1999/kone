@@ -44,6 +44,7 @@
 #include "cpu_struct.h"
 #include "utility.h"
 
+void cpu_init(CPU *cpu);
 void cpu_reset(CPU *cpu);
 int cpu_boot_file(CPU *cpu, const char *path);
 void cpu_pc_increment(CPU *cpu, Args *args);
