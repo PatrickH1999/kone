@@ -8,6 +8,10 @@ TARGET := bin/kone
 SRCS := $(wildcard src/*.c)
 OBJS := $(patsubst src/%.c, obj/%.o, $(SRCS))
 
+TEST_SRCS := $(wildcard tests/*.c)
+TEST_BINS := $(patsubst tests/%.c, bin/%, $(TEST_SRCS))
+TEST_OBJS := $(filter-out obj/kone.o, $(OBJS))
+
 EXAMPLE_SRCS := $(wildcard examples/*.kasm)
 EXAMPLE_TARGETS := $(patsubst examples/%.kasm, bin/%.bin, $(EXAMPLE_SRCS))
 
@@ -31,6 +35,14 @@ check: format all
 
 bin/%.bin: examples/%.kasm
 	python tools/kasm.py -i $< -o $@
+
+bin/%: tests/%.c $(TEST_OBJS)
+	$(CC) $(CFLAGS) $< $(TEST_OBJS) -o $@
+
+test: $(TEST_BINS)
+	@for t in $(TEST_BINS); do \
+		./$$t && echo "$$t OK" || echo "$$t FAILED"; \
+	done
 
 examples: $(EXAMPLE_TARGETS)
 
