@@ -1,5 +1,16 @@
 #include "test_utility.h"
 
+int main() {
+    printf("\n\tTesting utility\n");
+    test_addr_convert_8_to_16();
+    test_addr_convert_16_to_8();
+    test_brl8();
+    test_brr8();
+    test_get_pos_first_1_in_byte();
+    printf("\tALL PASS: utility\n");
+    return 0;
+}
+
 void test_addr_convert_8_to_16() {
     uint16_t result;
     uint8_t bytes[2] = {0x34, 0x12};
@@ -49,15 +60,4 @@ void test_get_pos_first_1_in_byte() {
     assert(get_pos_first_1_in_byte(0b00000000) == -1);
     assert(get_pos_first_1_in_byte(0b11111111) == 7);
     printf("\t\tPASS: get_pos_first_1_in_byte\n");
-}
-
-int main() {
-    printf("\n\tTesting test/test_utility\n");
-    test_addr_convert_8_to_16();
-    test_addr_convert_16_to_8();
-    test_brl8();
-    test_brr8();
-    test_get_pos_first_1_in_byte();
-    printf("\tALL PASS: test/test_utility\n");
-    return 0;
 }
