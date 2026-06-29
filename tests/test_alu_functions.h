@@ -7,7 +7,6 @@
 #include "../src/cpu_functions.h"
 #include "../src/alu_functions.h"
 
-int main();
 void test_alu_not();
 void test_alu_bsl();
 void test_alu_bsr();

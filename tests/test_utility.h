@@ -3,7 +3,6 @@
 
 #include "../src/utility.h"
 
-int main();
 void test_addr_convert_8_to_16();
 void test_addr_convert_16_to_8();
 void test_brl8();
