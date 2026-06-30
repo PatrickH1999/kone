@@ -1,0 +1,93 @@
+#include "test_display_functions.h"
+
+static Display display;
+static CPU cpu;
+static Args args = {.v = 0};
+
+static void setup() {
+    cpu_init(&cpu);
+    cpu_reset(&cpu);
+    display_reset(&display);
+}
+
+int main() {
+    printf("\n\tTesting display_functions\n");
+    test_display_reset();
+    test_display_push_char_basic();
+    test_display_push_char_col_wrap();
+    test_display_push_char_row_wrap();
+    test_display_fetch_set();
+    test_display_fetch_no_set();
+    printf("\tALL PASS: display_functions\n");
+    return 0;
+}
+
+void test_display_reset() {
+    setup();
+    // fill with junk then reset
+    memset(display.DM, 0xFF, sizeof(display.DM));
+    display.DRP = 5;
+    display.DCP = 10;
+    display_reset(&display);
+    assert(display.DRP == 0);
+    assert(display.DCP == 0);
+    for (int i = 0; i < DISP_NROWS * DISP_NCOLS; i++)
+        assert(display.DM[i] == 0);
+    printf("\t\tPASS: %s\n", __func__);
+}
+
+void test_display_push_char_basic() {
+    setup();
+    display_push_char(&display, 'A');
+    assert(display.DM[0] == 'A');
+    assert(display.DCP == 1);
+    assert(display.DRP == 0);
+    display_push_char(&display, 'B');
+    assert(display.DM[1] == 'B');
+    assert(display.DCP == 2);
+    printf("\t\tPASS: %s\n", __func__);
+}
+
+void test_display_push_char_col_wrap() {
+    setup();
+    // fill entire first row
+    for (int j = 0; j < DISP_NCOLS; j++)
+        display_push_char(&display, 'X');
+    // after last col, DCP should wrap and DRP should advance
+    assert(display.DCP == (display.DRP + 1) % DISP_NROWS);
+    // next row should be cleared
+    int next_row = (0 + 1) % DISP_NROWS;
+    for (int j = 0; j < DISP_NCOLS; j++)
+        assert(display.DM[next_row * DISP_NCOLS + j] == 0);
+    printf("\t\tPASS: %s\n", __func__);
+}
+
+void test_display_push_char_row_wrap() {
+    setup();
+    // fill all rows
+    for (int i = 0; i < DISP_NROWS * DISP_NCOLS; i++)
+        display_push_char(&display, 'Z');
+    // DRP and DCP should have wrapped around without crash
+    assert(display.DRP < DISP_NROWS);
+    assert(display.DCP < DISP_NCOLS);
+    printf("\t\tPASS: %s\n", __func__);
+}
+
+void test_display_fetch_set() {
+    setup();
+    cpu.R[REG_ID_DISP_CHAR] = 'H';
+    cpu.R[REG_ID_DISP_SET] = 1;
+    display_fetch(&cpu, &display);
+    assert(display.DM[0] == 'H');
+    assert(cpu.R[REG_ID_DISP_SET] == 0); // should be cleared
+    printf("\t\tPASS: %s\n", __func__);
+}
+
+void test_display_fetch_no_set() {
+    setup();
+    cpu.R[REG_ID_DISP_CHAR] = 'X';
+    cpu.R[REG_ID_DISP_SET] = 0;
+    display_fetch(&cpu, &display);
+    assert(display.DM[0] == 0); // nothing pushed
+    printf("\t\tPASS: %s\n", __func__);
+}
