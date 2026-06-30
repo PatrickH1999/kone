@@ -6,9 +6,9 @@
 
 #include "../src/cpu_functions.h"
 
-void test_cpu_init();
-void test_cpu_reset();
-void test_cpu_get_flag();
-void test_cpu_set_flag();
+void test_cpu_init(CPU *cpu);
+void test_cpu_reset(CPU *cpu);
+void test_cpu_get_flag(CPU *cpu);
+void test_cpu_set_flag(CPU *cpu);
 
 #endif
