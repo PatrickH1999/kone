@@ -1,3 +1,4 @@
+#define _DARWIN_C_SOURCE
 #include <sys/mman.h>
 #include <sys/wait.h>
 
