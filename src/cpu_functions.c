@@ -197,25 +197,22 @@ void cpu_print_count(CPU *cpu) {
 }
 
 void cpu_print_state(CPU *cpu) {
-    printf("\t\tR0: %d\n", cpu->R[0]);
-    printf("\t\tR1: %d\n", cpu->R[1]);
-    printf("\t\tR2: %d\n", cpu->R[2]);
-    printf("\t\tR3: %d\n", cpu->R[3]);
-    printf("\t\tR4: %d\n", cpu->R[4]);
-    printf("\t\tR5: %d\n\n", cpu->R[5]);
+    for (int reg_id = 0; reg_id < 22; reg_id++) {
+        printf("\t\tR%d: %d\n", reg_id, cpu->R[reg_id]);
+    }
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
-    printf("\t\tR6-R7 (stack pointer): %d\n", SP16);
-    printf("\t\tR8 (input left): %d\n", *(cpu->I));
-    printf("\t\tR9 (accumulator): %d\n", *(cpu->A));
-    printf("\t\tR10 (flags): ");
+    printf("\t\tR22-R23 (stack pointer): %d\n", SP16);
+    printf("\t\tR24 (input left): %d\n", *(cpu->I));
+    printf("\t\tR25 (accumulator): %d\n", *(cpu->A));
+    printf("\t\tR26 (flags): ");
     print_bin(*(cpu->F));
     printf("\n");
-    printf("\t\tR11-R13 (instruction register): %d %d %d\n", *(cpu->IR[0]),
+    printf("\t\tR27-R29 (instruction register): %d %d %d\n", *(cpu->IR[0]),
            *(cpu->IR[1]), *(cpu->IR[2]));
     uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, PC8);
-    printf("\t\tR14-15 (program counter): %d\n", PC16);
+    printf("\t\tR30-31 (program counter): %d\n", PC16);
 }
