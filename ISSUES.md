@@ -1,6 +1,8 @@
 # Issues
 
-- [ ] __Unit Tests:__ Write unit tests
+- [ ] __kasm Assembler:__ Reimplement in C
+
+- [x] __Unit Tests:__ Write unit tests
 
 - [ ] __Display Stack:__ Finalize implementation of stack for displaying characters
     
@@ -19,7 +21,7 @@
 
         - ``DRP`` increments by 1 after each line is written
 
-    - [ ] Implement a function that displays the current display stack to the screen
+    - [x] Implement a function that displays the current display stack to the screen
 
     - [x] Adjust memory layout
         
