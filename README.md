@@ -10,15 +10,15 @@ make
 ```
 The Applications for __kone__ are written in __kasm__ (for 'kone assembly'). The assembler, `kasm.py`, does only generate machine code for the __kone__ cpu architecture. For an example, run:
 ```bash
-./kasm.py examples/count.kasm -o examples/count.bin
+./kasm.py examples/count.kasm -o bin/count.bin
 ```
 This generates a __kone__ machine code binary (`count.bin`), which can be executed via the __kone__ virtual machine:
 ```bash
-./kone examples/count.bin
+./kone -b bin/count.bin
 ```
 The output should be:
 ```bash
-./kone examples/count.bin
+./kone -b bin/count.bin
 Output: 1
 Output: 2
 Output: 3

@@ -46,7 +46,4 @@ test: $(TEST_BINS)
 
 examples: $(EXAMPLE_TARGETS)
 
-cleanExamples:
-	rm -f bin/*.bin
-
 .PHONY: all clean
