@@ -1,4 +1,4 @@
-main:
+loop:
     
     LDI 80
     STR 19
@@ -34,3 +34,5 @@ main:
     STR 19
     LDI 1
     STR 18
+
+    JMP loop

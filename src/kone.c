@@ -1,5 +1,8 @@
 #define _DARWIN_C_SOURCE
+#define _BSD_SOURCE
+
 #include <sys/mman.h>
+#include <unistd.h>
 #include <sys/wait.h>
 
 #include "cpu_struct.h"
@@ -43,6 +46,7 @@ int main(int argc, char *argv[]) {
         while (1) {
             display_fetch(cpu, &display);
             display_print(&display);
+            usleep(1000);
         }
         printf("\033[?25h\033[?1049l"); // show cursor, switch to main screen
         exit(0);

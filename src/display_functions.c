@@ -13,7 +13,7 @@ void display_print(Display *display) {
         for (int j = 0; j < DISP_NCOLS; j++) {
             // i: relative to DRP
             // abs_i: relative to address 0 in display memory
-            uint8_t abs_i = (display->DRP + i) % DISP_NROWS;
+            uint8_t abs_i = (display->DRP + 1 + i) % DISP_NROWS;
             uint8_t char_ = display->DM[abs_i * DISP_NCOLS + j];
             if (DISP_ASCII_LO <= char_ && char_ <= DISP_ASCII_HI) {
                 printf("%c", char_);
@@ -31,7 +31,8 @@ void display_push_char(Display *display, char char_) {
     if (display->DCP < (DISP_NCOLS - 1)) {
         (display->DCP)++;
     } else {
-        (display->DCP) = (display->DRP + 1) % DISP_NROWS;
+        (display->DCP) = 0;
+        (display->DRP) = (display->DRP + 1) % DISP_NROWS;
         // clean up next row:
         for (int j = 0; j < DISP_NCOLS; j++) {
             DP16 = (display->DRP * DISP_NCOLS) + j;
