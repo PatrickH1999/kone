@@ -1,5 +1,36 @@
 main:
-    LDI 65
+    
+    LDI 80
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 97
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 116
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 114
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 105
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 99
+    STR 19
+    LDI 1
+    STR 18
+
+    LDI 107
     STR 19
     LDI 1
     STR 18

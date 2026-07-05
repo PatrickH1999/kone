@@ -34,13 +34,17 @@ int main(int argc, char *argv[]) {
 
     pid_t display_pid = fork();
     if (display_pid == 0) {
+        signal(SIGINT, display_cleanup);
         cpu_init(cpu);
         Display display;
         display_reset(&display);
+        printf(
+            "\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
         while (1) {
             display_fetch(cpu, &display);
             display_print(&display);
         }
+        printf("\033[?25h\033[?1049l"); // show cursor, switch to main screen
         exit(0);
     }
 

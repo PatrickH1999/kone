@@ -8,7 +8,6 @@ void display_reset(Display *display) {
 }
 
 void display_print(Display *display) {
-    printf("\033[?25l");                   // hide cursor
     printf("\033[3J\033[H\033[2J");        // clear screen
     for (int i = 0; i < DISP_NROWS; i++) { // i:
         for (int j = 0; j < DISP_NCOLS; j++) {
@@ -24,7 +23,6 @@ void display_print(Display *display) {
         }
         printf("\n");
     }
-    printf("\033[?25h"); // show cursor
 }
 
 void display_push_char(Display *display, char char_) {
@@ -48,4 +46,10 @@ void display_fetch(CPU *cpu, Display *display) {
         display_push_char(display, char_);
         cpu->R[REG_ID_DISP_SET] = 0;
     }
+}
+
+void display_cleanup(int sig) {
+    (void)sig;
+    printf("\033[?25h\033[?1049l");
+    exit(0);
 }
