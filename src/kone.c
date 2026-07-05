@@ -37,7 +37,10 @@ int main(int argc, char *argv[]) {
         cpu_init(cpu);
         Display display;
         display_reset(&display);
-        display_print(&display);
+        while (1) {
+            display_fetch(cpu, &display);
+            display_print(&display);
+        }
         exit(0);
     }
 

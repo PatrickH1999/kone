@@ -8,6 +8,8 @@ void display_reset(Display *display) {
 }
 
 void display_print(Display *display) {
+    printf("\033[?25l");                   // hide cursor
+    printf("\033[3J\033[H\033[2J");        // clear screen
     for (int i = 0; i < DISP_NROWS; i++) { // i:
         for (int j = 0; j < DISP_NCOLS; j++) {
             // i: relative to DRP
@@ -22,6 +24,7 @@ void display_print(Display *display) {
         }
         printf("\n");
     }
+    printf("\033[?25h"); // show cursor
 }
 
 void display_push_char(Display *display, char char_) {
