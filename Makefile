@@ -19,30 +19,30 @@ $(shell mkdir -p bin obj)
 
 all: $(TARGET) $(EXAMPLE_TARGETS)
 
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $@
-
-obj/%.o: src/%.c
-	$(CC) $(CFLAGS) -c $< -o $@
-
 clean:
 	rm -rf bin/ obj/
 
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
 
+test: $(TEST_BINS)
+	@for t in $(TEST_BINS); do \
+		./$$t && echo "$$t OK" || echo "$$t FAILED"; \
+	done
+
 check: format all
+
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) $(LDFLAGS) -o $@
+
+obj/%.o: src/%.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 bin/%.bin: examples/%.kasm
 	python tools/kasm.py -i $< -o $@
 
 bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CFLAGS) $< $(TEST_OBJS) -o $@
-
-test: $(TEST_BINS)
-	@for t in $(TEST_BINS); do \
-		./$$t && echo "$$t OK" || echo "$$t FAILED"; \
-	done
 
 examples: $(EXAMPLE_TARGETS)
 
