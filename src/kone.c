@@ -46,7 +46,7 @@ int main(int argc, char *argv[]) {
         while (1) {
             display_fetch(cpu, &display);
             display_print(&display);
-            usleep(1000);
+            usleep(100);
         }
         printf("\033[?25h\033[?1049l"); // show cursor, switch to main screen
         exit(0);
