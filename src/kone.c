@@ -3,14 +3,19 @@
 
 #define OUT_FRAMERATE 30
 
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <sys/mman.h>
-#include <unistd.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
-#include "cpu_struct.h"
+#include "args.h"
 #include "cpu_functions.h"
-#include "display_struct.h"
+#include "cpu_struct.h"
 #include "display_functions.h"
+#include "display_struct.h"
+#include "utility.h"
 
 int main(int argc, char *argv[]) {
     Args args;
@@ -21,9 +26,9 @@ int main(int argc, char *argv[]) {
     cpu_init(cpu);
     cpu_reset(cpu);
     cpu_boot_file(cpu, args.bootfile);
-    
+
     Display *display = mmap(NULL, sizeof(CPU), PROT_READ | PROT_WRITE,
-                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+                            MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     pid_t cpu_pid = fork();
     if (cpu_pid == 0) {
@@ -51,8 +56,9 @@ int main(int argc, char *argv[]) {
     pid_t out_pid = fork();
     if (out_pid == 0) {
         signal(SIGINT, out_cleanup);
-        printf("\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
-        while (1) { 
+        printf(
+            "\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
+        while (1) {
             print_out(cpu, display, args.v);
             usleep(1'000'000 / OUT_FRAMERATE);
         }

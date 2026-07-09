@@ -1,5 +1,12 @@
 #include "utility.h"
 
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "cpu_functions.h"
+#include "display_functions.h"
+
 void print_out(CPU *cpu, Display *display, int v) {
     printf("\033[3J\033[H\033[2J"); // clear screen
     display_print(display);

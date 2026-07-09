@@ -1,5 +1,11 @@
 #include "alu_functions.h"
 
+#include <stdint.h>
+#include <stdio.h>
+
+#include "cpu_functions.h"
+#include "utility.h"
+
 void alu_not(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = ~(*cpu->I);

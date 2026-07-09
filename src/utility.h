@@ -1,13 +1,10 @@
 #ifndef UTILITY_H
 #define UTILITY_H
 
-#include <errno.h>
-#include <signal.h>
+#include <stdint.h>
 
 #include "cpu_struct.h"
-#include "cpu_functions.h"
 #include "display_struct.h"
-#include "display_functions.h"
 
 void print_out(CPU *cpu, Display *display, int v);
 void out_cleanup(int sig);

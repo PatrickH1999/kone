@@ -1,5 +1,13 @@
 #include "cpu_functions.h"
 
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
+#include "alu_functions.h"
+#include "utility.h"
+
 void cpu_init(CPU *cpu) {
     // Stack pointer (SP):
     cpu->SP[0] = &cpu->R[22];

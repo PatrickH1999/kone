@@ -3,14 +3,8 @@
 
 #define FLAG_POS_CARRY 0
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-
 #include "args.h"
-#include "cpu_functions.h"
 #include "cpu_struct.h"
-#include "utility.h"
 
 // Operations with no argument:
 void alu_not(CPU *cpu, Args *args);

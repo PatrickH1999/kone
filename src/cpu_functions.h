@@ -34,15 +34,10 @@
 #define JA1 0b00101101
 #define CLL 0b00110000
 
-#include <assert.h>
-#include <stdio.h>
 #include <stdint.h>
-#include <string.h>
-#include <time.h>
 
-#include "alu_functions.h"
+#include "args.h"
 #include "cpu_struct.h"
-#include "utility.h"
 
 void cpu_init(CPU *cpu);
 void cpu_reset(CPU *cpu);
