@@ -1,35 +1,16 @@
 #include "utility.h"
 
-void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n",
-            basename(argv[0]));
-    exit(EXIT_FAILURE);
+void print_out(CPU *cpu, Display *display, int v) {
+    printf("\033[3J\033[H\033[2J"); // clear screen
+    display_print(display);
+    if (v > 0) cpu_print_count(cpu);
+    if (v > 2) cpu_print_state(cpu);
 }
 
-void parse_args(Args *args, int argc, char *argv[]) {
-    args->bootfile = NULL;
-    args->cycle_sleep = 1; // [ms]
-    args->v = 0;
-    int opt;
-    int found = 0;
-
-    while ((opt = getopt(argc, argv, "b:t:v")) != -1) {
-        switch (opt) {
-        case 'b':
-            args->bootfile = optarg;
-            found++;
-            break;
-        case 't':
-            args->cycle_sleep = strtoul(optarg, NULL, 10);
-            break;
-        case 'v':
-            args->v++;
-            break;
-        default:
-            print_usage(argv);
-        }
-    }
-    if (found < 1) print_usage(argv);
+void out_cleanup(int sig) {
+    (void)sig;
+    printf("\033[?25h\033[?1049l");
+    exit(0);
 }
 
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {

@@ -1,5 +1,7 @@
 #define _DARWIN_C_SOURCE
-#define _BSD_SOURCE
+#define _DEFAULT_SOURCE
+
+#define OUT_FRAMERATE 30
 
 #include <sys/mman.h>
 #include <unistd.h>
@@ -19,13 +21,14 @@ int main(int argc, char *argv[]) {
     cpu_init(cpu);
     cpu_reset(cpu);
     cpu_boot_file(cpu, args.bootfile);
+    
+    Display *display = mmap(NULL, sizeof(CPU), PROT_READ | PROT_WRITE,
+                    MAP_SHARED | MAP_ANONYMOUS, -1, 0);
 
     pid_t cpu_pid = fork();
     if (cpu_pid == 0) {
         cpu_init(cpu);
         uint16_t PC16 = 0;
-        if (args.v > 0) cpu_print_count(cpu);
-        if (args.v > 2) cpu_print_state(cpu);
         do {
             uint8_t PC8[2] = {*cpu->PC[0], *cpu->PC[1]};
             addr_convert_8_to_16(&PC16, PC8);
@@ -37,16 +40,21 @@ int main(int argc, char *argv[]) {
 
     pid_t display_pid = fork();
     if (display_pid == 0) {
-        signal(SIGINT, display_cleanup);
         cpu_init(cpu);
-        Display display;
-        display_reset(&display);
-        printf(
-            "\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
+        display_reset(display);
         while (1) {
-            display_fetch(cpu, &display);
-            display_print(&display);
-            usleep(100);
+            display_fetch(cpu, display);
+        }
+        exit(0);
+    }
+
+    pid_t out_pid = fork();
+    if (out_pid == 0) {
+        signal(SIGINT, out_cleanup);
+        printf("\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
+        while (1) { 
+            print_out(cpu, display, args.v);
+            usleep(1'000'000 / OUT_FRAMERATE);
         }
         printf("\033[?25h\033[?1049l"); // show cursor, switch to main screen
         exit(0);

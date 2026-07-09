@@ -2,20 +2,15 @@
 #define UTILITY_H
 
 #include <errno.h>
-#include <libgen.h>
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <signal.h>
 
-typedef struct {
-    const char *bootfile;     // bootfile
-    unsigned int cycle_sleep; // sleep time between clock cycles [ms]
-    int v;                    // verbosity
-} Args;
+#include "cpu_struct.h"
+#include "cpu_functions.h"
+#include "display_struct.h"
+#include "display_functions.h"
 
-void parse_args(Args *args, int argc, char *argv[]);
-void print_usage(char *argv[]);
+void print_out(CPU *cpu, Display *display, int v);
+void out_cleanup(int sig);
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]);
 void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16);
 int scanf_uint8(uint8_t *out);
