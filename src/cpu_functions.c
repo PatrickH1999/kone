@@ -75,9 +75,6 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
         PC16 = 0;
 
     addr_convert_16_to_8(*cpu->PC, PC16);
-
-    if (args->v > 0) cpu_print_count(cpu);
-    if (args->v > 2) cpu_print_state(cpu);
 }
 
 void cpu_fetch(CPU *cpu, Args *args) {

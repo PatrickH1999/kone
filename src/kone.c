@@ -1,7 +1,7 @@
 #define _DARWIN_C_SOURCE
 #define _DEFAULT_SOURCE
 
-#define OUT_FRAMERATE 30
+#define OUT_FRAMERATE 20
 
 #include <signal.h>
 #include <stdio.h>
