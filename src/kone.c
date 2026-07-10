@@ -25,7 +25,10 @@ int main(int argc, char *argv[]) {
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     cpu_init(cpu);
     cpu_reset(cpu);
-    cpu_boot_file(cpu, args.bootfile);
+    if (cpu_boot_file(cpu, args.bootfile) != 0) {
+        fprintf(stderr, "Error: could not open boot file: %s\n", args.bootfile);
+        exit(EXIT_FAILURE);
+    }
 
     Display *display = mmap(NULL, sizeof(CPU), PROT_READ | PROT_WRITE,
                             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
