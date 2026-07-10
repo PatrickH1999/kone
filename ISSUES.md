@@ -1,5 +1,7 @@
 # Issues
 
+- [ ] __file not found__: Add a file not found warning to load_bootfile(), otherwise it loads zeros if the file is not found, but without proper notice
+
 - [ ] __Verbosity__: Integrate printing of CPU state and display state into the same page -> First print display (if required), then print cpu state below 
 
 - [ ] __kasm Assembler:__ Reimplement in C
