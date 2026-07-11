@@ -202,8 +202,22 @@ void cpu_print_count(CPU *cpu) {
 }
 
 void cpu_print_state(CPU *cpu) {
-    for (int reg_id = 0; reg_id < 22; reg_id++) {
-        printf("\t\tR%d: %d\n", reg_id, cpu->R[reg_id]);
+    int n = 22; // number of general purpose registers
+    int regs_per_row = 3;
+    for (int reg_id = 0; reg_id < n; reg_id++) {
+        int mod = reg_id % regs_per_row;
+        const char *prefix, *suffix;
+        if (mod == 0) {
+            prefix = "\t\t";
+            suffix = "";
+        } else if (0 < mod && mod < (regs_per_row - 1)) {
+            prefix = "\t";
+            suffix = "";
+        } else if (mod == (regs_per_row - 1)) {
+            prefix = "\t";
+            suffix = "\n";
+        }
+        printf("%sR%2d: %3d%s", prefix, reg_id, cpu->R[reg_id], suffix);
     }
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;

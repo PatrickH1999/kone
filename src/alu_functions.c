@@ -9,31 +9,31 @@
 void alu_not(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = ~(*cpu->I);
-    if (args->v > 1) printf("\tExecuted:\tNOT\n");
+    // if (args->v > 1) printf("\tExecuted:\tNOT\n");
 }
 
 void alu_bsl(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I << 1;
-    if (args->v > 1) printf("\tExecuted:\tBSL\n");
+    // if (args->v > 1) printf("\tExecuted:\tBSL\n");
 }
 
 void alu_bsr(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I >> 1;
-    if (args->v > 1) printf("\tExecuted:\tBSR\n");
+    // if (args->v > 1) printf("\tExecuted:\tBSR\n");
 }
 
 void alu_brl(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = brl8(*cpu->I, 1);
-    if (args->v > 1) printf("\tExecuted:\tBRL\n");
+    // if (args->v > 1) printf("\tExecuted:\tBRL\n");
 }
 
 void alu_brr(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = brr8(*cpu->I, 1);
-    if (args->v > 1) printf("\tExecuted:\tBRR\n");
+    // if (args->v > 1) printf("\tExecuted:\tBRR\n");
 }
 
 void alu_psh(CPU *cpu, Args *args) {
@@ -45,7 +45,7 @@ void alu_psh(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tPSH\n");
+    // if (args->v > 1) printf("\tExecuted:\tPSH\n");
 }
 
 void alu_pop(CPU *cpu, Args *args) {
@@ -58,7 +58,7 @@ void alu_pop(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tPOP\n");
+    // if (args->v > 1) printf("\tExecuted:\tPOP\n");
 }
 
 void alu_ret(CPU *cpu, Args *args) {
@@ -74,40 +74,40 @@ void alu_ret(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tRET\n");
+    // if (args->v > 1) printf("\tExecuted:\tRET\n");
 }
 
 void alu_ldr(CPU *cpu, Args *args) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->A = cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tLDR %d\n", reg_id);
+    // if (args->v > 1) printf("\tExecuted:\tLDR %d\n", reg_id);
 }
 
 void alu_str(CPU *cpu, Args *args) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     cpu->R[reg_id] = *(cpu->A);
-    if (args->v > 1) printf("\tExecuted:\tSTR %d\n", reg_id);
+    // if (args->v > 1) printf("\tExecuted:\tSTR %d\n", reg_id);
 }
 
 void alu_orr(CPU *cpu, Args *args) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I | cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tORR\n");
+    // if (args->v > 1) printf("\tExecuted:\tORR\n");
 }
 
 void alu_and(CPU *cpu, Args *args) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I & cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tAND\n");
+    // if (args->v > 1) printf("\tExecuted:\tAND\n");
 }
 
 void alu_xor(CPU *cpu, Args *args) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I ^ cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tXOR\n");
+    // if (args->v > 1) printf("\tExecuted:\tXOR\n");
 }
 
 void alu_add(CPU *cpu, Args *args) {
@@ -115,13 +115,13 @@ void alu_add(CPU *cpu, Args *args) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I + cpu->R[reg_id];
     cpu_set_flag(cpu, FLAG_POS_CARRY, (*cpu->A < *cpu->I));
-    if (args->v > 1) printf("\tExecuted:\tADD\n");
+    // if (args->v > 1) printf("\tExecuted:\tADD\n");
 }
 
 void alu_ldi(CPU *cpu, Args *args) {
     uint8_t imm = *cpu->IR[1];
     *cpu->A = imm;
-    if (args->v > 1) printf("\tExecuted:\tLDI %d\n", imm);
+    // if (args->v > 1) printf("\tExecuted:\tLDI %d\n", imm);
 }
 
 void alu_ldm(CPU *cpu, Args *args) {
@@ -129,7 +129,7 @@ void alu_ldm(CPU *cpu, Args *args) {
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     *cpu->A = cpu->M[addr16];
-    if (args->v > 1) printf("\tExecuted:\tLDM %d\n", addr16);
+    // if (args->v > 1) printf("\tExecuted:\tLDM %d\n", addr16);
 }
 
 void alu_stm(CPU *cpu, Args *args) {
@@ -137,18 +137,18 @@ void alu_stm(CPU *cpu, Args *args) {
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     cpu->M[addr16] = *cpu->A;
-    if (args->v > 1) printf("\tExecuted:\tSTM %d\n", addr16);
+    // if (args->v > 1) printf("\tExecuted:\tSTM %d\n", addr16);
 }
 
 void alu_jmp(CPU *cpu, Args *args) {
     *(cpu->PC[0]) = *(cpu->IR[1]);
     *(cpu->PC[1]) = *(cpu->IR[2]);
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJMP %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tJMP %d\n", addr16);
+    // }
 }
 
 void alu_jc0(CPU *cpu, Args *args) {
@@ -156,12 +156,12 @@ void alu_jc0(CPU *cpu, Args *args) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJC0 %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tJC0 %d\n", addr16);
+    // }
 }
 
 void alu_jc1(CPU *cpu, Args *args) {
@@ -169,12 +169,12 @@ void alu_jc1(CPU *cpu, Args *args) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJC1 %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tJC1 %d\n", addr16);
+    // }
 }
 
 void alu_ja0(CPU *cpu, Args *args) {
@@ -182,12 +182,12 @@ void alu_ja0(CPU *cpu, Args *args) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJA0 %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tJA0 %d\n", addr16);
+    // }
 }
 
 void alu_ja1(CPU *cpu, Args *args) {
@@ -195,12 +195,12 @@ void alu_ja1(CPU *cpu, Args *args) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJA1 %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tJA1 %d\n", addr16);
+    // }
 }
 
 void alu_cll(CPU *cpu, Args *args) {
@@ -216,10 +216,10 @@ void alu_cll(CPU *cpu, Args *args) {
     *(cpu->SP[1]) = SP8[1];
     *(cpu->PC[0]) = *(cpu->IR[1]);
     *(cpu->PC[1]) = *(cpu->IR[2]);
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tCLL %d\n", addr16);
-    }
+    // if (args->v > 1) {
+    //     uint16_t addr16;
+    //     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    //     addr_convert_8_to_16(&addr16, addr8);
+    //     printf("\tExecuted:\tCLL %d\n", addr16);
+    // }
 }
