@@ -54,7 +54,8 @@ void test_display_push_char_col_wrap() {
     for (int j = 0; j < DISP_NCOLS; j++)
         display_push_char(&display, 'X');
     // after last col, DCP should wrap and DRP should advance
-    assert(display.DCP == (display.DRP + 1) % DISP_NROWS);
+    assert(display.DCP == 0);
+    assert(display.DRP == 1);
     // next row should be cleared
     int next_row = (0 + 1) % DISP_NROWS;
     for (int j = 0; j < DISP_NCOLS; j++)
