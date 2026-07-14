@@ -1,3 +1,4 @@
+#include <bits/time.h>
 #define _DARWIN_C_SOURCE
 #define _DEFAULT_SOURCE
 
@@ -8,6 +9,7 @@
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
+#include <time.h>
 #include <unistd.h>
 
 #include "args.h"
@@ -50,20 +52,20 @@ int main(int argc, char *argv[]) {
     if (display_pid == 0) {
         cpu_init(cpu);
         display_reset(display);
-        while (1) {
-            display_fetch(cpu, display);
-        }
-        exit(0);
-    }
 
-    pid_t out_pid = fork();
-    if (out_pid == 0) {
-        signal(SIGINT, out_cleanup);
         printf(
             "\033[?25l\033[?1049h"); // hide cursor, switch to alternate screen
         while (1) {
+            struct timespec t1, t2;
+            clock_gettime(CLOCK_MONOTONIC, &t1);
+            double elapsed = 0.0;
+            while (elapsed < (1.0 / OUT_FRAMERATE)) {
+                display_fetch(cpu, display);
+                clock_gettime(CLOCK_MONOTONIC, &t2);
+                elapsed =
+                    (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1e9;
+            }
             print_out(cpu, display, args.v);
-            usleep(1'000'000 / OUT_FRAMERATE);
         }
         printf("\033[?25h\033[?1049l"); // show cursor, switch to main screen
         exit(0);
