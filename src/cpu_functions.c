@@ -105,79 +105,81 @@ void cpu_decode_exec(CPU *cpu, Args *args) {
     int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
     if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
 
+    char *msg;
     switch (opcode) {
     case NOP:
         break;
     case NOT:
-        alu_not(cpu, args);
+        msg = alu_not(cpu);
         break;
     case BSL:
-        alu_bsl(cpu, args);
+        msg = alu_bsl(cpu);
         break;
     case BSR:
-        alu_bsr(cpu, args);
+        msg = alu_bsr(cpu);
         break;
     case BRL:
-        alu_brl(cpu, args);
+        msg = alu_brl(cpu);
         break;
     case BRR:
-        alu_brr(cpu, args);
+        msg = alu_brr(cpu);
         break;
     case RET:
-        alu_ret(cpu, args);
+        msg = alu_ret(cpu);
         break;
     case LDR:
-        alu_ldr(cpu, args);
+        msg = alu_ldr(cpu);
         break;
     case STR:
-        alu_str(cpu, args);
+        msg = alu_str(cpu);
         break;
     case PSH:
-        alu_psh(cpu, args);
+        msg = alu_psh(cpu);
         break;
     case POP:
-        alu_pop(cpu, args);
+        msg = alu_pop(cpu);
         break;
     case ORR:
-        alu_orr(cpu, args);
+        msg = alu_orr(cpu);
         break;
     case AND:
-        alu_and(cpu, args);
+        msg = alu_and(cpu);
         break;
     case XOR:
-        alu_xor(cpu, args);
+        msg = alu_xor(cpu);
         break;
     case ADD:
-        alu_add(cpu, args);
+        msg = alu_add(cpu);
         break;
     case LDI:
-        alu_ldi(cpu, args);
+        msg = alu_ldi(cpu);
         break;
     case LDM:
-        alu_ldm(cpu, args);
+        msg = alu_ldm(cpu);
         break;
     case STM:
-        alu_stm(cpu, args);
+        msg = alu_stm(cpu);
         break;
     case JMP:
-        alu_jmp(cpu, args);
+        msg = alu_jmp(cpu);
         break;
     case JC0:
-        alu_jc0(cpu, args);
+        msg = alu_jc0(cpu);
         break;
     case JC1:
-        alu_jc1(cpu, args);
+        msg = alu_jc1(cpu);
         break;
     case JA0:
-        alu_ja0(cpu, args);
+        msg = alu_ja0(cpu);
         break;
     case JA1:
-        alu_ja1(cpu, args);
+        msg = alu_ja1(cpu);
         break;
     case CLL:
-        alu_cll(cpu, args);
+        msg = alu_cll(cpu);
         break;
     }
+    if (args->v > 1) printf("\t%s\n", msg);
 }
 
 uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos) {

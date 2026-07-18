@@ -7,36 +7,36 @@
 #include "cpu_struct.h"
 
 // Operations with no argument:
-void alu_not(CPU *cpu, Args *args);
-void alu_bsl(CPU *cpu, Args *args);
-void alu_bsr(CPU *cpu, Args *args);
-void alu_brl(CPU *cpu, Args *args);
-void alu_brr(CPU *cpu, Args *args);
-void alu_psh(CPU *cpu, Args *args);
-void alu_pop(CPU *cpu, Args *args);
-void alu_ret(CPU *cpu, Args *args);
-void alu_dsh(CPU *cpu, Args *args);
-void alu_dop(CPU *cpu, Args *args);
+char *alu_not(CPU *cpu);
+char *alu_bsl(CPU *cpu);
+char *alu_bsr(CPU *cpu);
+char *alu_brl(CPU *cpu);
+char *alu_brr(CPU *cpu);
+char *alu_psh(CPU *cpu);
+char *alu_pop(CPU *cpu);
+char *alu_ret(CPU *cpu);
+char *alu_dsh(CPU *cpu);
+char *alu_dop(CPU *cpu);
 
 // Operations with 'register' argument:
-void alu_ldr(CPU *cpu, Args *args);
-void alu_str(CPU *cpu, Args *args);
-void alu_orr(CPU *cpu, Args *args);
-void alu_and(CPU *cpu, Args *args);
-void alu_xor(CPU *cpu, Args *args);
-void alu_add(CPU *cpu, Args *args);
+char *alu_ldr(CPU *cpu);
+char *alu_str(CPU *cpu);
+char *alu_orr(CPU *cpu);
+char *alu_and(CPU *cpu);
+char *alu_xor(CPU *cpu);
+char *alu_add(CPU *cpu);
 
 // Operations with 'immediate' argument:
-void alu_ldi(CPU *cpu, Args *args);
+char *alu_ldi(CPU *cpu);
 
 // Operations with 'memory' argument:
-void alu_ldm(CPU *cpu, Args *args);
-void alu_stm(CPU *cpu, Args *args);
-void alu_jmp(CPU *cpu, Args *args);
-void alu_jc0(CPU *cpu, Args *args);
-void alu_jc1(CPU *cpu, Args *args);
-void alu_ja0(CPU *cpu, Args *args);
-void alu_ja1(CPU *cpu, Args *args);
-void alu_cll(CPU *cpu, Args *args);
+char *alu_ldm(CPU *cpu);
+char *alu_stm(CPU *cpu);
+char *alu_jmp(CPU *cpu);
+char *alu_jc0(CPU *cpu);
+char *alu_jc1(CPU *cpu);
+char *alu_ja0(CPU *cpu);
+char *alu_ja1(CPU *cpu);
+char *alu_cll(CPU *cpu);
 
 #endif

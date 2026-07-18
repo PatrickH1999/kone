@@ -1,7 +1,7 @@
 CC := gcc
 
 # Preprocessor definitions (-D, -I) are kept separate from CFLAGS by convention.
-CPPFLAGS := -D_POSIX_C_SOURCE=200809L
+CPPFLAGS := -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE
 
 # Compiler flags. These warning flags are intentionally strict -- do not relax them.
 CFLAGS := -std=c2x -Wall -Wextra -Wpedantic -Wunused-function -O2
