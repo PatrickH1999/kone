@@ -3,40 +3,41 @@
 
 #define FLAG_POS_CARRY 0
 
-#include "args.h"
+#include <stddef.h>
+
 #include "cpu_struct.h"
 
 // Operations with no argument:
-char *alu_not(CPU *cpu);
-char *alu_bsl(CPU *cpu);
-char *alu_bsr(CPU *cpu);
-char *alu_brl(CPU *cpu);
-char *alu_brr(CPU *cpu);
-char *alu_psh(CPU *cpu);
-char *alu_pop(CPU *cpu);
-char *alu_ret(CPU *cpu);
-char *alu_dsh(CPU *cpu);
-char *alu_dop(CPU *cpu);
+void alu_not(CPU *cpu, char *msg, size_t msg_size);
+void alu_bsl(CPU *cpu, char *msg, size_t msg_size);
+void alu_bsr(CPU *cpu, char *msg, size_t msg_size);
+void alu_brl(CPU *cpu, char *msg, size_t msg_size);
+void alu_brr(CPU *cpu, char *msg, size_t msg_size);
+void alu_psh(CPU *cpu, char *msg, size_t msg_size);
+void alu_pop(CPU *cpu, char *msg, size_t msg_size);
+void alu_ret(CPU *cpu, char *msg, size_t msg_size);
+void alu_dsh(CPU *cpu, char *msg, size_t msg_size);
+void alu_dop(CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'register' argument:
-char *alu_ldr(CPU *cpu);
-char *alu_str(CPU *cpu);
-char *alu_orr(CPU *cpu);
-char *alu_and(CPU *cpu);
-char *alu_xor(CPU *cpu);
-char *alu_add(CPU *cpu);
+void alu_ldr(CPU *cpu, char *msg, size_t msg_size);
+void alu_str(CPU *cpu, char *msg, size_t msg_size);
+void alu_orr(CPU *cpu, char *msg, size_t msg_size);
+void alu_and(CPU *cpu, char *msg, size_t msg_size);
+void alu_xor(CPU *cpu, char *msg, size_t msg_size);
+void alu_add(CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'immediate' argument:
-char *alu_ldi(CPU *cpu);
+void alu_ldi(CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'memory' argument:
-char *alu_ldm(CPU *cpu);
-char *alu_stm(CPU *cpu);
-char *alu_jmp(CPU *cpu);
-char *alu_jc0(CPU *cpu);
-char *alu_jc1(CPU *cpu);
-char *alu_ja0(CPU *cpu);
-char *alu_ja1(CPU *cpu);
-char *alu_cll(CPU *cpu);
+void alu_ldm(CPU *cpu, char *msg, size_t msg_size);
+void alu_stm(CPU *cpu, char *msg, size_t msg_size);
+void alu_jmp(CPU *cpu, char *msg, size_t msg_size);
+void alu_jc0(CPU *cpu, char *msg, size_t msg_size);
+void alu_jc1(CPU *cpu, char *msg, size_t msg_size);
+void alu_ja0(CPU *cpu, char *msg, size_t msg_size);
+void alu_ja1(CPU *cpu, char *msg, size_t msg_size);
+void alu_cll(CPU *cpu, char *msg, size_t msg_size);
 
 #endif

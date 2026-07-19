@@ -62,7 +62,7 @@ test: $(TEST_BINS)
 bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
 
-install: $(TARGET)
+install: $(TARGET) examples
 	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/kone
 
 clean:

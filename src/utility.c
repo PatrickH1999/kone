@@ -7,10 +7,11 @@
 #include "cpu_functions.h"
 #include "display_functions.h"
 
-void print_out(CPU *cpu, Display *display, int v) {
+void print_out(CPU *cpu, char *cpu_msg, Display *display, int v) {
     printf("\033[3J\033[H\033[2J"); // clear screen
     display_print(display);
     if (v > 0) cpu_print_count(cpu);
+    if (v > 1) printf("\tExecuted: %s\n", cpu_msg);
     if (v > 2) cpu_print_state(cpu);
 }
 

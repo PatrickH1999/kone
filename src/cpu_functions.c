@@ -100,86 +100,90 @@ void cpu_fetch(CPU *cpu, Args *args) {
     }
 }
 
-void cpu_decode_exec(CPU *cpu, Args *args) {
+void cpu_decode_exec(CPU *cpu, Args *args, char *msg, size_t msg_size) {
+    (void)args;
     uint8_t opcode = *cpu->IR[0];
     int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
     if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
 
-    char *msg;
+    msg[0] = '\0';
     switch (opcode) {
     case NOP:
         break;
     case NOT:
-        msg = alu_not(cpu);
+        alu_not(cpu, msg, msg_size);
         break;
     case BSL:
-        msg = alu_bsl(cpu);
+        alu_bsl(cpu, msg, msg_size);
         break;
     case BSR:
-        msg = alu_bsr(cpu);
+        alu_bsr(cpu, msg, msg_size);
         break;
     case BRL:
-        msg = alu_brl(cpu);
+        alu_brl(cpu, msg, msg_size);
         break;
     case BRR:
-        msg = alu_brr(cpu);
+        alu_brr(cpu, msg, msg_size);
         break;
     case RET:
-        msg = alu_ret(cpu);
+        alu_ret(cpu, msg, msg_size);
         break;
     case LDR:
-        msg = alu_ldr(cpu);
+        alu_ldr(cpu, msg, msg_size);
         break;
     case STR:
-        msg = alu_str(cpu);
+        alu_str(cpu, msg, msg_size);
         break;
     case PSH:
-        msg = alu_psh(cpu);
+        alu_psh(cpu, msg, msg_size);
         break;
     case POP:
-        msg = alu_pop(cpu);
+        alu_pop(cpu, msg, msg_size);
         break;
     case ORR:
-        msg = alu_orr(cpu);
+        alu_orr(cpu, msg, msg_size);
         break;
     case AND:
-        msg = alu_and(cpu);
+        alu_and(cpu, msg, msg_size);
         break;
     case XOR:
-        msg = alu_xor(cpu);
+        alu_xor(cpu, msg, msg_size);
         break;
     case ADD:
-        msg = alu_add(cpu);
+        alu_add(cpu, msg, msg_size);
         break;
     case LDI:
-        msg = alu_ldi(cpu);
+        alu_ldi(cpu, msg, msg_size);
         break;
     case LDM:
-        msg = alu_ldm(cpu);
+        alu_ldm(cpu, msg, msg_size);
         break;
     case STM:
-        msg = alu_stm(cpu);
+        alu_stm(cpu, msg, msg_size);
         break;
     case JMP:
-        msg = alu_jmp(cpu);
+        alu_jmp(cpu, msg, msg_size);
         break;
     case JC0:
-        msg = alu_jc0(cpu);
+        alu_jc0(cpu, msg, msg_size);
         break;
     case JC1:
-        msg = alu_jc1(cpu);
+        alu_jc1(cpu, msg, msg_size);
         break;
     case JA0:
-        msg = alu_ja0(cpu);
+        alu_ja0(cpu, msg, msg_size);
         break;
     case JA1:
-        msg = alu_ja1(cpu);
+        alu_ja1(cpu, msg, msg_size);
         break;
     case CLL:
-        msg = alu_cll(cpu);
+        alu_cll(cpu, msg, msg_size);
+        break;
+    default:
+        fprintf(stderr, "Error: invalid opcode %u\n", opcode);
+        exit(EXIT_FAILURE);
         break;
     }
-    if (args->v > 1) printf("\t%s\n", msg);
 }
 
 uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos) {

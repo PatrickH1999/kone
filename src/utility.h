@@ -6,7 +6,7 @@
 #include "cpu_struct.h"
 #include "display_struct.h"
 
-void print_out(CPU *cpu, Display *display, int v);
+void print_out(CPU *cpu, char *cpu_msg, Display *display, int v);
 void out_cleanup(int sig);
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]);
 void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16);

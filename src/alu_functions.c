@@ -6,37 +6,37 @@
 #include "cpu_functions.h"
 #include "utility.h"
 
-char *alu_not(CPU *cpu) {
+void alu_not(CPU *cpu, char *msg, size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = ~(*cpu->I);
-    return "NOT";
+    snprintf(msg, msg_size, "NOT");
 }
 
-char *alu_bsl(CPU *cpu) {
+void alu_bsl(CPU *cpu, char *msg, size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I << 1;
-    return "BSL";
+    snprintf(msg, msg_size, "BSL");
 }
 
-char *alu_bsr(CPU *cpu) {
+void alu_bsr(CPU *cpu, char *msg, size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I >> 1;
-    return "BSR";
+    snprintf(msg, msg_size, "BSR");
 }
 
-char *alu_brl(CPU *cpu) {
+void alu_brl(CPU *cpu, char *msg, size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = brl8(*cpu->I, 1);
-    return "BRL";
+    snprintf(msg, msg_size, "BRL");
 }
 
-char *alu_brr(CPU *cpu) {
+void alu_brr(CPU *cpu, char *msg, size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = brr8(*cpu->I, 1);
-    return "BRR";
+    snprintf(msg, msg_size, "BRR");
 }
 
-char *alu_psh(CPU *cpu) {
+void alu_psh(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -45,10 +45,10 @@ char *alu_psh(CPU *cpu) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    return "PSH";
+    snprintf(msg, msg_size, "PSH");
 }
 
-char *alu_pop(CPU *cpu) {
+void alu_pop(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -58,10 +58,10 @@ char *alu_pop(CPU *cpu) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    return "POP";
+    snprintf(msg, msg_size, "POP");
 }
 
-char *alu_ret(CPU *cpu) {
+void alu_ret(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -74,102 +74,82 @@ char *alu_ret(CPU *cpu) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    return "RET";
+    snprintf(msg, msg_size, "RET");
 }
 
-char *alu_ldr(CPU *cpu) {
+void alu_ldr(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->A = cpu->R[reg_id];
-    char *msg;
-    asprintf(&msg, "LDR %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "LDR %d", reg_id);
 }
 
-char *alu_str(CPU *cpu) {
+void alu_str(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     cpu->R[reg_id] = *(cpu->A);
-    char *msg;
-    asprintf(&msg, "STR %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "STR %d", reg_id);
 }
 
-char *alu_orr(CPU *cpu) {
+void alu_orr(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I | cpu->R[reg_id];
-    char *msg;
-    asprintf(&msg, "ORR %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "ORR %d", reg_id);
 }
 
-char *alu_and(CPU *cpu) {
+void alu_and(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I & cpu->R[reg_id];
-    char *msg;
-    asprintf(&msg, "AND %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "AND %d", reg_id);
 }
 
-char *alu_xor(CPU *cpu) {
+void alu_xor(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I ^ cpu->R[reg_id];
-    char *msg;
-    asprintf(&msg, "XOR %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "XOR %d", reg_id);
 }
 
-char *alu_add(CPU *cpu) {
+void alu_add(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I + cpu->R[reg_id];
     cpu_set_flag(cpu, FLAG_POS_CARRY, (*cpu->A < *cpu->I));
-    char *msg;
-    asprintf(&msg, "ADD %d", reg_id);
-    return msg;
+    snprintf(msg, msg_size, "ADD %d", reg_id);
 }
 
-char *alu_ldi(CPU *cpu) {
+void alu_ldi(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t imm = *cpu->IR[1];
     *cpu->A = imm;
-    char *msg;
-    asprintf(&msg, "LDI %d", imm);
-    return msg;
+    snprintf(msg, msg_size, "LDI %d", imm);
 }
 
-char *alu_ldm(CPU *cpu) {
+void alu_ldm(CPU *cpu, char *msg, size_t msg_size) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     *cpu->A = cpu->M[addr16];
-    char *msg;
-    asprintf(&msg, "LDM %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "LDM %d", addr16);
 }
 
-char *alu_stm(CPU *cpu) {
+void alu_stm(CPU *cpu, char *msg, size_t msg_size) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     cpu->M[addr16] = *cpu->A;
-    char *msg;
-    asprintf(&msg, "STM %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "STM %d", addr16);
 }
 
-char *alu_jmp(CPU *cpu) {
+void alu_jmp(CPU *cpu, char *msg, size_t msg_size) {
     *(cpu->PC[0]) = *(cpu->IR[1]);
     *(cpu->PC[1]) = *(cpu->IR[2]);
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "JMP %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "JMP %d", addr16);
 }
 
-char *alu_jc0(CPU *cpu) {
+void alu_jc0(CPU *cpu, char *msg, size_t msg_size) {
     if (!cpu_get_flag(cpu, FLAG_POS_CARRY)) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
@@ -177,12 +157,10 @@ char *alu_jc0(CPU *cpu) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "JC0 %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "JC0 %d", addr16);
 }
 
-char *alu_jc1(CPU *cpu) {
+void alu_jc1(CPU *cpu, char *msg, size_t msg_size) {
     if (cpu_get_flag(cpu, FLAG_POS_CARRY)) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
@@ -190,12 +168,10 @@ char *alu_jc1(CPU *cpu) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "JC1 %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "JC1 %d", addr16);
 }
 
-char *alu_ja0(CPU *cpu) {
+void alu_ja0(CPU *cpu, char *msg, size_t msg_size) {
     if (*cpu->A == 0) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
@@ -203,12 +179,10 @@ char *alu_ja0(CPU *cpu) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "JA0 %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "JA0 %d", addr16);
 }
 
-char *alu_ja1(CPU *cpu) {
+void alu_ja1(CPU *cpu, char *msg, size_t msg_size) {
     if (*cpu->A != 0) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
@@ -216,12 +190,10 @@ char *alu_ja1(CPU *cpu) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "JA1 %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "JA1 %d", addr16);
 }
 
-char *alu_cll(CPU *cpu) {
+void alu_cll(CPU *cpu, char *msg, size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -237,7 +209,5 @@ char *alu_cll(CPU *cpu) {
     uint16_t addr16;
     uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
-    char *msg;
-    asprintf(&msg, "CLL %d", addr16);
-    return msg;
+    snprintf(msg, msg_size, "CLL %d", addr16);
 }

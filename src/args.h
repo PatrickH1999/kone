@@ -11,6 +11,8 @@ typedef struct {
     const char *bootfile;     // bootfile
     unsigned int cycle_sleep; // sleep time between clock cycles [ms]
     int v;                    // verbosity
+    int log;                  // If =1: logs are written continuously at every
+                              // clock cycle
 } Args;
 
 void parse_args(Args *args, int argc, char *argv[]);

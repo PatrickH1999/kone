@@ -34,6 +34,9 @@
 #define JA1 0b00101101
 #define CLL 0b00110000
 
+#define CPU_MSG_SIZE 256
+
+#include <stddef.h>
 #include <stdint.h>
 
 #include "args.h"
@@ -44,7 +47,7 @@ void cpu_reset(CPU *cpu);
 int cpu_boot_file(CPU *cpu, const char *path);
 void cpu_pc_increment(CPU *cpu, Args *args);
 void cpu_fetch(CPU *cpu, Args *args);
-void cpu_decode_exec(CPU *cpu, Args *args);
+void cpu_decode_exec(CPU *cpu, Args *args, char *msg, size_t msg_size);
 uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos);
 void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value);
 void cpu_print_count(CPU *cpu);
