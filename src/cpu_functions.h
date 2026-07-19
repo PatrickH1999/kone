@@ -45,13 +45,13 @@
 void cpu_init(CPU *cpu);
 void cpu_reset(CPU *cpu);
 int cpu_boot_file(CPU *cpu, const char *path);
-void cpu_pc_increment(CPU *cpu, Args *args);
-void cpu_fetch(CPU *cpu, Args *args);
-void cpu_decode_exec(CPU *cpu, Args *args, char *msg, size_t msg_size);
-uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos);
-void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value);
-void cpu_print_count(CPU *cpu);
-void cpu_print_state(CPU *cpu);
-void cpu_print_d(CPU *cpu);
+void cpu_pc_increment(CPU *cpu, const Args *args);
+void cpu_fetch(CPU *cpu, const Args *args);
+void cpu_decode_exec(CPU *cpu, char *msg, size_t msg_size, const Args *args);
+uint8_t cpu_get_flag(const CPU *cpu, uint8_t flag_pos);
+void cpu_set_flag(const CPU *cpu, uint8_t flag_pos, uint8_t value);
+void cpu_print_count(const CPU *cpu);
+void cpu_print_state(const CPU *cpu);
+void cpu_print_d(const CPU *cpu);
 
 #endif

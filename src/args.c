@@ -6,7 +6,7 @@ void print_usage(char *argv[]) {
     exit(EXIT_FAILURE);
 }
 
-void parse_args(Args *args, int argc, char *argv[]) {
+void parse_args(Args *args, const int argc, char *argv[]) {
     args->bootfile = NULL;
     args->cycle_sleep = 1; // [ms]
     args->v = 0;

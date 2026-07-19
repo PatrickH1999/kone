@@ -9,7 +9,7 @@
 #include "display_struct.h"
 
 void display_reset(Display *display);
-void display_print(Display *display);
+void display_print(const Display *display);
 void display_push_char(Display *display, char char_);
 void display_fetch(CPU *cpu, Display *display);
 void display_cleanup(int sig);

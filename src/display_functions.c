@@ -7,11 +7,11 @@ void display_reset(Display *display) {
     display->DCP = 0;
 }
 
-void display_print(Display *display) {
+void display_print(const Display *display) {
     for (int i = 0; i < DISP_NROWS; i++) { // i:
         for (int j = 0; j < DISP_NCOLS; j++) {
             // i: relative to DRP
-            uint8_t char_ = display->DM[i * DISP_NCOLS + j];
+            const uint8_t char_ = display->DM[i * DISP_NCOLS + j];
             if (DISP_ASCII_LO <= char_ && char_ <= DISP_ASCII_HI) {
                 printf("%c", char_);
             } else {
@@ -22,7 +22,7 @@ void display_print(Display *display) {
     }
 }
 
-void display_push_char(Display *display, char char_) {
+void display_push_char(Display *display, const char char_) {
     uint16_t DP16 = (display->DRP * DISP_NCOLS) + display->DCP;
     display->DM[DP16] = char_;
     if (display->DCP < (DISP_NCOLS - 1)) {
@@ -46,7 +46,7 @@ void display_push_char(Display *display, char char_) {
 
 void display_fetch(CPU *cpu, Display *display) {
     if (cpu->R[REG_ID_DISP_SET] != 0) {
-        char char_ = cpu->R[REG_ID_DISP_CHAR];
+        const char char_ = cpu->R[REG_ID_DISP_CHAR];
         display_push_char(display, char_);
         cpu->R[REG_ID_DISP_SET] = 0;
     }
