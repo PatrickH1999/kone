@@ -3,7 +3,6 @@
 
 #define OUT_FRAMERATE 20
 
-#include <bits/time.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
