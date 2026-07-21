@@ -8,7 +8,7 @@
 // bits from the architecture spec never need to be re-derived at encode time.
 typedef enum {
     ARG_NONE, // no operand                          -> 1 byte  total
-    ARG_REG,  // 4-bit register operand              -> 2 bytes total
+    ARG_REG,  // 5-bit register operand              -> 2 bytes total
     ARG_IMM,  // 8-bit immediate operand             -> 2 bytes total
     ARG_MEM,  // 16-bit memory/address operand (LE)  -> 3 bytes total
 } ArgKind;

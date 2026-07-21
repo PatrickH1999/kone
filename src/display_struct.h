@@ -12,9 +12,8 @@
 
 typedef struct {
     uint8_t DM[DISP_NROWS * DISP_NCOLS]; // display memory
-
-    uint8_t DRP; // display row pointer
-    uint8_t DCP; // display column pointer
+    uint8_t DRP;                         // display row pointer
+    uint8_t DCP;                         // display column pointer
 } Display;
 
 #endif

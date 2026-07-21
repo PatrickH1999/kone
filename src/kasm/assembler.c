@@ -190,21 +190,24 @@ static void handle_include(const char *including_file, int lineno,
 }
 
 static void load_source(const char *path, LineList *out, IncludeStack *stack) {
+    FILE *f = fopen(path, "r");
+    if (!f) die("cannot open '%s': %s", path, strerror(errno));
+
+    // realpath() is only needed to canonicalize the path for circular-include
+    // detection below; some filesystems (e.g. FUSE mounts) fail it even
+    // though the file above opened just fine, so fall back to the raw path
+    // rather than treating that as fatal.
     char canon[PATH_MAX];
-    if (!realpath(path, canon))
-        die("cannot open '%s': %s", path, strerror(errno));
+    const char *canon_path = realpath(path, canon) ? canon : path;
 
     for (int i = 0; i < stack->depth; i++)
-        if (strcmp(stack->paths[i], canon) == 0)
+        if (strcmp(stack->paths[i], canon_path) == 0)
             die("circular include detected: '%s'", path);
 
     if (stack->depth >= MAX_INCLUDE_DEPTH)
         die("include nesting too deep (limit %d)", MAX_INCLUDE_DEPTH);
 
-    FILE *f = fopen(path, "r");
-    if (!f) die("cannot open '%s': %s", path, strerror(errno));
-
-    stack->paths[stack->depth++] = xstrdup(canon);
+    stack->paths[stack->depth++] = xstrdup(canon_path);
 
     char *raw = NULL;
     size_t cap = 0;

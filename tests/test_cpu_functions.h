@@ -5,6 +5,7 @@
 #include <stdio.h>
 
 #include "../src/cpu_functions.h"
+#include "../src/utility.h"
 
 void test_cpu_init(CPU *cpu);
 void test_cpu_reset(CPU *cpu);

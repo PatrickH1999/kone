@@ -3,45 +3,41 @@
 
 #define FLAG_POS_CARRY 0
 
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
+#include <stddef.h>
 
-#include "cpu_functions.h"
 #include "cpu_struct.h"
-#include "utility.h"
 
 // Operations with no argument:
-void alu_not(CPU *cpu, Args *args);
-void alu_bsl(CPU *cpu, Args *args);
-void alu_bsr(CPU *cpu, Args *args);
-void alu_brl(CPU *cpu, Args *args);
-void alu_brr(CPU *cpu, Args *args);
-void alu_psh(CPU *cpu, Args *args);
-void alu_pop(CPU *cpu, Args *args);
-void alu_ret(CPU *cpu, Args *args);
-void alu_dsh(CPU *cpu, Args *args);
-void alu_dop(CPU *cpu, Args *args);
+void alu_not(const CPU *cpu, char *msg, size_t msg_size);
+void alu_bsl(const CPU *cpu, char *msg, size_t msg_size);
+void alu_bsr(const CPU *cpu, char *msg, size_t msg_size);
+void alu_brl(const CPU *cpu, char *msg, size_t msg_size);
+void alu_brr(const CPU *cpu, char *msg, size_t msg_size);
+void alu_psh(CPU *cpu, char *msg, size_t msg_size);
+void alu_pop(CPU *cpu, char *msg, size_t msg_size);
+void alu_ret(CPU *cpu, char *msg, size_t msg_size);
+void alu_dsh(CPU *cpu, char *msg, size_t msg_size);
+void alu_dop(CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'register' argument:
-void alu_ldr(CPU *cpu, Args *args);
-void alu_str(CPU *cpu, Args *args);
-void alu_orr(CPU *cpu, Args *args);
-void alu_and(CPU *cpu, Args *args);
-void alu_xor(CPU *cpu, Args *args);
-void alu_add(CPU *cpu, Args *args);
+void alu_ldr(const CPU *cpu, char *msg, size_t msg_size);
+void alu_str(CPU *cpu, char *msg, size_t msg_size);
+void alu_orr(const CPU *cpu, char *msg, size_t msg_size);
+void alu_and(const CPU *cpu, char *msg, size_t msg_size);
+void alu_xor(const CPU *cpu, char *msg, size_t msg_size);
+void alu_add(const CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'immediate' argument:
-void alu_ldi(CPU *cpu, Args *args);
+void alu_ldi(const CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'memory' argument:
-void alu_ldm(CPU *cpu, Args *args);
-void alu_stm(CPU *cpu, Args *args);
-void alu_jmp(CPU *cpu, Args *args);
-void alu_jc0(CPU *cpu, Args *args);
-void alu_jc1(CPU *cpu, Args *args);
-void alu_ja0(CPU *cpu, Args *args);
-void alu_ja1(CPU *cpu, Args *args);
-void alu_cll(CPU *cpu, Args *args);
+void alu_ldm(const CPU *cpu, char *msg, size_t msg_size);
+void alu_stm(CPU *cpu, char *msg, size_t msg_size);
+void alu_jmp(const CPU *cpu, char *msg, size_t msg_size);
+void alu_jc0(const CPU *cpu, char *msg, size_t msg_size);
+void alu_jc1(const CPU *cpu, char *msg, size_t msg_size);
+void alu_ja0(const CPU *cpu, char *msg, size_t msg_size);
+void alu_ja1(const CPU *cpu, char *msg, size_t msg_size);
+void alu_cll(CPU *cpu, char *msg, size_t msg_size);
 
 #endif

@@ -1,36 +1,42 @@
 #include "alu_functions.h"
 
-void alu_not(CPU *cpu, Args *args) {
+#include <stdint.h>
+#include <stdio.h>
+
+#include "cpu_functions.h"
+#include "utility.h"
+
+void alu_not(const CPU *cpu, char *msg, const size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = ~(*cpu->I);
-    if (args->v > 1) printf("\tExecuted:\tNOT\n");
+    snprintf(msg, msg_size, "NOT");
 }
 
-void alu_bsl(CPU *cpu, Args *args) {
+void alu_bsl(const CPU *cpu, char *msg, const size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I << 1;
-    if (args->v > 1) printf("\tExecuted:\tBSL\n");
+    snprintf(msg, msg_size, "BSL");
 }
 
-void alu_bsr(CPU *cpu, Args *args) {
+void alu_bsr(const CPU *cpu, char *msg, const size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I >> 1;
-    if (args->v > 1) printf("\tExecuted:\tBSR\n");
+    snprintf(msg, msg_size, "BSR");
 }
 
-void alu_brl(CPU *cpu, Args *args) {
+void alu_brl(const CPU *cpu, char *msg, const size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = brl8(*cpu->I, 1);
-    if (args->v > 1) printf("\tExecuted:\tBRL\n");
+    snprintf(msg, msg_size, "BRL");
 }
 
-void alu_brr(CPU *cpu, Args *args) {
+void alu_brr(const CPU *cpu, char *msg, const size_t msg_size) {
     *cpu->I = *cpu->A;
     *cpu->A = brr8(*cpu->I, 1);
-    if (args->v > 1) printf("\tExecuted:\tBRR\n");
+    snprintf(msg, msg_size, "BRR");
 }
 
-void alu_psh(CPU *cpu, Args *args) {
+void alu_psh(CPU *cpu, char *msg, const size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -39,10 +45,10 @@ void alu_psh(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tPSH\n");
+    snprintf(msg, msg_size, "PSH");
 }
 
-void alu_pop(CPU *cpu, Args *args) {
+void alu_pop(CPU *cpu, char *msg, const size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -52,10 +58,10 @@ void alu_pop(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tPOP\n");
+    snprintf(msg, msg_size, "POP");
 }
 
-void alu_ret(CPU *cpu, Args *args) {
+void alu_ret(CPU *cpu, char *msg, const size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -68,136 +74,126 @@ void alu_ret(CPU *cpu, Args *args) {
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
-    if (args->v > 1) printf("\tExecuted:\tRET\n");
+    snprintf(msg, msg_size, "RET");
 }
 
-void alu_ldr(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_ldr(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->A = cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tLDR %d\n", reg_id);
+    snprintf(msg, msg_size, "LDR %d", reg_id);
 }
 
-void alu_str(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_str(CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     cpu->R[reg_id] = *(cpu->A);
-    if (args->v > 1) printf("\tExecuted:\tSTR %d\n", reg_id);
+    snprintf(msg, msg_size, "STR %d", reg_id);
 }
 
-void alu_orr(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_orr(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I | cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tORR\n");
+    snprintf(msg, msg_size, "ORR %d", reg_id);
 }
 
-void alu_and(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_and(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I & cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tAND\n");
+    snprintf(msg, msg_size, "AND %d", reg_id);
 }
 
-void alu_xor(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_xor(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I ^ cpu->R[reg_id];
-    if (args->v > 1) printf("\tExecuted:\tXOR\n");
+    snprintf(msg, msg_size, "XOR %d", reg_id);
 }
 
-void alu_add(CPU *cpu, Args *args) {
-    uint8_t reg_id = *cpu->IR[1] & 0b00011111;
+void alu_add(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t reg_id = *cpu->IR[1] & 0b00011111;
     *cpu->I = *cpu->A;
     *cpu->A = *cpu->I + cpu->R[reg_id];
     cpu_set_flag(cpu, FLAG_POS_CARRY, (*cpu->A < *cpu->I));
-    if (args->v > 1) printf("\tExecuted:\tADD\n");
+    snprintf(msg, msg_size, "ADD %d", reg_id);
 }
 
-void alu_ldi(CPU *cpu, Args *args) {
-    uint8_t imm = *cpu->IR[1];
+void alu_ldi(const CPU *cpu, char *msg, const size_t msg_size) {
+    const uint8_t imm = *cpu->IR[1];
     *cpu->A = imm;
-    if (args->v > 1) printf("\tExecuted:\tLDI %d\n", imm);
+    snprintf(msg, msg_size, "LDI %d", imm);
 }
 
-void alu_ldm(CPU *cpu, Args *args) {
+void alu_ldm(const CPU *cpu, char *msg, const size_t msg_size) {
     uint16_t addr16;
-    uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     *cpu->A = cpu->M[addr16];
-    if (args->v > 1) printf("\tExecuted:\tLDM %d\n", addr16);
+    snprintf(msg, msg_size, "LDM %d", addr16);
 }
 
-void alu_stm(CPU *cpu, Args *args) {
+void alu_stm(CPU *cpu, char *msg, const size_t msg_size) {
     uint16_t addr16;
-    uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
     addr_convert_8_to_16(&addr16, addr8);
     cpu->M[addr16] = *cpu->A;
-    if (args->v > 1) printf("\tExecuted:\tSTM %d\n", addr16);
+    snprintf(msg, msg_size, "STM %d", addr16);
 }
 
-void alu_jmp(CPU *cpu, Args *args) {
+void alu_jmp(const CPU *cpu, char *msg, const size_t msg_size) {
     *(cpu->PC[0]) = *(cpu->IR[1]);
     *(cpu->PC[1]) = *(cpu->IR[2]);
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJMP %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "JMP %d", addr16);
 }
 
-void alu_jc0(CPU *cpu, Args *args) {
+void alu_jc0(const CPU *cpu, char *msg, const size_t msg_size) {
     if (!cpu_get_flag(cpu, FLAG_POS_CARRY)) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJC0 %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "JC0 %d", addr16);
 }
 
-void alu_jc1(CPU *cpu, Args *args) {
+void alu_jc1(const CPU *cpu, char *msg, const size_t msg_size) {
     if (cpu_get_flag(cpu, FLAG_POS_CARRY)) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJC1 %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "JC1 %d", addr16);
 }
 
-void alu_ja0(CPU *cpu, Args *args) {
+void alu_ja0(const CPU *cpu, char *msg, const size_t msg_size) {
     if (*cpu->A == 0) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJA0 %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "JA0 %d", addr16);
 }
 
-void alu_ja1(CPU *cpu, Args *args) {
+void alu_ja1(const CPU *cpu, char *msg, const size_t msg_size) {
     if (*cpu->A != 0) {
         *(cpu->PC[0]) = *(cpu->IR[1]);
         *(cpu->PC[1]) = *(cpu->IR[2]);
     }
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tJA1 %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "JA1 %d", addr16);
 }
 
-void alu_cll(CPU *cpu, Args *args) {
+void alu_cll(CPU *cpu, char *msg, const size_t msg_size) {
     uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
@@ -210,10 +206,8 @@ void alu_cll(CPU *cpu, Args *args) {
     *(cpu->SP[1]) = SP8[1];
     *(cpu->PC[0]) = *(cpu->IR[1]);
     *(cpu->PC[1]) = *(cpu->IR[2]);
-    if (args->v > 1) {
-        uint16_t addr16;
-        uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
-        addr_convert_8_to_16(&addr16, addr8);
-        printf("\tExecuted:\tCLL %d\n", addr16);
-    }
+    uint16_t addr16;
+    const uint8_t addr8[2] = {*(cpu->IR[1]), *(cpu->IR[2])};
+    addr_convert_8_to_16(&addr16, addr8);
+    snprintf(msg, msg_size, "CLL %d", addr16);
 }

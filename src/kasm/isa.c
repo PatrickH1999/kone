@@ -48,7 +48,7 @@ const Instruction *isa_lookup(const char *mnemonic) {
 uint16_t isa_arg_max(ArgKind kind) {
     switch (kind) {
     case ARG_REG:
-        return 0x000F;
+        return 0x001F;
     case ARG_IMM:
         return 0x00FF;
     case ARG_MEM:

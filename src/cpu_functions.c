@@ -1,5 +1,13 @@
 #include "cpu_functions.h"
 
+#include <assert.h>
+#include <stdio.h>
+#include <string.h>
+#include <time.h>
+
+#include "alu_functions.h"
+#include "utility.h"
+
 void cpu_init(CPU *cpu) {
     // Stack pointer (SP):
     cpu->SP[0] = &cpu->R[22];
@@ -26,13 +34,13 @@ void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
 
-    uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
+    const uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
     uint8_t SP8[2];
     addr_convert_16_to_8(SP8, SP16);
     *(cpu->SP[0]) = SP8[0];
     *(cpu->SP[1]) = SP8[1];
 
-    uint16_t PC16 = 0;
+    const uint16_t PC16 = 0;
     uint8_t PC8[2];
     addr_convert_16_to_8(PC8, PC16);
     *(cpu->PC[0]) = PC8[0];
@@ -40,10 +48,10 @@ void cpu_reset(CPU *cpu) {
 }
 
 int cpu_boot_file(CPU *cpu, const char *path) {
-    FILE *f = fopen(path, "rb");
+    FILE *const f = fopen(path, "rb");
     if (!f) return -1;
 
-    size_t n = fread(cpu->M, 1, MEM_SIZE, f);
+    const size_t n = fread(cpu->M, 1, MEM_SIZE, f);
     fclose(f);
 
     for (size_t i = n; i < MEM_SIZE; ++i)
@@ -52,7 +60,7 @@ int cpu_boot_file(CPU *cpu, const char *path) {
     return 0;
 }
 
-void cpu_pc_increment(CPU *cpu, Args *args) {
+void cpu_pc_increment(CPU *cpu, const Args *args) {
     const struct timespec ts = {.tv_sec = 0,
                                 .tv_nsec = args->cycle_sleep * 1000000};
     nanosleep(&ts, NULL);
@@ -67,20 +75,17 @@ void cpu_pc_increment(CPU *cpu, Args *args) {
         PC16 = 0;
 
     addr_convert_16_to_8(*cpu->PC, PC16);
-
-    if (args->v > 0) cpu_print_count(cpu);
-    if (args->v > 2) cpu_print_state(cpu);
 }
 
-void cpu_fetch(CPU *cpu, Args *args) {
+void cpu_fetch(CPU *cpu, const Args *args) {
     uint16_t PC16;
 
     addr_convert_8_to_16(&PC16, *cpu->PC);
     *cpu->IR[0] = cpu->M[PC16];
     cpu_pc_increment(cpu, args);
 
-    uint8_t opcode = cpu->M[PC16];
-    int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
+    const uint8_t opcode = cpu->M[PC16];
+    const int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
 
     if (opcode_flag_pos == OC_FLAG_POS_R || opcode_flag_pos == OC_FLAG_POS_I ||
         opcode_flag_pos == OC_FLAG_POS_M || opcode_flag_pos == OC_FLAG_POS_V) {
@@ -95,112 +100,133 @@ void cpu_fetch(CPU *cpu, Args *args) {
     }
 }
 
-void cpu_decode_exec(CPU *cpu, Args *args) {
+void cpu_decode_exec(CPU *cpu, char *msg, const size_t msg_size,
+                     const Args *args) {
+    (void)args;
     uint8_t opcode = *cpu->IR[0];
-    int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
+    const int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
     if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
 
+    msg[0] = '\0';
     switch (opcode) {
     case NOP:
         break;
     case NOT:
-        alu_not(cpu, args);
+        alu_not(cpu, msg, msg_size);
         break;
     case BSL:
-        alu_bsl(cpu, args);
+        alu_bsl(cpu, msg, msg_size);
         break;
     case BSR:
-        alu_bsr(cpu, args);
+        alu_bsr(cpu, msg, msg_size);
         break;
     case BRL:
-        alu_brl(cpu, args);
+        alu_brl(cpu, msg, msg_size);
         break;
     case BRR:
-        alu_brr(cpu, args);
+        alu_brr(cpu, msg, msg_size);
         break;
     case RET:
-        alu_ret(cpu, args);
+        alu_ret(cpu, msg, msg_size);
         break;
     case LDR:
-        alu_ldr(cpu, args);
+        alu_ldr(cpu, msg, msg_size);
         break;
     case STR:
-        alu_str(cpu, args);
+        alu_str(cpu, msg, msg_size);
         break;
     case PSH:
-        alu_psh(cpu, args);
+        alu_psh(cpu, msg, msg_size);
         break;
     case POP:
-        alu_pop(cpu, args);
+        alu_pop(cpu, msg, msg_size);
         break;
     case ORR:
-        alu_orr(cpu, args);
+        alu_orr(cpu, msg, msg_size);
         break;
     case AND:
-        alu_and(cpu, args);
+        alu_and(cpu, msg, msg_size);
         break;
     case XOR:
-        alu_xor(cpu, args);
+        alu_xor(cpu, msg, msg_size);
         break;
     case ADD:
-        alu_add(cpu, args);
+        alu_add(cpu, msg, msg_size);
         break;
     case LDI:
-        alu_ldi(cpu, args);
+        alu_ldi(cpu, msg, msg_size);
         break;
     case LDM:
-        alu_ldm(cpu, args);
+        alu_ldm(cpu, msg, msg_size);
         break;
     case STM:
-        alu_stm(cpu, args);
+        alu_stm(cpu, msg, msg_size);
         break;
     case JMP:
-        alu_jmp(cpu, args);
+        alu_jmp(cpu, msg, msg_size);
         break;
     case JC0:
-        alu_jc0(cpu, args);
+        alu_jc0(cpu, msg, msg_size);
         break;
     case JC1:
-        alu_jc1(cpu, args);
+        alu_jc1(cpu, msg, msg_size);
         break;
     case JA0:
-        alu_ja0(cpu, args);
+        alu_ja0(cpu, msg, msg_size);
         break;
     case JA1:
-        alu_ja1(cpu, args);
+        alu_ja1(cpu, msg, msg_size);
         break;
     case CLL:
-        alu_cll(cpu, args);
+        alu_cll(cpu, msg, msg_size);
+        break;
+    default:
+        fprintf(stderr, "Error: invalid opcode %u\n", opcode);
+        exit(EXIT_FAILURE);
         break;
     }
 }
 
-uint8_t cpu_get_flag(CPU *cpu, uint8_t flag_pos) {
+uint8_t cpu_get_flag(const CPU *cpu, const uint8_t flag_pos) {
     assert(flag_pos < (8 * sizeof(uint8_t)));
-    uint8_t value = (*cpu->F >> flag_pos) & 0b00000001;
+    const uint8_t value = (*cpu->F >> flag_pos) & 0b00000001;
     return value;
 }
 
-void cpu_set_flag(CPU *cpu, uint8_t flag_pos, uint8_t value) {
+void cpu_set_flag(const CPU *cpu, const uint8_t flag_pos, const uint8_t value) {
     assert(value == 0 || value == 1);
     assert(flag_pos < (8 * sizeof(uint8_t)));
-    uint8_t mask = value << flag_pos;
+    const uint8_t mask = value << flag_pos;
     *cpu->F &= ~(1 << flag_pos);
     *cpu->F |= mask;
 }
 
-void cpu_print_count(CPU *cpu) {
-    uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
+void cpu_print_count(const CPU *cpu) {
+    const uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, PC8);
     printf("\n\n[ %d : %d ]\n", cpu->cycle, PC16);
 }
 
-void cpu_print_state(CPU *cpu) {
-    for (int reg_id = 0; reg_id < 22; reg_id++) {
-        printf("\t\tR%d: %d\n", reg_id, cpu->R[reg_id]);
+void cpu_print_state(const CPU *cpu) {
+    const int n = 22; // number of general purpose registers
+    const int regs_per_row = 3;
+    for (int reg_id = 0; reg_id < n; reg_id++) {
+        const int mod = reg_id % regs_per_row;
+        const char *prefix, *suffix;
+        if (mod == 0) {
+            prefix = "\t\t";
+            suffix = (reg_id < (n - 1)) ? "" : "\n";
+        } else if (0 < mod && mod < (regs_per_row - 1)) {
+            prefix = "\t";
+            suffix = (reg_id < (n - 1)) ? "" : "\n";
+        } else if (mod == (regs_per_row - 1)) {
+            prefix = "\t";
+            suffix = "\n";
+        }
+        printf("%sR%2d: %3d%s", prefix, reg_id, cpu->R[reg_id], suffix);
     }
-    uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
+    const uint8_t SP8[2] = {*(cpu->SP[0]), *(cpu->SP[1])};
     uint16_t SP16;
     addr_convert_8_to_16(&SP16, SP8);
     printf("\t\tR22-R23 (stack pointer): %d\n", SP16);
@@ -211,7 +237,7 @@ void cpu_print_state(CPU *cpu) {
     printf("\n");
     printf("\t\tR27-R29 (instruction register): %d %d %d\n", *(cpu->IR[0]),
            *(cpu->IR[1]), *(cpu->IR[2]));
-    uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
+    const uint8_t PC8[2] = {*(cpu->PC[0]), *(cpu->PC[1])};
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, PC8);
     printf("\t\tR30-31 (program counter): %d\n", PC16);

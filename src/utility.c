@@ -1,35 +1,26 @@
 #include "utility.h"
 
-void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC]\n",
-            basename(argv[0]));
-    exit(EXIT_FAILURE);
+#include <errno.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "cpu_functions.h"
+#include "display_functions.h"
+
+void print_out(const CPU *cpu, const char *cpu_msg, const Display *display,
+               const Args *args) {
+    if (!args->log) printf("\033[3J\033[H\033[2J"); // clear screen
+    display_print(display);
+    if (args->v > 0) cpu_print_count(cpu);
+    if (args->v > 1) printf("\tExecuted: %s\n", cpu_msg);
+    if (args->v > 2) cpu_print_state(cpu);
 }
 
-void parse_args(Args *args, int argc, char *argv[]) {
-    args->bootfile = NULL;
-    args->cycle_sleep = 1; // [ms]
-    args->v = 0;
-    int opt;
-    int found = 0;
-
-    while ((opt = getopt(argc, argv, "b:t:v")) != -1) {
-        switch (opt) {
-        case 'b':
-            args->bootfile = optarg;
-            found++;
-            break;
-        case 't':
-            args->cycle_sleep = strtoul(optarg, NULL, 10);
-            break;
-        case 'v':
-            args->v++;
-            break;
-        default:
-            print_usage(argv);
-        }
-    }
-    if (found < 1) print_usage(argv);
+void out_cleanup(const int sig) {
+    (void)sig;
+    printf("\033[?25h\033[?1049l");
+    fflush(stdout);
+    exit(0);
 }
 
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
@@ -37,37 +28,17 @@ void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {
         ((uint16_t)addr8[1] << (8 * sizeof(uint8_t))) | (uint16_t)addr8[0];
 }
 
-void addr_convert_16_to_8(uint8_t addr8[2], uint16_t addr16) {
+void addr_convert_16_to_8(uint8_t addr8[2], const uint16_t addr16) {
     addr8[0] = (uint8_t)(addr16 & 0xFF);
     addr8[1] = (uint8_t)(addr16 >> (8 * sizeof(uint8_t)));
 }
 
-int scanf_uint8(uint8_t *out) {
-    char buf[32];
-    char *end;
-    unsigned long tmp;
-
-    if (!out) return 0;
-    if (!fgets(buf, sizeof buf, stdin)) return 0;
-
-    errno = 0;
-    tmp = strtoul(buf, &end, 10);
-
-    if (end == buf) return 0;
-    if (*end != '\n' && *end != '\0') return 0;
-    if (errno || tmp > UINT8_MAX) return 0;
-
-    *out = (uint8_t)tmp;
-
-    return 1;
-}
-
-uint8_t brl8(uint8_t x, unsigned n) {
+uint8_t brl8(const uint8_t x, unsigned n) {
     n &= 7; // n mod 8
     return (x << n) | (x >> (8 - n));
 }
 
-uint8_t brr8(uint8_t x, unsigned n) {
+uint8_t brr8(const uint8_t x, unsigned n) {
     n &= 7; // n mod 8
     return (x >> n) | (x << (8 - n));
 }
@@ -83,7 +54,7 @@ int get_pos_first_1_in_byte(const uint8_t byte) {
     return -1;
 }
 
-void print_bin(uint8_t x) {
+void print_bin(const uint8_t x) {
     for (int i = 7; i >= 0; i--) {
         printf("%d", (x >> i) & 1);
     }
