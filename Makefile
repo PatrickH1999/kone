@@ -63,11 +63,12 @@ bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
 
 install: $(TARGET) examples
-	install -Dm755 $(TARGET) $(DESTDIR)$(PREFIX)/bin/kone
+	mkdir -p $(PREFIX)/bin
+	install -Dm755 $(TARGET) $(PREFIX)/bin/kone
 
 clean:
 	rm -rf bin/ obj/
-	rm -f $(DESTDIR)$(PREFIX)/bin/kone
+	rm -f $(PREFIX)/bin/kone
 
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
