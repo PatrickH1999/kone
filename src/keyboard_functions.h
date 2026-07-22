@@ -10,7 +10,7 @@
 #define KBRD_ASCII_LO 32
 #define KBRD_ASCII_HI 255
 #define REG_ID_KBRD_CHAR 17 // CPU register ID for receive char
-#define REG_ID_KBRD_SET 16 // CPU register ID for receive set bit
+#define REG_ID_KBRD_SET 16  // CPU register ID for receive set bit
 
 int keyboard_get_char();
 void keyboard_push_cpu(CPU *cpu);

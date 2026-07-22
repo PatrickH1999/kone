@@ -8,9 +8,10 @@ int keyboard_get_char() {
     new.c_cc[VMIN] = 0;
     new.c_cc[VTIME] = 0;
     tcsetattr(STDIN_FILENO, TCSANOW, &new);
-    int char_ = getchar();
+    unsigned char char_;
+    int n = read(STDIN_FILENO, &char_, 1);
     tcsetattr(STDIN_FILENO, TCSANOW, &old);
-    return char_;
+    return n == 1 ? char_ : -1;
 }
 
 void keyboard_push_cpu(CPU *cpu) {
