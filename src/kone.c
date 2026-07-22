@@ -2,6 +2,7 @@
 #define _DEFAULT_SOURCE
 
 #define OUT_FRAMERATE 20
+#define KBRD_RATE 20
 
 #include <signal.h>
 #include <stdio.h>
@@ -16,6 +17,7 @@
 #include "cpu_struct.h"
 #include "display_functions.h"
 #include "display_struct.h"
+#include "keyboard_functions.h"
 #include "utility.h"
 
 int main(int argc, char *argv[]) {
@@ -70,6 +72,15 @@ int main(int argc, char *argv[]) {
                     (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1e9;
             } while (elapsed < (1.0 / OUT_FRAMERATE));
             if (!args.log) print_out(cpu, cpu_msg, display, &args);
+        }
+        exit(0);
+    }
+
+    pid_t keyboard_pid = fork();
+    if (keyboard_pid == 0) {
+        while (1) {
+            keyboard_push_cpu(cpu);
+            usleep(1e6 / KBRD_RATE);
         }
         exit(0);
     }

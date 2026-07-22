@@ -8,6 +8,7 @@
 #include "../src/cpu_functions.h"
 #include "../src/cpu_struct.h"
 #include "../src/utility.h"
+#include "test_common.h"
 
 void test_alu_not(CPU *cpu);
 void test_alu_bsl(CPU *cpu);

@@ -3,12 +3,12 @@
 int main() {
     CPU cpu;
 
-    printf("\n\tTesting cpu_functions\n");
-    test_cpu_init(&cpu);
-    test_cpu_reset(&cpu);
-    test_cpu_get_flag(&cpu);
-    test_cpu_set_flag(&cpu);
-    printf("\tALL PASS: cpu_functions\n");
+    TEST_MODULE_BEGIN("cpu_functions", 4);
+    RUN_TEST(test_cpu_init, &cpu);
+    RUN_TEST(test_cpu_reset, &cpu);
+    RUN_TEST(test_cpu_get_flag, &cpu);
+    RUN_TEST(test_cpu_set_flag, &cpu);
+    TEST_MODULE_END("cpu_functions", 4);
     return 0;
 }
 
@@ -26,7 +26,6 @@ void test_cpu_init(CPU *cpu) {
     assert(*cpu->IR[2] == cpu->R[29]);
     assert(*cpu->PC[0] == cpu->R[30]);
     assert(*cpu->PC[1] == cpu->R[31]);
-    printf("\t\tPASS: cpu_init\n");
 }
 
 void test_cpu_reset(CPU *cpu) {
@@ -47,7 +46,6 @@ void test_cpu_reset(CPU *cpu) {
     // R and M should be zeroed (except SP/PC set above)
     for (int i = 0; i < 22; i++)
         assert(cpu->R[i] == 0);
-    printf("\t\tPASS: cpu_reset\n");
 }
 
 void test_cpu_get_flag(CPU *cpu) {
@@ -65,7 +63,6 @@ void test_cpu_get_flag(CPU *cpu) {
     *cpu->F = 0b11111111;
     for (int i = 0; i < 8; i++)
         assert(cpu_get_flag(cpu, i) == 1);
-    printf("\t\tPASS: cpu_get_flag\n");
 }
 
 void test_cpu_set_flag(CPU *cpu) {
@@ -88,5 +85,4 @@ void test_cpu_set_flag(CPU *cpu) {
     for (int i = 0; i < 8; i++)
         cpu_set_flag(cpu, i, 0);
     assert(*cpu->F == 0x00);
-    printf("\t\tPASS: cpu_set_flag\n");
 }
