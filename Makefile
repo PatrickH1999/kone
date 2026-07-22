@@ -55,9 +55,28 @@ bin/%.bin: examples/%.kasm
 	python tools/kasm.py -i $< -o $@
 
 test: $(TEST_BINS)
-	@for t in $(TEST_BINS); do \
-		./$$t && echo "$$t OK" || echo "$$t FAILED"; \
-	done
+	@passed=0; failed=0; \
+	if [ -t 1 ]; then grn='\033[0;32m'; red='\033[0;31m'; rst='\033[0m'; \
+	else grn=''; red=''; rst=''; fi; \
+	printf "\n"; \
+	for t in $(TEST_BINS); do \
+		if ./$$t; then \
+			printf "$${grn}[  PASSED  ]$${rst} %s\n\n" "$$t"; \
+			passed=$$((passed + 1)); \
+		else \
+			printf "$${red}[  FAILED  ]$${rst} %s\n\n" "$$t"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	echo; \
+	if [ $$failed -gt 0 ]; then \
+		printf "$${red}[  FAILED  ]$${rst} %d/%d test binaries passed\n" \
+			"$$passed" "$$((passed + failed))"; \
+		exit 1; \
+	else \
+		printf "$${grn}[  PASSED  ]$${rst} %d/%d test binaries passed\n" \
+			"$$passed" "$$((passed + failed))"; \
+	fi
 
 bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
