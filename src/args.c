@@ -9,8 +9,7 @@ static struct option long_options[] = {
     {NULL, 0, NULL, 0}};
 
 void print_usage(char *argv[]) {
-    fprintf(stderr,
-            "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC] [-l] [-h]\n",
+    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC] [-l] [-h]\n",
             basename(argv[0]));
     exit(EXIT_FAILURE);
 }
