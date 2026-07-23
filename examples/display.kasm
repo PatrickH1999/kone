@@ -1,38 +1,26 @@
+main:
+    LDI 32      // first visible char (space)
+    STR 0
+
+    LDI 129     // 256 - 127, used below to test "R0 == 127" via overflow
+    STR 1
+
 loop:
-    
-    LDI 80
-    STR 19
+    LDR 0
+    STR 19      // REG_ID_DISP_CHAR
     LDI 1
-    STR 18
+    STR 18      // REG_ID_DISP_SET
 
-    LDI 97
-    STR 19
     LDI 1
-    STR 18
+    ADD 0       // A = R0 + 1
+    STR 0
 
-    LDI 116
-    STR 19
-    LDI 1
-    STR 18
+    LDR 0
+    ADD 1       // A = R0 + 129; wraps to 0 only when R0 == 127 (DEL)
+    JA0 wrap
+    JMP loop
 
-    LDI 114
-    STR 19
-    LDI 1
-    STR 18
-
-    LDI 105
-    STR 19
-    LDI 1
-    STR 18
-
-    LDI 99
-    STR 19
-    LDI 1
-    STR 18
-
-    LDI 107
-    STR 19
-    LDI 1
-    STR 18
-
+wrap:
+    LDI 32      // last visible char was 126 ('~'), so cycle back to 32
+    STR 0
     JMP loop

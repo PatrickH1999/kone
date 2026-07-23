@@ -12,7 +12,7 @@
 
 - [x] __Display Stack:__ Finalize implementation of stack for displaying characters
     
-    - [ ] Discard display stack implementation, implement display and keyboard as 'devices' (each with its own process)
+    - [x] Discard display stack implementation, implement display and keyboard as 'devices' (each with its own process)
         
         - Symbols are sent/received via two registers (2x1B, one for ASCII-Code (use accumulator!), the other as set-bit (for display, it gets set by sender so display can take ASCII-Code and unset the set-bit)
         - Set-bit: Single register (`0000 0ABC`), with `A`: Clear buffer, `B`: clear last char, `C`: push char to disp. 
