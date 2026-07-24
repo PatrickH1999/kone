@@ -89,9 +89,8 @@ install: $(TARGET) examples
 	install -Dm755 $(TARGET) $(PREFIX)/bin/kone
 
 clean:
-	rm -rf bin/ obj/
 	$(MAKE) -C $(KASM_DIR) clean
-	rm -f $(KASM)
+	rm -rf bin/ obj/
 	rm -f $(PREFIX)/bin/kone
 
 format:
