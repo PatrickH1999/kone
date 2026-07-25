@@ -24,8 +24,6 @@ void out_cleanup(const int sig) {
     exit(0);
 }
 
-// Sleeps for `ns` nanoseconds using nanosleep, the single timing mechanism
-// shared by the CPU and display processes.
 void sleep_ns(const long ns) {
     const struct timespec ts = {.tv_sec = ns / 1000000000L,
                                 .tv_nsec = ns % 1000000000L};

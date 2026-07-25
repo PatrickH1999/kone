@@ -23,7 +23,7 @@ static inline void test_tag(const char *color, const char *tag) {
 // reports the binary as FAILED -- there is no per-test FAILED line here.
 #define TEST_MODULE_BEGIN(module, count)                                       \
     do {                                                                       \
-        printf("Running %d tests from %s:\n", (count), (module));               \
+        printf("Running %d tests from %s:\n", (count), (module));              \
     } while (0)
 
 #define TEST_MODULE_END(module, count)                                         \

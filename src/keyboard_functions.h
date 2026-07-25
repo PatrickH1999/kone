@@ -7,10 +7,10 @@
 
 #include "cpu_struct.h"
 
-#define KBRD_ASCII_LO 32
-#define KBRD_ASCII_HI 255
-#define REG_ID_KBRD_CHAR 17 // CPU register ID for receive char
-#define REG_ID_KBRD_SET 16  // CPU register ID for receive set bit
+#define KEYBOARD_ASCII_LO 32
+#define KEYBOARD_ASCII_HI 255
+#define REG_ID_KEYBOARD_CHAR 17 // CPU register ID for receive char
+#define REG_ID_KEYBOARD_SET 16  // CPU register ID for receive set bit
 
 void keyboard_init();
 void keyboard_cleanup(int sig);

@@ -60,22 +60,22 @@ void test_keyboard_push_cpu_sets_char_in_range() {
     setup();
     feed_stdin_byte('A');
     keyboard_push_cpu(&cpu);
-    assert(cpu.R[REG_ID_KBRD_CHAR] == 'A');
-    assert(cpu.R[REG_ID_KBRD_SET] == 1);
+    assert(cpu.R[REG_ID_KEYBOARD_CHAR] == 'A');
+    assert(cpu.R[REG_ID_KEYBOARD_SET] == 1);
 }
 
 void test_keyboard_push_cpu_replaces_out_of_range_char() {
     setup();
-    feed_stdin_byte(0x01); // below KBRD_ASCII_LO
+    feed_stdin_byte(0x01); // below KEYBOARD_ASCII_LO
     keyboard_push_cpu(&cpu);
-    assert(cpu.R[REG_ID_KBRD_CHAR] == ' ');
-    assert(cpu.R[REG_ID_KBRD_SET] == 1);
+    assert(cpu.R[REG_ID_KEYBOARD_CHAR] == ' ');
+    assert(cpu.R[REG_ID_KEYBOARD_SET] == 1);
 }
 
 void test_keyboard_push_cpu_no_input_leaves_registers_unset() {
     setup();
     feed_stdin_empty();
     keyboard_push_cpu(&cpu);
-    assert(cpu.R[REG_ID_KBRD_CHAR] == 0);
-    assert(cpu.R[REG_ID_KBRD_SET] == 0);
+    assert(cpu.R[REG_ID_KEYBOARD_CHAR] == 0);
+    assert(cpu.R[REG_ID_KEYBOARD_SET] == 0);
 }

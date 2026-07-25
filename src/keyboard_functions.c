@@ -28,11 +28,11 @@ int keyboard_get_char() {
 void keyboard_push_cpu(CPU *cpu) {
     int char_ = keyboard_get_char();
     if (char_ != -1) {
-        if (KBRD_ASCII_LO <= char_ && char_ <= KBRD_ASCII_HI) {
-            cpu->R[REG_ID_KBRD_CHAR] = char_;
+        if (KEYBOARD_ASCII_LO <= char_ && char_ <= KEYBOARD_ASCII_HI) {
+            cpu->R[REG_ID_KEYBOARD_CHAR] = char_;
         } else {
-            cpu->R[REG_ID_KBRD_CHAR] = ' ';
+            cpu->R[REG_ID_KEYBOARD_CHAR] = ' ';
         }
-        cpu->R[REG_ID_KBRD_SET] = 1;
+        cpu->R[REG_ID_KEYBOARD_SET] = 1;
     }
 }

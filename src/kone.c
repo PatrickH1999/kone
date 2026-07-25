@@ -1,14 +1,8 @@
 #define _DARWIN_C_SOURCE
 #define _DEFAULT_SOURCE
 
-#define OUT_FRAMERATE 20
-#define KBRD_RATE 20
-
-// display_fetch must be polled well above the CPU's register write rate, or
-// display.kasm-style programs (which write a new char every loop iteration
-// with no consume handshake) get overwritten before the display reads them.
-// The terminal is only redrawn at OUT_FRAMERATE; polling is decoupled and
-// much faster.
+#define DISP_FRAME_RATE 20
+#define KEYBOARD_POLL_RATE 20
 #define DISP_POLL_RATE 2000
 
 #include <signal.h>
@@ -68,7 +62,7 @@ int main(int argc, char *argv[]) {
                                             // screen
         }
         while (1) {
-            for (int i = 0; i < DISP_POLL_RATE / OUT_FRAMERATE; i++) {
+            for (int i = 0; i < DISP_POLL_RATE / DISP_FRAME_RATE; i++) {
                 display_fetch(cpu, display);
                 sleep_ns(1000000000L / DISP_POLL_RATE);
             }
@@ -83,7 +77,7 @@ int main(int argc, char *argv[]) {
         signal(SIGINT, keyboard_cleanup);
         while (1) {
             keyboard_push_cpu(cpu);
-            usleep(1e6 / KBRD_RATE);
+            usleep(1e6 / KEYBOARD_POLL_RATE);
         }
         exit(0);
     }
