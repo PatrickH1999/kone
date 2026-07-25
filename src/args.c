@@ -24,7 +24,7 @@ void print_help(char *argv[]) {
     printf("    before execution starts. This argument is required.\n\n");
 
     printf("-t, --clockspeed MSEC\n");
-    printf("    Default: 1\n");
+    printf("    Default: 0 (run as fast as possible)\n");
     printf("    Number of milliseconds to sleep between clock cycles.\n");
     printf("    Lower values run the simulation faster.\n\n");
 
@@ -51,7 +51,7 @@ void print_help(char *argv[]) {
 
 void parse_args(Args *args, const int argc, char *argv[]) {
     args->bootfile = NULL;
-    args->cycle_sleep = 1; // [ms]
+    args->cycle_sleep = 0; // [ms]; 0 = run as fast as possible
     args->v = 0;
     args->log = 0;
     int opt;
