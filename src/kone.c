@@ -4,12 +4,18 @@
 #define OUT_FRAMERATE 20
 #define KBRD_RATE 20
 
+// display_fetch must be polled well above the CPU's register write rate, or
+// display.kasm-style programs (which write a new char every loop iteration
+// with no consume handshake) get overwritten before the display reads them.
+// The terminal is only redrawn at OUT_FRAMERATE; polling is decoupled and
+// much faster.
+#define DISP_POLL_RATE 2000
+
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/mman.h>
 #include <sys/wait.h>
-#include <time.h>
 #include <unistd.h>
 
 #include "args.h"
@@ -62,15 +68,10 @@ int main(int argc, char *argv[]) {
                                             // screen
         }
         while (1) {
-            struct timespec t1, t2;
-            clock_gettime(CLOCK_MONOTONIC, &t1);
-            double elapsed = 0.0;
-            do {
+            for (int i = 0; i < DISP_POLL_RATE / OUT_FRAMERATE; i++) {
                 display_fetch(cpu, display);
-                clock_gettime(CLOCK_MONOTONIC, &t2);
-                elapsed =
-                    (t2.tv_sec - t1.tv_sec) + (t2.tv_nsec - t1.tv_nsec) / 1e9;
-            } while (elapsed < (1.0 / OUT_FRAMERATE));
+                sleep_ns(1000000000L / DISP_POLL_RATE);
+            }
             if (!args.log) print_out(cpu, cpu_msg, display, &args);
         }
         exit(0);
@@ -78,6 +79,8 @@ int main(int argc, char *argv[]) {
 
     pid_t keyboard_pid = fork();
     if (keyboard_pid == 0) {
+        keyboard_init();
+        signal(SIGINT, keyboard_cleanup);
         while (1) {
             keyboard_push_cpu(cpu);
             usleep(1e6 / KBRD_RATE);

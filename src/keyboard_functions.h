@@ -12,6 +12,8 @@
 #define REG_ID_KBRD_CHAR 17 // CPU register ID for receive char
 #define REG_ID_KBRD_SET 16  // CPU register ID for receive set bit
 
+void keyboard_init();
+void keyboard_cleanup(int sig);
 int keyboard_get_char();
 void keyboard_push_cpu(CPU *cpu);
 
