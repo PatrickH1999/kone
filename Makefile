@@ -84,14 +84,15 @@ test: $(TEST_BINS)
 bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
 
-install: $(TARGET) examples
+install: $(TARGET) $(KASM) examples
 	mkdir -p $(PREFIX)/bin
 	install -Dm755 $(TARGET) $(PREFIX)/bin/kone
+	install -Dm755 $(KASM) $(PREFIX)/bin/kasm
 
 clean:
 	$(MAKE) -C $(KASM_DIR) clean
 	rm -rf bin/ obj/
-	rm -f $(PREFIX)/bin/kone
+	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
 
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
