@@ -4,8 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// A growable map from label name to program address, used to resolve address
-// aliases (labels) into absolute 16-bit jump/call targets.
+// Maps label names to program addresses.
 typedef struct {
     char *name;
     uint16_t addr;
@@ -20,11 +19,10 @@ typedef struct {
 void symtab_init(SymTab *t);
 void symtab_free(SymTab *t);
 
-// Insert or overwrite the address bound to name. Copies name.
+// Inserts or overwrites the address for name; copies name.
 void symtab_put(SymTab *t, const char *name, uint16_t addr);
 
-// Look name up. On success writes the address to *out and returns 1; otherwise
-// returns 0.
+// Writes the address for name to *out and returns 1, or 0 if not found.
 int symtab_get(const SymTab *t, const char *name, uint16_t *out);
 
 #endif

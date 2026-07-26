@@ -2,9 +2,8 @@
 
 #include <string.h>
 
-// The kone instruction set. Opcodes and operand classes follow the encoding
-// described in README.md ("Instruction Set"). Labels are only meaningful for
-// control-flow targets, so only those instructions set takes_label.
+// Opcodes and operand classes follow README.md ("Instruction Set"); only
+// control-flow instructions set takes_label.
 static const Instruction ISA[] = {
     // no operand
     {"NOP", 0x00, ARG_NONE, 0},

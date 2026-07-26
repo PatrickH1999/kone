@@ -3,9 +3,7 @@
 
 #include <stdint.h>
 
-// Operand class of an instruction. The class fully determines how many extra
-// bytes the operand occupies and the valid value range, so the raw opcode-flag
-// bits from the architecture spec never need to be re-derived at encode time.
+// Operand class of an instruction; determines operand size and value range.
 typedef enum {
     ARG_NONE, // no operand                          -> 1 byte  total
     ARG_REG,  // 5-bit register operand              -> 2 bytes total

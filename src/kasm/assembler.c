@@ -20,10 +20,6 @@
 #define MAX_INCLUDE_DEPTH 64
 #define ADDR_SPACE 65536 // 16-bit address space -> max program size in bytes
 
-// ---------------------------------------------------------------------------
-// Diagnostics
-// ---------------------------------------------------------------------------
-
 static void die(const char *fmt, ...) {
     va_list ap;
     va_start(ap, fmt);
@@ -57,11 +53,7 @@ static char *xstrdup(const char *s) {
     return p;
 }
 
-// ---------------------------------------------------------------------------
-// Source lines (after include expansion, each line keeps its origin so error
-// messages can point back to the real file and line number)
-// ---------------------------------------------------------------------------
-
+// Each line keeps its origin so error messages can point back to it.
 typedef struct {
     char *text; // line contents, newline stripped
     char *file; // originating file (for diagnostics)
@@ -102,12 +94,8 @@ static void lines_push(LineList *l, const char *text, const char *file,
     l->len++;
 }
 
-// ---------------------------------------------------------------------------
-// Tokenizer: split on whitespace, discarding everything from the first token
-// that begins with "//" (a line comment). Mutates `buf` in place; token
-// pointers alias into it. Returns the token count.
-// ---------------------------------------------------------------------------
-
+// Splits buf on whitespace into tok[], stopping at a "//" comment. Mutates
+// buf in place; tok[] entries alias into it.
 static int tokenize(char *buf, char *tok[MAX_TOKENS]) {
     int n = 0;
     char *p = buf;
@@ -126,8 +114,7 @@ static int tokenize(char *buf, char *tok[MAX_TOKENS]) {
     return n;
 }
 
-// Parse an unsigned integer literal (decimal, or 0x/0b/0o prefixed). Returns 1
-// and writes the value on success, 0 if the string is not a valid literal.
+// Accepts decimal or 0x/0b/0o literals; returns 1 on success, 0 otherwise.
 static int parse_uint(const char *s, long *out) {
     int base = 10;
     if (s[0] == '0' && (s[1] == 'x' || s[1] == 'X'))
@@ -145,10 +132,6 @@ static int parse_uint(const char *s, long *out) {
     *out = v;
     return 1;
 }
-
-// ---------------------------------------------------------------------------
-// Include preprocessing
-// ---------------------------------------------------------------------------
 
 typedef struct {
     char *paths[MAX_INCLUDE_DEPTH]; // canonical paths of the include chain
@@ -193,10 +176,8 @@ static void load_source(const char *path, LineList *out, IncludeStack *stack) {
     FILE *f = fopen(path, "r");
     if (!f) die("cannot open '%s': %s", path, strerror(errno));
 
-    // realpath() is only needed to canonicalize the path for circular-include
-    // detection below; some filesystems (e.g. FUSE mounts) fail it even
-    // though the file above opened just fine, so fall back to the raw path
-    // rather than treating that as fatal.
+    // realpath() is only for canonicalizing paths in circular-include
+    // detection; fall back to the raw path if it fails (e.g. FUSE mounts).
     char canon[PATH_MAX];
     const char *canon_path = realpath(path, canon) ? canon : path;
 
@@ -235,10 +216,6 @@ static void load_source(const char *path, LineList *out, IncludeStack *stack) {
     free(stack->paths[--stack->depth]);
 }
 
-// ---------------------------------------------------------------------------
-// Output buffer
-// ---------------------------------------------------------------------------
-
 typedef struct {
     uint8_t *data;
     size_t len;
@@ -260,16 +237,9 @@ static void bytes_push(ByteBuf *b, uint8_t x) {
     b->data[b->len++] = x;
 }
 
-// ---------------------------------------------------------------------------
-// Two-pass assembly
-// ---------------------------------------------------------------------------
-
-// A line reduces to zero or more leading labels followed by an optional
-// instruction. This helper splits a tokenized line into those parts and, on the
-// label-defining pass, records each label at the current program counter.
-//
-// Returns the index of the instruction mnemonic in tok[], or ntok if the line
-// holds only labels.
+// Splits tok[] into leading labels and the rest of the line, defining each
+// label at pc when define is set. Returns the index of the instruction, or
+// ntok if the line holds only labels.
 static int process_labels(char *tok[MAX_TOKENS], int ntok, uint16_t pc,
                           SymTab *symbols, int define, const SourceLine *ln) {
     int i = 0;
@@ -286,8 +256,6 @@ static int process_labels(char *tok[MAX_TOKENS], int ntok, uint16_t pc,
     return i;
 }
 
-// Resolve the operand of an instruction to its numeric value, validating range
-// and label usage.
 static uint16_t resolve_operand(const Instruction *instr, const char *operand,
                                 const SymTab *symbols, const SourceLine *ln) {
     long value;
@@ -314,8 +282,8 @@ static uint16_t resolve_operand(const Instruction *instr, const char *operand,
     return 0; // unreachable
 }
 
-// Validate the operand token count and, on the emit pass, encode the
-// instruction into out. Returns the instruction's size in bytes.
+// Validates operand count for tok[first..]; encodes into out when emit is
+// set. Returns the instruction's size in bytes.
 static int encode_instruction(char *tok[MAX_TOKENS], int first, int ntok,
                               const SymTab *symbols, const SourceLine *ln,
                               int emit, ByteBuf *out) {
