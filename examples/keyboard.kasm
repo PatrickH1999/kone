@@ -1,0 +1,13 @@
+loop:
+    LDR 16      // load keyboard set-bit (R16) into accumulator
+    JA0 loop    // no key pressed yet -> keep polling
+
+    LDR 17      // load received key char (R17) into accumulator
+    STR 19      // move char into display char register
+    LDI 1
+    STR 18      // set display set-bit -> push char to display
+
+    LDI 0
+    STR 16      // clear keyboard set-bit -> acknowledge key
+
+    JMP loop

@@ -11,14 +11,14 @@ static void setup() {
 }
 
 int main() {
-    printf("\n\tTesting display_functions\n");
-    test_display_reset();
-    test_display_push_char_basic();
-    test_display_push_char_col_wrap();
-    test_display_push_char_row_wrap();
-    test_display_fetch_set();
-    test_display_fetch_no_set();
-    printf("\tALL PASS: display_functions\n");
+    TEST_MODULE_BEGIN("display_functions", 6);
+    RUN_TEST(test_display_reset);
+    RUN_TEST(test_display_push_char_basic);
+    RUN_TEST(test_display_push_char_col_wrap);
+    RUN_TEST(test_display_push_char_row_wrap);
+    RUN_TEST(test_display_fetch_set);
+    RUN_TEST(test_display_fetch_no_set);
+    TEST_MODULE_END("display_functions", 6);
     return 0;
 }
 
@@ -33,7 +33,6 @@ void test_display_reset() {
     assert(display.DCP == 0);
     for (int i = 0; i < DISP_NROWS * DISP_NCOLS; i++)
         assert(display.DM[i] == 0);
-    printf("\t\tPASS: %s\n", __func__);
 }
 
 void test_display_push_char_basic() {
@@ -45,7 +44,6 @@ void test_display_push_char_basic() {
     display_push_char(&display, 'B');
     assert(display.DM[1] == 'B');
     assert(display.DCP == 2);
-    printf("\t\tPASS: %s\n", __func__);
 }
 
 void test_display_push_char_col_wrap() {
@@ -60,7 +58,6 @@ void test_display_push_char_col_wrap() {
     int next_row = (0 + 1) % DISP_NROWS;
     for (int j = 0; j < DISP_NCOLS; j++)
         assert(display.DM[next_row * DISP_NCOLS + j] == 0);
-    printf("\t\tPASS: %s\n", __func__);
 }
 
 void test_display_push_char_row_wrap() {
@@ -71,7 +68,6 @@ void test_display_push_char_row_wrap() {
     // DRP and DCP should have wrapped around without crash
     assert(display.DRP < DISP_NROWS);
     assert(display.DCP < DISP_NCOLS);
-    printf("\t\tPASS: %s\n", __func__);
 }
 
 void test_display_fetch_set() {
@@ -81,7 +77,6 @@ void test_display_fetch_set() {
     display_fetch(&cpu, &display);
     assert(display.DM[0] == 'H');
     assert(cpu.R[REG_ID_DISP_SET] == 0); // should be cleared
-    printf("\t\tPASS: %s\n", __func__);
 }
 
 void test_display_fetch_no_set() {
@@ -90,5 +85,4 @@ void test_display_fetch_no_set() {
     cpu.R[REG_ID_DISP_SET] = 0;
     display_fetch(&cpu, &display);
     assert(display.DM[0] == 0); // nothing pushed
-    printf("\t\tPASS: %s\n", __func__);
 }

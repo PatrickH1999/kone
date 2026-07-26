@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #include "cpu_functions.h"
 #include "display_functions.h"
@@ -21,6 +22,12 @@ void out_cleanup(const int sig) {
     printf("\033[?25h\033[?1049l");
     fflush(stdout);
     exit(0);
+}
+
+void sleep_ns(const long ns) {
+    const struct timespec ts = {.tv_sec = ns / 1000000000L,
+                                .tv_nsec = ns % 1000000000L};
+    nanosleep(&ts, NULL);
 }
 
 void addr_convert_8_to_16(uint16_t *addr16, const uint8_t addr8[2]) {

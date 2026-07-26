@@ -6,6 +6,7 @@
 
 #include "../src/display_functions.h"
 #include "../src/cpu_functions.h"
+#include "test_common.h"
 
 void test_display_reset();
 void test_display_push_char_basic();

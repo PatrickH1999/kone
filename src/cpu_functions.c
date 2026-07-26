@@ -3,7 +3,6 @@
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 
 #include "alu_functions.h"
 #include "utility.h"
@@ -61,9 +60,7 @@ int cpu_boot_file(CPU *cpu, const char *path) {
 }
 
 void cpu_pc_increment(CPU *cpu, const Args *args) {
-    const struct timespec ts = {.tv_sec = 0,
-                                .tv_nsec = args->cycle_sleep * 1000000};
-    nanosleep(&ts, NULL);
+    if (args->cycle_sleep != 0) sleep_ns((long)args->cycle_sleep * 1000000L);
 
     uint16_t PC16;
     addr_convert_8_to_16(&PC16, *cpu->PC);

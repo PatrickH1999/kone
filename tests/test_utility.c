@@ -1,13 +1,13 @@
 #include "test_utility.h"
 
 int main() {
-    printf("\n\tTesting utility\n");
-    test_addr_convert_8_to_16();
-    test_addr_convert_16_to_8();
-    test_brl8();
-    test_brr8();
-    test_get_pos_first_1_in_byte();
-    printf("\tALL PASS: utility\n");
+    TEST_MODULE_BEGIN("utility", 5);
+    RUN_TEST(test_addr_convert_8_to_16);
+    RUN_TEST(test_addr_convert_16_to_8);
+    RUN_TEST(test_brl8);
+    RUN_TEST(test_brr8);
+    RUN_TEST(test_get_pos_first_1_in_byte);
+    TEST_MODULE_END("utility", 5);
     return 0;
 }
 
@@ -22,7 +22,6 @@ void test_addr_convert_8_to_16() {
     uint8_t maxes[2] = {0xFF, 0xFF};
     addr_convert_8_to_16(&result, maxes);
     assert(result == 0xFFFF);
-    printf("\t\tPASS: addr_convert_8_to_16\n");
 }
 
 void test_addr_convert_16_to_8() {
@@ -36,21 +35,18 @@ void test_addr_convert_16_to_8() {
     addr_convert_16_to_8(bytes, 0xFFFF);
     assert(bytes[0] == 0xFF);
     assert(bytes[1] == 0xFF);
-    printf("\t\tPASS: addr_convert_16_to_8\n");
 }
 
 void test_brl8() {
     assert(brl8(0b00000001, 1) == 0b00000010);
     assert(brl8(0b10000000, 1) == 0b00000001); // wraps
     assert(brl8(0b00000001, 8) == 0b00000001); // full rotation
-    printf("\t\tPASS: brl8\n");
 }
 
 void test_brr8() {
     assert(brr8(0b00000010, 1) == 0b00000001);
     assert(brr8(0b00000001, 1) == 0b10000000); // wraps
     assert(brr8(0b00000001, 8) == 0b00000001); // full rotation
-    printf("\t\tPASS: brr8\n");
 }
 
 void test_get_pos_first_1_in_byte() {
@@ -59,5 +55,4 @@ void test_get_pos_first_1_in_byte() {
     assert(get_pos_first_1_in_byte(0b00010000) == 4);
     assert(get_pos_first_1_in_byte(0b00000000) == -1);
     assert(get_pos_first_1_in_byte(0b11111111) == 7);
-    printf("\t\tPASS: get_pos_first_1_in_byte\n");
 }

@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "../src/utility.h"
+#include "test_common.h"
 
 void test_addr_convert_8_to_16();
 void test_addr_convert_16_to_8();
