@@ -9,7 +9,7 @@ int main() {
     RUN_TEST(test_cpu_get_flag, &cpu);
     RUN_TEST(test_cpu_set_flag, &cpu);
     TEST_MODULE_END("cpu_functions", 4);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_cpu_init(CPU *cpu) {

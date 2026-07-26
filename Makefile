@@ -61,25 +61,26 @@ bin/%.bin: examples/%.kasm $(KASM)
 
 test: $(TEST_BINS) $(KASM_TEST_BIN)
 	@passed=0; failed=0; \
-	if [ -t 1 ]; then grn='\033[0;32m'; red='\033[0;31m'; rst='\033[0m'; \
-	else grn=''; red=''; rst=''; fi; \
+	if [ -t 1 ]; then bld='\033[1m'; grn='\033[38;2;0;255;0m'; red='\033[38;2;255;0;0m'; \
+	dflt='\033[39m'; rst='\033[0m'; \
+	else bld=''; grn=''; red=''; dflt=''; rst=''; fi; \
 	printf "\n"; \
 	for t in $(TEST_BINS) $(KASM_TEST_BIN); do \
 		if ./$$t; then \
-			printf "$${grn}[  PASSED  ]$${rst} %s\n\n" "$$t"; \
+			printf "$${bld}$${grn}[ PASS ] $${dflt}%s$${rst}\n\n" "$$t"; \
 			passed=$$((passed + 1)); \
 		else \
-			printf "$${red}[  FAILED  ]$${rst} %s\n\n" "$$t"; \
+			printf "$${bld}$${red}[ FAIL ] $${dflt}%s$${rst}\n\n" "$$t"; \
 			failed=$$((failed + 1)); \
 		fi; \
 	done; \
 	echo; \
 	if [ $$failed -gt 0 ]; then \
-		printf "$${red}[  FAILED  ]$${rst} %d/%d test binaries passed\n" \
+		printf "$${bld}$${red}[ FAIL ] $${dflt}%d/%d test binaries passed$${rst}\n" \
 			"$$passed" "$$((passed + failed))"; \
 		exit 1; \
 	else \
-		printf "$${grn}[  PASSED  ]$${rst} %d/%d test binaries passed\n" \
+		printf "$${bld}$${grn}[ PASS ] $${dflt}%d/%d test binaries passed$${rst}\n" \
 			"$$passed" "$$((passed + failed))"; \
 	fi
 

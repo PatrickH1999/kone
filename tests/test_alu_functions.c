@@ -22,7 +22,7 @@ int main() {
     RUN_TEST(test_alu_ja0_ja1, &cpu);
     RUN_TEST(test_alu_cll_ret, &cpu);
     TEST_MODULE_END("alu_functions", 17);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_alu_not(CPU *cpu) {

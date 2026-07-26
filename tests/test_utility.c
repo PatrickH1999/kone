@@ -8,7 +8,7 @@ int main() {
     RUN_TEST(test_brr8);
     RUN_TEST(test_get_pos_first_1_in_byte);
     TEST_MODULE_END("utility", 5);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_addr_convert_8_to_16() {

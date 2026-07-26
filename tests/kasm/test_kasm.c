@@ -31,7 +31,7 @@ int main() {
     TEST_MODULE_END("kasm", 10);
 
     rmdir(tmpdir);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_isa_lookup_known_mnemonic() {

@@ -43,7 +43,7 @@ int main() {
 
     dup2(stdin_backup, STDIN_FILENO);
     close(stdin_backup);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_keyboard_get_char_reads_available_byte() {

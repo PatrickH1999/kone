@@ -19,7 +19,7 @@ int main() {
     RUN_TEST(test_display_fetch_set);
     RUN_TEST(test_display_fetch_no_set);
     TEST_MODULE_END("display_functions", 6);
-    return 0;
+    return TEST_EXIT_CODE;
 }
 
 void test_display_reset() {
