@@ -24,6 +24,8 @@ EXAMPLE_TARGETS := $(patsubst examples/%.kasm, bin/%.bin, $(EXAMPLE_SRCS))
 KASM_DIR := src/kasm
 KASM := bin/kasm
 KASM_SRCS := $(wildcard $(KASM_DIR)/*.c) $(wildcard $(KASM_DIR)/*.h)
+KASM_OBJS := obj/assembler.o obj/isa.o obj/symtab.o
+KASM_TEST_BIN := bin/test_kasm
 
 PREFIX ?= $(HOME)/.local
 
@@ -57,12 +59,12 @@ examples: $(EXAMPLE_TARGETS)
 bin/%.bin: examples/%.kasm $(KASM)
 	$(KASM) -i $< -o $@
 
-test: $(TEST_BINS)
+test: $(TEST_BINS) $(KASM_TEST_BIN)
 	@passed=0; failed=0; \
 	if [ -t 1 ]; then grn='\033[0;32m'; red='\033[0;31m'; rst='\033[0m'; \
 	else grn=''; red=''; rst=''; fi; \
 	printf "\n"; \
-	for t in $(TEST_BINS); do \
+	for t in $(TEST_BINS) $(KASM_TEST_BIN); do \
 		if ./$$t; then \
 			printf "$${grn}[  PASSED  ]$${rst} %s\n\n" "$$t"; \
 			passed=$$((passed + 1)); \
@@ -83,6 +85,9 @@ test: $(TEST_BINS)
 
 bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
+
+$(KASM_TEST_BIN): tests/kasm/test_kasm.c $(KASM)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(KASM_OBJS) -o $@
 
 install: $(TARGET) $(KASM) examples
 	mkdir -p $(PREFIX)/bin
