@@ -1,5 +1,6 @@
 #include "assembler.h"
 
+#include <getopt.h>
 #include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -10,10 +11,31 @@ typedef struct {
     const char *output; // output binary file (.bin)
 } Args;
 
+static struct option long_options[] = {{"input", required_argument, NULL, 'i'},
+                                       {"output", required_argument, NULL, 'o'},
+                                       {"help", no_argument, NULL, 'h'},
+                                       {NULL, 0, NULL, 0}};
+
 static void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -i INPUT.kasm -o OUTPUT.bin\n",
-            basename(argv[0]));
+    fprintf(stderr, "Usage: %s -i INPUT -o OUTPUT [-h]\n", basename(argv[0]));
     exit(EXIT_FAILURE);
+}
+
+static void print_help(char *argv[]) {
+    fprintf(stdout, "Usage: %s -i INPUT -o OUTPUT [OPTIONS]\n\n",
+            basename(argv[0]));
+
+    fprintf(stdout, "Options:\n");
+    fprintf(stdout,
+            "  -i, --input  FILE    Input assembly source file (required)\n");
+    fprintf(stdout, "  -o, --output FILE    Output binary file (required)\n");
+    fprintf(stdout, "  -h, --help           Show this help and exit\n\n");
+
+    fprintf(stdout, "Examples:\n");
+    fprintf(stdout, "  %s -i examples/patrick.kasm -o bin/patrick.bin\n",
+            basename(argv[0]));
+
+    exit(EXIT_SUCCESS);
 }
 
 static void parse_args(Args *args, int argc, char *argv[]) {
@@ -21,13 +43,16 @@ static void parse_args(Args *args, int argc, char *argv[]) {
     args->output = NULL;
 
     int opt;
-    while ((opt = getopt(argc, argv, "i:o:")) != -1) {
+    while ((opt = getopt_long(argc, argv, "i:o:h", long_options, NULL)) != -1) {
         switch (opt) {
         case 'i':
             args->input = optarg;
             break;
         case 'o':
             args->output = optarg;
+            break;
+        case 'h':
+            print_help(argv);
             break;
         default:
             print_usage(argv);
