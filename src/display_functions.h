@@ -2,7 +2,6 @@
 #define DISPLAY_FUNCTIONS_H
 
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 
 #include "cpu_struct.h"

@@ -2,7 +2,6 @@
 #define TEST_DISPLAY_FUNCTIONS_H
 
 #include <assert.h>
-#include <stdio.h>
 
 #include "../src/display_functions.h"
 #include "../src/cpu_functions.h"

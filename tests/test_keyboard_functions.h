@@ -2,7 +2,6 @@
 #define TEST_KEYBOARD_FUNCTIONS_H
 
 #include <assert.h>
-#include <stdio.h>
 #include <unistd.h>
 
 #include "../src/cpu_functions.h"

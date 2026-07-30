@@ -1,7 +1,6 @@
 #ifndef KEYBOARD_FUNCTIONS_H
 #define KEYBOARD_FUNCTIONS_H
 
-#include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
 
