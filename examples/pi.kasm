@@ -1,0 +1,190 @@
+main:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    STR 3
+    LDI 255
+    STR 4
+
+perimeter_loop:
+    LDI 246
+    ADD 0
+    STR 0
+    JC1 pcarry1
+    JMP e_add
+pcarry1:
+    LDI 1
+    ADD 1
+    STR 1
+e_add:
+    LDI 168
+    ADD 2
+    STR 2
+    JC1 ecarry_lo
+    LDI 0
+    JMP ecarry_in_set
+ecarry_lo:
+    LDI 1
+ecarry_in_set:
+    STR 5
+    LDI 100
+    ADD 3
+    JC1 ehi_had_carry
+    ADD 5
+    STR 3
+    JC1 e_overflow
+    JMP loop_ctrl
+ehi_had_carry:
+    ADD 5
+    STR 3
+    JMP e_overflow
+e_overflow:
+    LDI 1
+    ADD 0
+    STR 0
+    JC1 pcarry2
+    JMP loop_ctrl
+pcarry2:
+    LDI 1
+    ADD 1
+    STR 1
+loop_ctrl:
+    LDI 255
+    ADD 4
+    STR 4
+    JA0 perimeter_done
+    JMP perimeter_loop
+
+perimeter_done:
+    LDI 1
+    STR 2
+    LDR 1
+    AND 2
+    JA0 hi_lsb_0
+    LDI 128
+    JMP hi_lsb_set
+hi_lsb_0:
+    LDI 0
+hi_lsb_set:
+    STR 3
+    LDR 1
+    BSR
+    STR 1
+    LDR 0
+    BSR
+    ADD 3
+    STR 0
+
+    LDI 216
+    STR 3
+    LDI 240
+    STR 2
+    LDI 0
+    STR 4
+    CLL digit
+    LDI 48
+    ADD 4
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+    LDI 46
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+    LDI 252
+    STR 3
+    LDI 24
+    STR 2
+    LDI 0
+    STR 4
+    CLL digit
+    LDI 48
+    ADD 4
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+    LDI 255
+    STR 3
+    LDI 156
+    STR 2
+    LDI 0
+    STR 4
+    CLL digit
+    LDI 48
+    ADD 4
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+    LDI 255
+    STR 3
+    LDI 246
+    STR 2
+    LDI 0
+    STR 4
+    CLL digit
+    LDI 48
+    ADD 4
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+    LDI 255
+    STR 3
+    LDI 255
+    STR 2
+    LDI 0
+    STR 4
+    CLL digit
+    LDI 48
+    ADD 4
+    STR 19
+    LDI 1
+    STR 18
+    CLL wait_disp
+
+halt:
+    JMP halt
+
+wait_disp:
+    LDR 18
+    JA1 wait_disp
+    RET
+
+digit:
+attempt:
+    LDR 0
+    ADD 2
+    JC1 lo_carry_set
+    LDI 0
+    JMP lo_carry_stored
+lo_carry_set:
+    LDI 1
+lo_carry_stored:
+    STR 5
+    LDR 1
+    ADD 3
+    JC1 hi_had_carry
+    ADD 5
+    JC1 commit
+    RET
+hi_had_carry:
+    ADD 5
+commit:
+    STR 1
+    LDR 0
+    ADD 2
+    STR 0
+    LDI 1
+    ADD 4
+    STR 4
+    JMP attempt
