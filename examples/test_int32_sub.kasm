@@ -5,6 +5,10 @@
 //     01000000 - 00000001 = 00FFFFFF
 //     FFFFFFFF - FFFFFFFF = 00000000
 
+    JMP main
+
+.include "../klib/math.kasm"
+
 main:
     LDI 0x0F
     STR 15          // nibble mask for print_nibble
@@ -209,5 +213,3 @@ print_char__wait:
     LDR 18
     JA1 print_char__wait
     RET
-
-.include "../klib/math.kasm"
