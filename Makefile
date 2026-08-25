@@ -21,6 +21,10 @@ TEST_OBJS := $(filter-out obj/kone.o, $(OBJS))
 EXAMPLE_SRCS := $(wildcard examples/*.kasm)
 EXAMPLE_TARGETS := $(patsubst examples/%.kasm, bin/%.bin, $(EXAMPLE_SRCS))
 
+# Library sources are pulled in via '.include'; kasm emits no dependency
+# files, so every example is rebuilt whenever any of them changes.
+KLIB_SRCS := $(wildcard klib/*.kasm)
+
 KASM_DIR := src/kasm
 KASM := bin/kasm
 KASM_SRCS := $(wildcard $(KASM_DIR)/*.c) $(wildcard $(KASM_DIR)/*.h)
@@ -56,7 +60,7 @@ debug: clean all
 
 examples: $(EXAMPLE_TARGETS)
 
-bin/%.bin: examples/%.kasm $(KASM)
+bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
 	$(KASM) -i $< -o $@
 
 test: $(TEST_BINS) $(KASM_TEST_BIN)
