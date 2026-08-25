@@ -23,7 +23,7 @@ EXAMPLE_TARGETS := $(patsubst examples/%.kasm, bin/%.bin, $(EXAMPLE_SRCS))
 
 # Library sources are pulled in via '.include'; kasm emits no dependency
 # files, so every example is rebuilt whenever any of them changes.
-KLIB_SRCS := $(wildcard klib/*.kasm)
+KLIB_SRCS := $(wildcard klib/*.kasm klib/*/*.kasm)
 
 KASM_DIR := src/kasm
 KASM := bin/kasm

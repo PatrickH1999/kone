@@ -1,0 +1,41 @@
+// int32_add: C = A + B, 32 bit, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11, carry out of the MSB is discarded
+//     clobbers: R12
+int32_add:
+    LDR 0
+    ADD 4
+    STR 8
+    LDR 26
+    STR 12
+
+    LDR 1
+    ADD 12
+    STR 9
+    LDR 26
+    STR 12
+    LDR 9
+    ADD 5
+    STR 9
+    LDR 26
+    ADD 12
+    STR 12
+
+    LDR 2
+    ADD 12
+    STR 10
+    LDR 26
+    STR 12
+    LDR 10
+    ADD 6
+    STR 10
+    LDR 26
+    ADD 12
+    STR 12
+
+    LDR 3
+    ADD 12
+    ADD 7
+    STR 11
+
+    RET

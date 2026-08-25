@@ -1,0 +1,110 @@
+// int32_div: C = A / B, 32 bit unsigned, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11, 0xFFFFFFFF if B is zero
+//     clobbers: R0 - R3, R12, R13
+int32_div:
+    LDI 0x00
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 7
+    JA0 int32_div__zero
+
+int32_div__loop:
+    LDI 0x01
+    STR 13
+
+    LDR 4
+    NOT
+    STR 12
+    LDR 0
+    ADD 13
+    STR 0
+    LDR 26
+    STR 13
+    LDR 0
+    ADD 12
+    STR 0
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 5
+    NOT
+    STR 12
+    LDR 1
+    ADD 13
+    STR 1
+    LDR 26
+    STR 13
+    LDR 1
+    ADD 12
+    STR 1
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 6
+    NOT
+    STR 12
+    LDR 2
+    ADD 13
+    STR 2
+    LDR 26
+    STR 13
+    LDR 2
+    ADD 12
+    STR 2
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 7
+    NOT
+    STR 12
+    LDR 3
+    ADD 13
+    STR 3
+    LDR 26
+    STR 13
+    LDR 3
+    ADD 12
+    STR 3
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 13
+    JA0 int32_div__done
+
+    LDI 0x01
+    ADD 8
+    STR 8
+    JC0 int32_div__loop
+    LDI 0x01
+    ADD 9
+    STR 9
+    JC0 int32_div__loop
+    LDI 0x01
+    ADD 10
+    STR 10
+    JC0 int32_div__loop
+    LDI 0x01
+    ADD 11
+    STR 11
+    JMP int32_div__loop
+
+int32_div__zero:
+    LDI 0xFF
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+
+int32_div__done:
+    RET
