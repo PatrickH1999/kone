@@ -2,7 +2,6 @@
 #define TEST_CPU_FUNCTIONS_H
 
 #include <assert.h>
-#include <stdio.h>
 
 #include "../src/cpu_functions.h"
 #include "../src/utility.h"

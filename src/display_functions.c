@@ -23,6 +23,17 @@ void display_print(const Display *display) {
 }
 
 void display_push_char(Display *display, const char char_) {
+    // Backspace steps the column pointer back onto the previous cell and
+    // clears it. It stops at the start of a row: the row above has already
+    // scrolled past, so there is nothing left there to erase.
+    if (char_ == DISP_ASCII_BS) {
+        if (display->DCP > 0) {
+            (display->DCP)--;
+            display->DM[(display->DRP * DISP_NCOLS) + display->DCP] = 0;
+        }
+        return;
+    }
+
     uint16_t DP16 = (display->DRP * DISP_NCOLS) + display->DCP;
     display->DM[DP16] = char_;
     if (display->DCP < (DISP_NCOLS - 1)) {

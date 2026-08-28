@@ -2,11 +2,9 @@
 #define TEST_ALU_FUNCTIONS_H
 
 #include <assert.h>
-#include <stdio.h>
 
 #include "../src/alu_functions.h"
 #include "../src/cpu_functions.h"
-#include "../src/cpu_struct.h"
 #include "../src/utility.h"
 #include "test_common.h"
 

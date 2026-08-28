@@ -1,0 +1,62 @@
+// int32_sub: C = A - B, 32 bit, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11, borrow out of the MSB is discarded
+//     clobbers: R12, R13
+int32_sub:
+    LDI 0x01
+    STR 13
+
+    LDR 4
+    NOT
+    STR 12
+    LDR 0
+    ADD 13
+    STR 8
+    LDR 26
+    STR 13
+    LDR 8
+    ADD 12
+    STR 8
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 5
+    NOT
+    STR 12
+    LDR 1
+    ADD 13
+    STR 9
+    LDR 26
+    STR 13
+    LDR 9
+    ADD 12
+    STR 9
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 6
+    NOT
+    STR 12
+    LDR 2
+    ADD 13
+    STR 10
+    LDR 26
+    STR 13
+    LDR 10
+    ADD 12
+    STR 10
+    LDR 26
+    ADD 13
+    STR 13
+
+    LDR 7
+    NOT
+    STR 12
+    LDR 3
+    ADD 13
+    ADD 12
+    STR 11
+
+    RET

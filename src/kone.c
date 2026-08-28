@@ -12,11 +12,8 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "args.h"
 #include "cpu_functions.h"
-#include "cpu_struct.h"
 #include "display_functions.h"
-#include "display_struct.h"
 #include "keyboard_functions.h"
 #include "utility.h"
 
@@ -77,7 +74,7 @@ int main(int argc, char *argv[]) {
         signal(SIGINT, keyboard_cleanup);
         while (1) {
             keyboard_push_cpu(cpu);
-            usleep(1e6 / KEYBOARD_POLL_RATE);
+            sleep_ns(1000000000L / KEYBOARD_POLL_RATE);
         }
         exit(0);
     }

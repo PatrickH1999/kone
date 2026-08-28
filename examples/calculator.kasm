@@ -1,0 +1,273 @@
+// An interactive 32 bit signed decimal calculator, built from klib's
+// int32_read and int32_write. A line that starts with an operator ('+', '-',
+// '*' or '/') applies that operator and a number to the accumulator, a line
+// that starts with a digit is a bare number that replaces the accumulator and
+// so starts a new calculation:
+//     >1000
+//     =1000
+//     >-1500
+//     =-500
+//     >/-2
+//     =250
+// Values run from -2147483648 to 2147483647. A number may be typed with a
+// leading '-' ('+-5' adds -5, '*-1' flips the sign), and backspace erases
+// the last digit of the number being typed. A line starting with '-' is
+// always subtraction, so a negative accumulator is entered as '0' followed
+// by '-5'. Unknown operators leave the accumulator alone, dividing by zero
+// prints 'ERR' and keeps it. The program never exits.
+
+    JMP main
+
+.include "../klib/math.kasm"
+
+// main: prompt, read one line, apply it and print the accumulator; every
+// path loops back here
+main:
+    LDI 62          // '>'
+    CLL disp_putc
+
+calculator__key:
+    CLL calculator__read_key
+    STR 13
+    LDI 129         // 256 - 127 -> DEL, nothing typed yet -> ignore it
+    ADD 13
+    JA0 calculator__key
+    LDI 248         // 256 - 8 -> BS, same
+    ADD 13
+    JA0 calculator__key
+    LDI 208         // 256 - 48; carry set only for chars >= '0'
+    ADD 13
+    JC0 calculator__operator
+    STR 12
+    LDI 246         // 256 - 10; carry set only for chars > '9'
+    ADD 12
+    JC1 calculator__operator
+
+    // the line starts with a digit: hand that digit back to the keyboard so
+    // that int32_read reads (and echoes) it as the first one, and let the
+    // number it returns replace the accumulator
+    LDR 13
+    STR 17
+    LDI 1
+    STR 16
+    CLL int32_read
+    CLL disp_nl
+    JMP calculator__print
+
+calculator__operator:
+    LDR 13
+    STR 7           // operator char, int32_read preserves R4 - R11
+    CLL disp_putc
+
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11          // int32_read overwrites R0 - R3 but preserves R4 - R11
+
+    CLL int32_read  // R0 - R3 = operand
+    CLL disp_nl
+
+    LDR 7
+    STR 13          // disp_nl clobbers R13, so pick the operator up after it
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7           // R4 - R7 = operand
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3           // R0 - R3 = accumulator
+
+    LDI 213         // 256 - 43 -> '+'
+    ADD 13
+    JA0 calculator__add
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA0 calculator__sub
+    LDI 214         // 256 - 42 -> '*'
+    ADD 13
+    JA0 calculator__mul
+    LDI 209         // 256 - 47 -> '/'
+    ADD 13
+    JA0 calculator__div
+    JMP calculator__print   // unknown operator -> accumulator unchanged
+
+calculator__add:
+    CLL int32_add
+    JMP calculator__store
+
+calculator__sub:
+    CLL int32_sub
+    JMP calculator__store
+
+calculator__mul:
+    CLL int32_mul
+    JMP calculator__store
+
+// calculator__div: klib's int32_div is unsigned, so both operands are made
+// positive first and the quotient is negated again if exactly one of them
+// was negative
+calculator__div:
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 7
+    JA0 calculator__div_zero
+
+    LDI 0
+    STR 15          // 1 -> the quotient has to be negated
+    LDI 128
+    STR 12
+
+    LDR 7
+    AND 12
+    JA0 calculator__div_a
+    LDI 1
+    STR 15
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH             // park the accumulator
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    STR 3
+    CLL int32_sub   // R8 - R11 = 0 - operand
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0
+
+calculator__div_a:
+    LDI 128
+    STR 12
+    LDR 3
+    AND 12
+    JA0 calculator__div_go
+    LDI 1
+    XOR 15
+    STR 15          // both negative -> the quotient stays positive
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // park the operand
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    STR 3
+    CLL int32_sub   // R8 - R11 = 0 - accumulator
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+
+calculator__div_go:
+    CLL int32_div   // R8 - R11 = |accumulator| / |operand|
+    LDR 15
+    JA0 calculator__store
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    STR 3
+    CLL int32_sub   // R8 - R11 = 0 - quotient
+    JMP calculator__store
+
+calculator__div_zero:
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    CLL disp_nl
+    JMP main
+
+calculator__store:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+
+calculator__print:
+    CLL int32_write
+    JMP main
+
+// calculator__read_key: waits for a key press and returns its char
+//     out:      char -> accumulator
+//     clobbers: R12
+calculator__read_key:
+    LDR 16
+    JA0 calculator__read_key
+    LDR 17
+    STR 12
+    LDI 0
+    STR 16          // clear the set-bit -> acknowledge the char
+    LDR 12
+    RET

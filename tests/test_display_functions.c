@@ -11,14 +11,15 @@ static void setup() {
 }
 
 int main() {
-    TEST_MODULE_BEGIN("display_functions", 6);
+    TEST_MODULE_BEGIN("display_functions", 7);
     RUN_TEST(test_display_reset);
     RUN_TEST(test_display_push_char_basic);
     RUN_TEST(test_display_push_char_col_wrap);
     RUN_TEST(test_display_push_char_row_wrap);
+    RUN_TEST(test_display_push_char_backspace);
     RUN_TEST(test_display_fetch_set);
     RUN_TEST(test_display_fetch_no_set);
-    TEST_MODULE_END("display_functions", 6);
+    TEST_MODULE_END("display_functions", 7);
     return TEST_EXIT_CODE;
 }
 
@@ -68,6 +69,26 @@ void test_display_push_char_row_wrap() {
     // DRP and DCP should have wrapped around without crash
     assert(display.DRP < DISP_NROWS);
     assert(display.DCP < DISP_NCOLS);
+}
+
+void test_display_push_char_backspace() {
+    setup();
+    display_push_char(&display, 'A');
+    display_push_char(&display, 'B');
+    display_push_char(&display, DISP_ASCII_BS);
+    assert(display.DCP == 1);
+    assert(display.DM[1] == 0); // 'B' erased
+    assert(display.DM[0] == 'A');
+    // the next char takes the erased cell
+    display_push_char(&display, 'C');
+    assert(display.DM[1] == 'C');
+    assert(display.DCP == 2);
+    // at the start of a row a backspace does nothing
+    display_push_char(&display, DISP_ASCII_BS);
+    display_push_char(&display, DISP_ASCII_BS);
+    display_push_char(&display, DISP_ASCII_BS);
+    assert(display.DCP == 0);
+    assert(display.DRP == 0);
 }
 
 void test_display_fetch_set() {

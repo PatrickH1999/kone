@@ -1,7 +1,6 @@
 #ifndef KEYBOARD_FUNCTIONS_H
 #define KEYBOARD_FUNCTIONS_H
 
-#include <stdio.h>
 #include <termios.h>
 #include <unistd.h>
 
@@ -9,6 +8,7 @@
 
 #define KEYBOARD_ASCII_LO 32
 #define KEYBOARD_ASCII_HI 255
+#define KEYBOARD_ASCII_BS 8     // Backspace; terminals send either this or DEL
 #define REG_ID_KEYBOARD_CHAR 17 // CPU register ID for receive char
 #define REG_ID_KEYBOARD_SET 16  // CPU register ID for receive set bit
 
