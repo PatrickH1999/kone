@@ -1,0 +1,12 @@
+// float32: all IEEE 754 single precision operations of klib, see the individual
+// files for their calling conventions. Include this rather than the single
+// files when a program needs more than one of them; none of them depends on
+// klib/math/int32.kasm.
+
+.include "float32_add.kasm"
+.include "float32_sub.kasm"
+.include "float32_mul.kasm"
+.include "float32_div.kasm"
+.include "float32_from_int32.kasm"
+.include "float32_to_int32.kasm"
+.include "float32_pow10.kasm"

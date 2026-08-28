@@ -5,12 +5,13 @@
 //     00000000 - 00000001 = FFFFFFFF
 //     FFFFFFFF - FFFFFFFF = 00000000
 //
-// All of klib/math.kasm is pulled in: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live in klib/int32_write.kasm.
+// klib/disp.kasm is pulled in as well: the test needs the display helpers
+// 'disp_putc' and 'disp_nl', which live there.
 
     JMP main
 
-.include "../../klib/math.kasm"
+.include "../../klib/disp.kasm"
+.include "../../klib/math/int32.kasm"
 
 main:
     LDI 0

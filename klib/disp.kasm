@@ -1,0 +1,89 @@
+// disp: the display helpers of klib. The kone display has no cursor that a
+// program could read back, so these keep the column of the next cell at 0x8000
+// and every write to the display goes through them.
+//
+// klib scratch memory, the whole map, so that a new routine can tell what is
+// already taken:
+//     0x8000          display column pointer (0 - 39, see 'disp_putc')
+//     0x8001 - 0x8004 int32_write:    remaining magnitude
+//     0x8005 - 0x8008 int32_write:    remaining magnitude / 10
+//     0x8009          int32_write:    1 if the value is negative
+//     0x800A          int32_read:     digits typed so far
+//     0x800B          int32_read:     1 if a leading '-' was typed
+//     0x800C - 0x800F float32_pow10:  the running product
+//     0x8010          float32_pow10:  the bits of n left to apply
+//     0x8011 - 0x8014 float32_digits: the value being scaled
+//     0x8015          float32_digits: the decimal exponent
+//     0x8016          float32_digits: powers of ten left to apply
+//     0x8017 - 0x801C float32_write:  the six digits, most significant first
+//     0x801D          float32_write:  digits still to print
+//     0x801E          float32_write:  digits before the decimal point
+//     0x801F          float32_write:  significant digits after trimming
+//     0x8020          float32_write:  the decimal exponent
+//     0x8021          float32_write:  1 for the 'd.dddddemdd' layout
+//     0x8023 - 0x8026 float32_read:   the mantissa typed so far
+//     0x8027          float32_read:   the decimal exponent
+//     0x8028          float32_read:   the state flags
+//     0x8029          float32_read:   mantissa digits accepted
+//     0x802A          float32_read:   the exponent typed so far
+//     0x802B          float32_read:   undo entries on the stack
+//     0x802C          float32_read:   the char that ended the number
+
+// disp_putc: pushes the ASCII char in the accumulator to the display and
+// advances the display column pointer at 0x8000
+//     in:       char -> accumulator
+//     clobbers: R13
+disp_putc:
+    STR 19          // REG_ID_DISP_CHAR
+    LDI 1
+    STR 18          // REG_ID_DISP_SET -> push char to display
+disp_putc__wait:
+    LDR 18
+    JA1 disp_putc__wait
+
+    LDM 0x8000
+    STR 13
+    LDI 1
+    ADD 13
+    STR 13
+    LDI 216         // 256 - 40; carry set only once the column wrapped
+    ADD 13
+    JC0 disp_putc__store
+    LDI 0
+    STR 13
+disp_putc__store:
+    LDR 13
+    STM 0x8000
+    RET
+
+// disp_bs: erases the char before the display cursor; like the display
+// itself it does nothing at the start of a row
+//     clobbers: R13
+disp_bs:
+    LDM 0x8000
+    JA0 disp_bs__done
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x8000
+    LDI 8           // BS -> the display clears the cell it steps back onto
+    STR 19
+    LDI 1
+    STR 18
+disp_bs__wait:
+    LDR 18
+    JA1 disp_bs__wait
+disp_bs__done:
+    RET
+
+// disp_nl: ends the current display row by padding it with spaces; the kone
+// display has no newline char, it wraps on its own once a row is full
+//     clobbers: R13
+disp_nl:
+    LDM 0x8000
+    JA0 disp_nl__done
+    LDI 32          // ' '
+    CLL disp_putc
+    JMP disp_nl
+disp_nl__done:
+    RET

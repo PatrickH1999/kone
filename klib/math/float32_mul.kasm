@@ -1,0 +1,231 @@
+// float32_mul: C = A * B, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R7, R12 - R15
+//
+// The operands are taken apart by 'float32_unpack' and put back together by
+// 'float32_pack', both of which live in klib/math/float32_add.kasm. The signs
+// are XORed, the exponents are added and the bias of 127 is taken out once,
+// and the two 24 bit mantissas are multiplied.
+//
+// int32_mul is of no use for the mantissas: their product is 48 bit wide and
+// only its top half is wanted, while int32_mul keeps the low 32 bit. So the
+// product is accumulated the other way round, shifting a 40 bit accumulator
+// (R13 as the low guard byte, then R8 - R11) right before every partial
+// product instead of shifting the partial products left. What is left is the
+// top 25 bit of the product in R8 - R11 plus 8 guard bits in R13.
+//
+// The guard byte is dropped without rounding, i.e., the result is truncated
+// towards zero. A zero operand yields a signed zero, an exponent that drops
+// below 1 is flushed to a signed zero (subnormals are not produced) and one
+// that reaches 255 becomes a signed infinity. Operands with exponent 255
+// (infinity, NaN) are treated as ordinary numbers, so they produce garbage
+// rather than an infinity or a NaN.
+float32_mul:
+    CLL float32_unpack
+
+    LDR 12
+    XOR 13
+    STR 12
+
+    LDR 3
+    JA0 float32_mul__zero
+    LDR 7
+    JA0 float32_mul__zero
+
+    LDR 3
+    ADD 7
+    STR 14
+    JC1 float32_mul__exp_high
+
+    LDI 129         // - 127, the exponent bias
+    ADD 14
+    STR 14
+    JC0 float32_mul__zero
+    JMP float32_mul__mant
+
+float32_mul__exp_high:
+    LDI 129         // - 127 on the sum that carried out of its low byte
+    ADD 14
+    STR 14
+    JC1 float32_mul__inf
+    LDI 1
+    ADD 14
+    JA0 float32_mul__inf
+
+float32_mul__mant:
+    LDR 14
+    STR 3
+    LDI 0
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    STR 13
+    LDI 24
+    STR 7           // one round per mantissa bit of B
+
+float32_mul__loop:
+    LDI 0x80
+    STR 15
+    LDR 13
+    BSR
+    STR 13
+    LDR 8
+    BRR
+    AND 15
+    ORR 13
+    STR 13
+    LDR 8
+    BSR
+    STR 8
+    LDR 9
+    BRR
+    AND 15
+    ORR 8
+    STR 8
+    LDR 9
+    BSR
+    STR 9
+    LDR 10
+    BRR
+    AND 15
+    ORR 9
+    STR 9
+    LDR 10
+    BSR
+    STR 10
+    LDR 11
+    BRR
+    AND 15
+    ORR 10
+    STR 10
+    LDR 11
+    BSR
+    STR 11
+
+    LDI 0x01
+    STR 15
+    LDR 4
+    AND 15
+    JA0 float32_mul__shift
+
+    LDR 8
+    ADD 0
+    STR 8
+    LDR 26
+    STR 14
+
+    LDR 9
+    ADD 14
+    STR 9
+    LDR 26
+    STR 14
+    LDR 9
+    ADD 1
+    STR 9
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 10
+    ADD 14
+    STR 10
+    LDR 26
+    STR 14
+    LDR 10
+    ADD 2
+    STR 10
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 11
+    ADD 14
+    STR 11
+
+float32_mul__shift:
+    LDI 0x80
+    STR 15
+    LDR 4
+    BSR
+    STR 4
+    LDR 5
+    BRR
+    AND 15
+    ORR 4
+    STR 4
+    LDR 5
+    BSR
+    STR 5
+    LDR 6
+    BRR
+    AND 15
+    ORR 5
+    STR 5
+    LDR 6
+    BSR
+    STR 6
+
+    LDI 255
+    ADD 7
+    STR 7
+    JA1 float32_mul__loop
+
+    LDR 11
+    JA0 float32_mul__pack
+
+    LDI 0x80
+    STR 15
+    LDR 8
+    BSR
+    STR 8
+    LDR 9
+    BRR
+    AND 15
+    ORR 8
+    STR 8
+    LDR 9
+    BSR
+    STR 9
+    LDR 10
+    BRR
+    AND 15
+    ORR 9
+    STR 9
+    LDR 10
+    BSR
+    STR 10
+    LDI 0x80
+    ORR 10
+    STR 10
+
+    LDI 1
+    ADD 3
+    STR 3
+    LDI 1
+    ADD 3
+    JA0 float32_mul__inf
+
+float32_mul__pack:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    JMP float32_pack
+
+float32_mul__zero:
+    LDI 0
+    STR 3
+    JMP float32_pack
+
+float32_mul__inf:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    LDI 255
+    STR 3
+    JMP float32_pack

@@ -4,7 +4,7 @@
 
     JMP main
 
-.include "../klib/math.kasm"
+.include "../klib/disp.kasm"
 
 main:
     LDI 0

@@ -1,0 +1,17 @@
+// float32_sub: C = A - B, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R7, R12 - R15
+//
+// The sign bit of B is flipped and the rest is left to float32_add, i.e.,
+// subtracting is adding the negated second operand. See float32_add for the
+// zero, overflow and rounding behaviour; note that it returns A unchanged when
+// B is zero, so 'x - 0' keeps the sign of x, while '0 - x' is the negation of
+// x as usual.
+float32_sub:
+    LDI 0x80
+    STR 12
+    LDR 7
+    XOR 12
+    STR 7
+    JMP float32_add

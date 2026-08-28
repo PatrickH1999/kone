@@ -1,4 +1,4 @@
-// An interactive 32 bit signed decimal calculator, built from klib's
+// An interactive 32 bit signed integer decimal calculator, built from klib's
 // int32_read and int32_write. A line that starts with an operator ('+', '-',
 // '*' or '/') applies that operator and a number to the accumulator, a line
 // that starts with a digit is a bare number that replaces the accumulator and
@@ -18,7 +18,10 @@
 
     JMP main
 
-.include "../klib/math.kasm"
+.include "../klib/disp.kasm"
+.include "../klib/math/int32.kasm"
+.include "../klib/int32_write.kasm"
+.include "../klib/int32_read.kasm"
 
 // main: prompt, read one line, apply it and print the accumulator; every
 // path loops back here
@@ -26,35 +29,45 @@ main:
     LDI 62          // '>'
     CLL disp_putc
 
-calculator__key:
-    CLL calculator__read_key
+calculator_int32__key:
+    CLL calculator_int32__read_key
     STR 13
     LDI 129         // 256 - 127 -> DEL, nothing typed yet -> ignore it
     ADD 13
-    JA0 calculator__key
+    JA0 calculator_int32__key
     LDI 248         // 256 - 8 -> BS, same
     ADD 13
-    JA0 calculator__key
+    JA0 calculator_int32__key
     LDI 208         // 256 - 48; carry set only for chars >= '0'
     ADD 13
-    JC0 calculator__operator
+    JC0 calculator_int32__operator
     STR 12
     LDI 246         // 256 - 10; carry set only for chars > '9'
     ADD 12
-    JC1 calculator__operator
+    JC1 calculator_int32__operator
 
     // the line starts with a digit: hand that digit back to the keyboard so
     // that int32_read reads (and echoes) it as the first one, and let the
     // number it returns replace the accumulator
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11          // park the accumulator in case the line is erased away
     LDR 13
     STR 17
     LDI 1
     STR 16
     CLL int32_read
+    CLL calculator_int32__erased
+    JA1 calculator_int32__restart   // erased back past the first digit
     CLL disp_nl
-    JMP calculator__print
+    JMP calculator_int32__print
 
-calculator__operator:
+calculator_int32__operator:
     LDR 13
     STR 7           // operator char, int32_read preserves R4 - R11
     CLL disp_putc
@@ -69,6 +82,8 @@ calculator__operator:
     STR 11          // int32_read overwrites R0 - R3 but preserves R4 - R11
 
     CLL int32_read  // R0 - R3 = operand
+    CLL calculator_int32__erased
+    JA1 calculator_int32__cancel    // erased back past the operator
     CLL disp_nl
 
     LDR 7
@@ -92,39 +107,39 @@ calculator__operator:
 
     LDI 213         // 256 - 43 -> '+'
     ADD 13
-    JA0 calculator__add
+    JA0 calculator_int32__add
     LDI 211         // 256 - 45 -> '-'
     ADD 13
-    JA0 calculator__sub
+    JA0 calculator_int32__sub
     LDI 214         // 256 - 42 -> '*'
     ADD 13
-    JA0 calculator__mul
+    JA0 calculator_int32__mul
     LDI 209         // 256 - 47 -> '/'
     ADD 13
-    JA0 calculator__div
-    JMP calculator__print   // unknown operator -> accumulator unchanged
+    JA0 calculator_int32__div
+    JMP calculator_int32__print   // unknown operator -> accumulator unchanged
 
-calculator__add:
+calculator_int32__add:
     CLL int32_add
-    JMP calculator__store
+    JMP calculator_int32__store
 
-calculator__sub:
+calculator_int32__sub:
     CLL int32_sub
-    JMP calculator__store
+    JMP calculator_int32__store
 
-calculator__mul:
+calculator_int32__mul:
     CLL int32_mul
-    JMP calculator__store
+    JMP calculator_int32__store
 
-// calculator__div: klib's int32_div is unsigned, so both operands are made
-// positive first and the quotient is negated again if exactly one of them
-// was negative
-calculator__div:
+// calculator_int32__div: klib's int32_div is unsigned, so both operands are
+// made positive first and the quotient is negated again if exactly one of
+// them was negative
+calculator_int32__div:
     LDR 4
     ORR 5
     ORR 6
     ORR 7
-    JA0 calculator__div_zero
+    JA0 calculator_int32__div_zero
 
     LDI 0
     STR 15          // 1 -> the quotient has to be negated
@@ -133,7 +148,7 @@ calculator__div:
 
     LDR 7
     AND 12
-    JA0 calculator__div_a
+    JA0 calculator_int32__div_a
     LDI 1
     STR 15
     LDR 0
@@ -167,12 +182,12 @@ calculator__div:
     POP
     STR 0
 
-calculator__div_a:
+calculator_int32__div_a:
     LDI 128
     STR 12
     LDR 3
     AND 12
-    JA0 calculator__div_go
+    JA0 calculator_int32__div_go
     LDI 1
     XOR 15
     STR 15          // both negative -> the quotient stays positive
@@ -215,10 +230,10 @@ calculator__div_a:
     POP
     STR 4
 
-calculator__div_go:
+calculator_int32__div_go:
     CLL int32_div   // R8 - R11 = |accumulator| / |operand|
     LDR 15
-    JA0 calculator__store
+    JA0 calculator_int32__store
     LDR 8
     STR 4
     LDR 9
@@ -233,9 +248,9 @@ calculator__div_go:
     STR 2
     STR 3
     CLL int32_sub   // R8 - R11 = 0 - quotient
-    JMP calculator__store
+    JMP calculator_int32__store
 
-calculator__div_zero:
+calculator_int32__div_zero:
     LDI 69          // 'E'
     CLL disp_putc
     LDI 82          // 'R'
@@ -245,7 +260,7 @@ calculator__div_zero:
     CLL disp_nl
     JMP main
 
-calculator__store:
+calculator_int32__store:
     LDR 8
     STR 0
     LDR 9
@@ -255,16 +270,54 @@ calculator__store:
     LDR 11
     STR 3
 
-calculator__print:
+calculator_int32__print:
     CLL int32_write
     JMP main
 
-// calculator__read_key: waits for a key press and returns its char
+// calculator_int32__cancel: the operand was erased away, so take the operator
+// off the display again and read the line from the start; int32_read preserves
+// R4 - R11, so the accumulator parked there before the call is still good
+calculator_int32__cancel:
+    CLL disp_bs
+
+calculator_int32__restart:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    JMP calculator_int32__key
+
+// calculator_int32__erased: tells whether int32_read stopped on a backspace,
+// which it does once there is nothing left to erase
+//     in:       terminator -> R14
+//     out:      accumulator = 0 if the number ended some other way
+//     clobbers: R13
+calculator_int32__erased:
+    LDR 14
+    STR 13
+    LDI 129         // 256 - 127 -> DEL
+    ADD 13
+    JA0 calculator_int32__erased_yes
+    LDI 248         // 256 - 8 -> BS
+    ADD 13
+    JA0 calculator_int32__erased_yes
+    LDI 0
+    RET
+
+calculator_int32__erased_yes:
+    LDI 1
+    RET
+
+// calculator_int32__read_key: waits for a key press and returns its char
 //     out:      char -> accumulator
 //     clobbers: R12
-calculator__read_key:
+calculator_int32__read_key:
     LDR 16
-    JA0 calculator__read_key
+    JA0 calculator_int32__read_key
     LDR 17
     STR 12
     LDI 0
