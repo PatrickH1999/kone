@@ -1,0 +1,134 @@
+// An interactive 32 bit unsigned decimal calculator, built from klib's
+// int32_read and int32_write. Type a number and press ENTER to load it into
+// the accumulator; every following line takes an operator ('+', '-', '*' or
+// '/') plus a number:
+//     >10000
+//     =10000
+//     >+500
+//     =10500
+//     >/2
+//     =5250
+// Unknown operators leave the accumulator alone, dividing by zero prints
+// 'ERR' and keeps the accumulator. The program never exits.
+
+    JMP main
+
+.include "../klib/math.kasm"
+
+main:
+    LDI 62          // '>'
+    CLL disp_putc
+    CLL int32_read
+    CLL disp_nl
+    CLL int32_write // int32_write preserves R0 - R3, the accumulator
+
+calculator__loop:
+    LDI 62          // '>'
+    CLL disp_putc
+
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11          // int32_read overwrites R0 - R3 but preserves R4 - R11
+
+    CLL calculator__read_key
+    STR 7           // operator char
+    CLL disp_putc
+
+    CLL int32_read  // R0 - R3 = operand
+    CLL disp_nl
+
+    LDR 7
+    STR 13          // disp_nl clobbers R13, so pick the operator up after it
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7           // R4 - R7 = operand
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3           // R0 - R3 = accumulator
+
+    LDI 213         // 256 - 43 -> '+'
+    ADD 13
+    JA0 calculator__add
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA0 calculator__sub
+    LDI 214         // 256 - 42 -> '*'
+    ADD 13
+    JA0 calculator__mul
+    LDI 209         // 256 - 47 -> '/'
+    ADD 13
+    JA0 calculator__div
+    JMP calculator__print   // unknown operator -> accumulator unchanged
+
+calculator__add:
+    CLL int32_add
+    JMP calculator__store
+
+calculator__sub:
+    CLL int32_sub
+    JMP calculator__store
+
+calculator__mul:
+    CLL int32_mul
+    JMP calculator__store
+
+calculator__div:
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 7
+    JA0 calculator__div_zero
+    CLL int32_div
+    JMP calculator__store
+
+calculator__div_zero:
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    CLL disp_nl
+    JMP calculator__loop
+
+calculator__store:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+
+calculator__print:
+    CLL int32_write
+    JMP calculator__loop
+
+// calculator__read_key: waits for a key press and returns its char
+//     out:      char -> accumulator
+//     clobbers: R12
+calculator__read_key:
+    LDR 16
+    JA0 calculator__read_key
+    LDR 17
+    STR 12
+    LDI 0
+    STR 16          // clear the set-bit -> acknowledge the char
+    LDR 12
+    RET

@@ -1,0 +1,199 @@
+// int32_write: prints a 32 bit integer to the display as decimal, prefixed
+// with '=' and followed by a newline
+//     in:       A -> R0 - R3, byte order LSB -> MSB
+//     out:      -
+//     clobbers: R4 - R15
+//
+// Digits are produced least significant first (value / 10 via int32_div, the
+// digit itself via int32_mul and int32_sub) and pushed onto the stack, which
+// hands them back most significant first for printing.
+//
+// This file also holds the display helpers 'disp_putc' and 'disp_nl' (see
+// below), which klib/int32_read.kasm uses to echo typed chars.
+//
+// klib scratch memory:
+//     0x8000          display column pointer (0 - 39, see 'disp_putc')
+//     0x8001 - 0x8004 int32_write: remaining value
+//     0x8005 - 0x8008 int32_write: remaining value / 10
+int32_write:
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH             // R0 - R3 are restored right before RET
+
+    LDR 0
+    STM 0x8001
+    LDR 1
+    STM 0x8002
+    LDR 2
+    STM 0x8003
+    LDR 3
+    STM 0x8004
+
+    LDI 0
+    STR 15          // number of digits pushed onto the stack
+
+    LDI 61          // '='
+    CLL disp_putc
+
+    LDR 0
+    ORR 1
+    ORR 2
+    ORR 3
+    JA0 int32_write__zero
+
+int32_write__loop:
+    LDM 0x8001
+    STR 0
+    LDM 0x8002
+    STR 1
+    LDM 0x8003
+    STR 2
+    LDM 0x8004
+    STR 3
+    LDI 10
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_div   // R8 - R11 = value / 10
+
+    LDR 8
+    STM 0x8005
+    LDR 9
+    STM 0x8006
+    LDR 10
+    STM 0x8007
+    LDR 11
+    STM 0x8008
+
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 10
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_mul   // R8 - R11 = (value / 10) * 10
+
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x8001
+    STR 0
+    LDM 0x8002
+    STR 1
+    LDM 0x8003
+    STR 2
+    LDM 0x8004
+    STR 3
+    CLL int32_sub   // R8 - R11 = value - (value / 10) * 10 -> next digit
+
+    LDR 8
+    PSH
+    LDI 1
+    ADD 15
+    STR 15
+
+    LDM 0x8005      // value = value / 10, loop while it is non-zero
+    STM 0x8001
+    STR 12
+    LDM 0x8006
+    STM 0x8002
+    ORR 12
+    STR 12
+    LDM 0x8007
+    STM 0x8003
+    ORR 12
+    STR 12
+    LDM 0x8008
+    STM 0x8004
+    ORR 12
+    JA1 int32_write__loop
+    JMP int32_write__print
+
+int32_write__zero:
+    LDI 48          // '0'
+    CLL disp_putc
+    JMP int32_write__done
+
+int32_write__print:
+    LDR 15
+    JA0 int32_write__done
+    POP
+    STR 12
+    LDI 48          // '0'
+    ADD 12
+    CLL disp_putc
+    LDI 255
+    ADD 15
+    STR 15          // one digit less left on the stack
+    JMP int32_write__print
+
+int32_write__done:
+    CLL disp_nl
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0
+    RET
+
+// disp_putc: pushes the ASCII char in the accumulator to the display and
+// advances the display column pointer at 0x8000
+//     in:       char -> accumulator
+//     clobbers: R13
+disp_putc:
+    STR 19          // REG_ID_DISP_CHAR
+    LDI 1
+    STR 18          // REG_ID_DISP_SET -> push char to display
+disp_putc__wait:
+    LDR 18
+    JA1 disp_putc__wait
+
+    LDM 0x8000
+    STR 13
+    LDI 1
+    ADD 13
+    STR 13
+    LDI 216         // 256 - 40; carry set only once the column wrapped
+    ADD 13
+    JC0 disp_putc__store
+    LDI 0
+    STR 13
+disp_putc__store:
+    LDR 13
+    STM 0x8000
+    RET
+
+// disp_nl: ends the current display row by padding it with spaces; the kone
+// display has no newline char, it wraps on its own once a row is full
+//     clobbers: R13
+disp_nl:
+    LDM 0x8000
+    JA0 disp_nl__done
+    LDI 32          // ' '
+    CLL disp_putc
+    JMP disp_nl
+disp_nl__done:
+    RET
