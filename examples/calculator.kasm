@@ -1,13 +1,14 @@
 // An interactive 32 bit unsigned decimal calculator, built from klib's
-// int32_read and int32_write. Type a number and press ENTER to load it into
-// the accumulator; every following line takes an operator ('+', '-', '*' or
-// '/') plus a number:
-//     >10000
-//     =10000
-//     >+500
-//     =10500
-//     >/2
-//     =5250
+// int32_read and int32_write. A line that starts with an operator ('+', '-',
+// '*' or '/') applies that operator and a number to the accumulator, a line
+// that starts with a digit is a bare number that replaces the accumulator and
+// so starts a new calculation:
+//     >1000
+//     =1000
+//     >100
+//     =100
+//     >+50
+//     =150
 // Unknown operators leave the accumulator alone, dividing by zero prints
 // 'ERR' and keeps the accumulator. The program never exits.
 
@@ -15,15 +16,36 @@
 
 .include "../klib/math.kasm"
 
+// main: prompt, read one line, apply it and print the accumulator; every
+// path loops back here
 main:
     LDI 62          // '>'
     CLL disp_putc
+
+    CLL calculator__read_key
+    STR 13
+    LDI 208         // 256 - 48; carry set only for chars >= '0'
+    ADD 13
+    JC0 calculator__operator
+    STR 12
+    LDI 246         // 256 - 10; carry set only for chars > '9'
+    ADD 12
+    JC1 calculator__operator
+
+    // the line starts with a digit: hand that digit back to the keyboard so
+    // that int32_read reads (and echoes) it as the first one, and let the
+    // number it returns replace the accumulator
+    LDR 13
+    STR 17
+    LDI 1
+    STR 16
     CLL int32_read
     CLL disp_nl
-    CLL int32_write // int32_write preserves R0 - R3, the accumulator
+    JMP calculator__print
 
-calculator__loop:
-    LDI 62          // '>'
+calculator__operator:
+    LDR 13
+    STR 7           // operator char, int32_read preserves R4 - R11
     CLL disp_putc
 
     LDR 0
@@ -34,10 +56,6 @@ calculator__loop:
     STR 10
     LDR 3
     STR 11          // int32_read overwrites R0 - R3 but preserves R4 - R11
-
-    CLL calculator__read_key
-    STR 7           // operator char
-    CLL disp_putc
 
     CLL int32_read  // R0 - R3 = operand
     CLL disp_nl
@@ -104,7 +122,7 @@ calculator__div_zero:
     LDI 82          // 'R'
     CLL disp_putc
     CLL disp_nl
-    JMP calculator__loop
+    JMP main
 
 calculator__store:
     LDR 8
@@ -118,7 +136,7 @@ calculator__store:
 
 calculator__print:
     CLL int32_write
-    JMP calculator__loop
+    JMP main
 
 // calculator__read_key: waits for a key press and returns its char
 //     out:      char -> accumulator
