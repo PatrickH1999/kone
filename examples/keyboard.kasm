@@ -1,13 +1,53 @@
-loop:
-    LDR 16      // load keyboard set-bit (R16) into accumulator
-    JA0 loop    // no key pressed yet -> keep polling
+// keyboard: echoes every typed char to the display. R1 counts the chars that
+// are currently on the display, so that a backspace is only passed on when
+// there is something left to erase.
 
-    LDR 17      // load received key char (R17) into accumulator
-    STR 19      // move char into display char register
-    LDI 1
-    STR 18      // set display set-bit -> push char to display
-
+main:
     LDI 0
-    STR 16      // clear keyboard set-bit -> acknowledge key
+    STR 1           // R1 = number of chars typed so far
+
+loop:
+    LDR 16          // load keyboard set-bit (R16) into accumulator
+    JA0 loop        // no key pressed yet -> keep polling
+
+    LDR 17          // load received key char (R17) into accumulator
+    STR 2
+
+    // depending on the terminal the backspace key arrives as BS or as DEL,
+    // so DEL is folded onto BS and only BS is tested for below
+    LDI 129         // 256 - 127 -> the char is DEL
+    ADD 2
+    JA1 keyboard__test_bs
+    LDI 8
+    STR 2
+
+keyboard__test_bs:
+    LDI 248         // 256 - 8 -> the char is BS
+    ADD 2
+    JA0 keyboard__backspace
+
+    LDR 2
+    STR 19          // move char into display char register
+    LDI 1
+    STR 18          // set display set-bit -> push char to display
+    LDI 1
+    ADD 1
+    STR 1           // one char more on the display
+    JMP keyboard__ack
+
+keyboard__backspace:
+    LDR 1
+    JA0 keyboard__ack   // nothing typed yet -> ignore the backspace
+    LDI 8
+    STR 19
+    LDI 1
+    STR 18          // push BS -> the display clears the cell before the cursor
+    LDI 255         // 256 - 1
+    ADD 1
+    STR 1           // one char less on the display
+
+keyboard__ack:
+    LDI 0
+    STR 16          // clear keyboard set-bit -> acknowledge key
 
     JMP loop
