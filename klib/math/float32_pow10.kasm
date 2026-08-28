@@ -1,0 +1,222 @@
+// float32_pow10: C = 10 ** n as an IEEE 754 single precision value
+//     in:       n -> R0, 0 to 38
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R7, R12 - R15
+//
+// The result is built from the six constants 10, 1e2, 1e4, 1e8, 1e16 and 1e32,
+// one per bit of n, so it costs at most three multiplications. Only 1e1 to 1e10
+// are exact in single precision and every multiplication truncates, so a large
+// n is off by a few units in the last place; an n above 38 overflows to
+// infinity, as 1e39 is out of range.
+float32_pow10:
+    LDR 0
+    STM 0x8010      // the bits of n that are still to be applied
+    LDI 0x00
+    STM 0x800C
+    STM 0x800D
+    LDI 0x80
+    STM 0x800E
+    LDI 0x3F
+    STM 0x800F      // the running product, starting at 1.0
+
+    LDM 0x8010
+    STR 12
+    LDI 0x01
+    AND 12
+    JA0 float32_pow10__bit2
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x20
+    STR 6
+    LDI 0x41
+    STR 7           // 10
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__bit2:
+    LDM 0x8010
+    STR 12
+    LDI 0x02
+    AND 12
+    JA0 float32_pow10__bit4
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0xC8
+    STR 6
+    LDI 0x42
+    STR 7           // 1e2
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__bit4:
+    LDM 0x8010
+    STR 12
+    LDI 0x04
+    AND 12
+    JA0 float32_pow10__bit8
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x40
+    STR 5
+    LDI 0x1C
+    STR 6
+    LDI 0x46
+    STR 7           // 1e4
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__bit8:
+    LDM 0x8010
+    STR 12
+    LDI 0x08
+    AND 12
+    JA0 float32_pow10__bit16
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0x20
+    STR 4
+    LDI 0xBC
+    STR 5
+    LDI 0xBE
+    STR 6
+    LDI 0x4C
+    STR 7           // 1e8
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__bit16:
+    LDM 0x8010
+    STR 12
+    LDI 0x10
+    AND 12
+    JA0 float32_pow10__bit32
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0xCA
+    STR 4
+    LDI 0x1B
+    STR 5
+    LDI 0x0E
+    STR 6
+    LDI 0x5A
+    STR 7           // 1e16
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__bit32:
+    LDM 0x8010
+    STR 12
+    LDI 0x20
+    AND 12
+    JA0 float32_pow10__done
+    LDM 0x800C
+    STR 0
+    LDM 0x800D
+    STR 1
+    LDM 0x800E
+    STR 2
+    LDM 0x800F
+    STR 3
+    LDI 0xAE
+    STR 4
+    LDI 0xC5
+    STR 5
+    LDI 0x9D
+    STR 6
+    LDI 0x74
+    STR 7           // 1e32
+    CLL float32_mul
+    LDR 8
+    STM 0x800C
+    LDR 9
+    STM 0x800D
+    LDR 10
+    STM 0x800E
+    LDR 11
+    STM 0x800F
+
+float32_pow10__done:
+    LDM 0x800C
+    STR 8
+    LDM 0x800D
+    STR 9
+    LDM 0x800E
+    STR 10
+    LDM 0x800F
+    STR 11
+    RET

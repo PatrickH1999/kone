@@ -16,8 +16,8 @@
 // Reading stops at the first char that is neither a digit nor part of the
 // editing above; that char is echoed as well and left in R14, so the caller
 // can tell which key ended the number (kone maps ENTER to ' '). Echoing goes
-// through 'disp_putc' and 'disp_bs' from klib/int32_write.kasm, which also
-// documents the scratch memory both routines share.
+// through 'disp_putc' and 'disp_bs' from klib/disp.kasm, which also documents
+// the scratch memory this file uses.
 int32_read:
     LDR 4
     PSH

@@ -1,0 +1,679 @@
+// float32_read: reads a decimal number from the keyboard (R16/R17) as an
+// IEEE 754 single precision value and echoes every typed char to the display
+//     in:       -
+//     out:      A -> R0 - R3, byte order LSB -> MSB,
+//               R14 -> the char that ended the number
+//     clobbers: R0 - R15
+//
+// The accepted shape is '[-] digits [ . digits ] [ (e|E) [+|-] digits ]', and a
+// ',' is dropped as a thousands separator. The mantissa is built up as an
+// integer, at most nine digits of it, and everything beyond that only counts
+// towards the decimal exponent; 'float32_from_int32' turns it into a float and
+// 'float32_pow10' scales it, in chunks of at most 22, so a typed exponent
+// beyond the range of the format ends up as infinity or zero. Reading stops at
+// the first char that does not fit the shape above, which is echoed as well and
+// left in R14 for the caller to inspect (kone maps ENTER to a space).
+//
+// A backspace (8 or 127, see README) undoes the last char, whatever it was: the
+// kind of every accepted char is pushed onto the stack, so erasing is a matter
+// of popping the last one and reversing what it did.
+//
+// Besides klib/disp.kasm this file needs klib/math/float32.kasm for the
+// conversion and the scaling and klib/math/int32.kasm to grow and shrink the
+// mantissa; klib/disp.kasm also documents the scratch memory it uses.
+float32_read:
+    LDI 0
+    STM 0x8023
+    STM 0x8024
+    STM 0x8025
+    STM 0x8026      // the mantissa typed so far
+    STM 0x8027      // the decimal exponent
+    STM 0x8028      // the state flags
+    STM 0x8029      // mantissa digits accepted
+    STM 0x802A      // the exponent typed so far
+    STM 0x802B      // undo entries on the stack
+
+float32_read__loop:
+    LDR 16          // keyboard set-bit
+    JA0 float32_read__loop
+    LDR 17
+    STR 14          // received char
+    LDI 0
+    STR 16          // clear the set-bit -> acknowledge the char
+
+    LDR 14
+    STR 13
+    LDI 129         // 256 - 127 -> DEL, undo the last char
+    ADD 13
+    JA0 float32_read__erase
+    LDI 248         // 256 - 8 -> BS, undo the last char
+    ADD 13
+    JA0 float32_read__erase
+    LDI 212         // 256 - 44 -> ',' is a separator, drop it
+    ADD 13
+    JA0 float32_read__skip
+
+    LDI 208         // 256 - 48; carry set only for chars >= '0'
+    ADD 13
+    JC0 float32_read__other
+    LDI 198         // 256 - 58; carry set only for chars above '9'
+    ADD 13
+    JC1 float32_read__other
+    JMP float32_read__digit
+
+float32_read__other:
+    LDI 210         // 256 - 46 -> '.'
+    ADD 13
+    JA0 float32_read__point
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 13
+    JA0 float32_read__exp
+    LDI 187         // 256 - 69 -> 'E'
+    ADD 13
+    JA0 float32_read__exp
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA0 float32_read__minus
+    LDI 213         // 256 - 43 -> '+'
+    ADD 13
+    JA0 float32_read__plus
+    JMP float32_read__end
+
+float32_read__skip:
+    LDR 14
+    CLL disp_putc
+    LDI 0
+    JMP float32_read__push
+
+float32_read__digit:
+    LDR 14
+    CLL disp_putc
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    AND 13
+    JA1 float32_read__edigit
+
+    LDM 0x8029
+    STR 13
+    LDI 247         // 256 - 9; carry set once nine digits are in
+    ADD 13
+    JC1 float32_read__drop
+
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    LDI 10
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDR 14
+    STR 13
+    LDI 208         // - 48 -> the digit itself
+    ADD 13
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_add
+    LDR 8
+    STM 0x8023
+    LDR 9
+    STM 0x8024
+    LDR 10
+    STM 0x8025
+    LDR 11
+    STM 0x8026
+    LDM 0x8029
+    STR 13
+    LDI 1
+    ADD 13
+    STM 0x8029
+
+    LDM 0x8028
+    STR 13
+    LDI 0x02
+    AND 13
+    JA0 float32_read__digit_int
+    LDM 0x8027
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x8027      // a digit behind the point is a power of ten less
+    LDI 2
+    JMP float32_read__push
+
+float32_read__digit_int:
+    LDI 1
+    JMP float32_read__push
+
+float32_read__drop:
+    LDM 0x8028
+    STR 13
+    LDI 0x02
+    AND 13
+    JA1 float32_read__drop_frac
+    LDM 0x8027
+    STR 13
+    LDI 211         // 256 - 45; stop counting well beyond the exponent range
+    ADD 13
+    JC1 float32_read__drop_int
+    LDI 1
+    ADD 13
+    STM 0x8027
+
+float32_read__drop_int:
+    LDI 3
+    JMP float32_read__push
+
+float32_read__drop_frac:
+    LDI 4
+    JMP float32_read__push
+
+float32_read__edigit:
+    LDM 0x802A
+    STR 13
+    LDI 246         // 256 - 10; a third exponent digit is dropped
+    ADD 13
+    JC1 float32_read__push0
+    LDR 13
+    BSL
+    STR 12
+    LDR 12
+    BSL
+    BSL
+    ADD 12
+    STR 12          // eight times plus twice is ten times
+    LDR 14
+    STR 13
+    LDI 208         // - 48
+    ADD 13
+    ADD 12
+    STM 0x802A
+    LDM 0x8028
+    STR 13
+    LDI 0x10
+    ORR 13
+    STM 0x8028
+    LDI 8
+    JMP float32_read__push
+
+float32_read__push0:
+    LDI 0
+    JMP float32_read__push
+
+float32_read__point:
+    LDM 0x8028
+    STR 13
+    LDI 0x06        // already behind a point or inside the exponent
+    AND 13
+    JA1 float32_read__end
+    LDR 14
+    CLL disp_putc
+    LDM 0x8028
+    STR 13
+    LDI 0x02
+    ORR 13
+    STM 0x8028
+    LDI 5
+    JMP float32_read__push
+
+float32_read__exp:
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    AND 13
+    JA1 float32_read__end
+    LDM 0x8029
+    JA0 float32_read__end       // no digits yet -> 'e' ends the number
+    LDR 14
+    CLL disp_putc
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    ORR 13
+    STM 0x8028
+    LDI 6
+    JMP float32_read__push
+
+float32_read__minus:
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    AND 13
+    JA1 float32_read__esign
+    LDM 0x802B
+    JA1 float32_read__end       // '-' behind anything else ends the number
+    LDR 14
+    CLL disp_putc
+    LDM 0x8028
+    STR 13
+    LDI 0x01
+    ORR 13
+    STM 0x8028
+    LDI 9
+    JMP float32_read__push
+
+float32_read__plus:
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    AND 13
+    JA0 float32_read__end       // a '+' only means anything in the exponent
+
+float32_read__esign:
+    LDM 0x8028
+    STR 13
+    LDI 0x30        // a sign or a digit is already in the exponent
+    AND 13
+    JA1 float32_read__end
+    LDR 14
+    CLL disp_putc
+    LDR 14
+    STR 13
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA1 float32_read__esign_put
+    LDM 0x8028
+    STR 13
+    LDI 0x08
+    ORR 13
+    STM 0x8028
+
+float32_read__esign_put:
+    LDM 0x8028
+    STR 13
+    LDI 0x20
+    ORR 13
+    STM 0x8028
+    LDI 7
+    JMP float32_read__push
+
+float32_read__push:
+    PSH
+    LDM 0x802B
+    STR 13
+    LDI 1
+    ADD 13
+    STM 0x802B
+    JMP float32_read__loop
+
+float32_read__erase:
+    LDM 0x802B
+    JA0 float32_read__loop
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x802B
+    CLL disp_bs
+    POP
+    STR 13
+    JA0 float32_read__loop
+
+    LDI 255         // 1 -> a digit before the point
+    ADD 13
+    JA0 float32_read__undo_int
+    LDI 254         // 2 -> a digit behind the point
+    ADD 13
+    JA0 float32_read__undo_frac
+    LDI 253         // 3 -> a dropped digit before the point
+    ADD 13
+    JA0 float32_read__undo_drop
+    LDI 252         // 4 -> a dropped digit behind the point
+    ADD 13
+    JA0 float32_read__loop
+    LDI 251         // 5 -> the decimal point
+    ADD 13
+    JA0 float32_read__undo_point
+    LDI 250         // 6 -> the 'e'
+    ADD 13
+    JA0 float32_read__undo_exp
+    LDI 249         // 7 -> the exponent sign
+    ADD 13
+    JA0 float32_read__undo_esign
+    LDI 248         // 8 -> an exponent digit
+    ADD 13
+    JA0 float32_read__undo_edigit
+
+    LDM 0x8028      // 9 -> the leading '-'
+    STR 13
+    LDI 0xFE
+    AND 13
+    STM 0x8028
+    JMP float32_read__loop
+
+float32_read__undo_frac:
+    LDM 0x8027
+    STR 13
+    LDI 1
+    ADD 13
+    STM 0x8027
+
+float32_read__undo_int:
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    LDI 10
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_div
+    LDR 8
+    STM 0x8023
+    LDR 9
+    STM 0x8024
+    LDR 10
+    STM 0x8025
+    LDR 11
+    STM 0x8026
+    LDM 0x8029
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x8029
+    JMP float32_read__loop
+
+float32_read__undo_drop:
+    LDM 0x8027
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x8027
+    JMP float32_read__loop
+
+float32_read__undo_point:
+    LDM 0x8028
+    STR 13
+    LDI 0xFD
+    AND 13
+    STM 0x8028
+    JMP float32_read__loop
+
+float32_read__undo_exp:
+    LDM 0x8028
+    STR 13
+    LDI 0xCB        // leave the exponent, its sign and its digit flags behind
+    AND 13
+    STM 0x8028
+    LDI 0
+    STM 0x802A
+    JMP float32_read__loop
+
+float32_read__undo_esign:
+    LDM 0x8028
+    STR 13
+    LDI 0xD7
+    AND 13
+    STM 0x8028
+    JMP float32_read__loop
+
+float32_read__undo_edigit:
+    LDM 0x802A
+    STR 13
+    LDI 0
+    STR 12
+
+float32_read__undo_ediv:
+    LDI 246         // - 10
+    ADD 13
+    JC0 float32_read__undo_edone
+    STR 13
+    LDI 1
+    ADD 12
+    STR 12
+    JMP float32_read__undo_ediv
+
+float32_read__undo_edone:
+    LDR 12
+    STM 0x802A
+    JA1 float32_read__loop
+    LDM 0x8028
+    STR 13
+    LDI 0xEF
+    AND 13
+    STM 0x8028      // no exponent digit left
+    JMP float32_read__loop
+
+float32_read__end:
+    LDR 14
+    CLL disp_putc
+    LDR 14
+    STM 0x802C
+
+float32_read__drain:
+    LDM 0x802B
+    JA0 float32_read__value
+    STR 13
+    LDI 255
+    ADD 13
+    STM 0x802B
+    POP
+    JMP float32_read__drain
+
+float32_read__value:
+    LDM 0x8029
+    JA0 float32_read__zero
+
+    LDM 0x8028
+    STR 13
+    LDI 0x04
+    AND 13
+    JA0 float32_read__convert
+
+    LDM 0x802A
+    STR 12
+    LDI 211         // 256 - 45; anything beyond that is out of range anyway
+    ADD 12
+    JC0 float32_read__ecap
+    LDI 45
+    STR 12
+
+float32_read__ecap:
+    LDM 0x8028
+    STR 13
+    LDI 0x08
+    AND 13
+    JA0 float32_read__eplus
+    LDR 12
+    NOT
+    STR 12
+    LDI 1
+    ADD 12
+    STR 12
+
+float32_read__eplus:
+    LDM 0x8027
+    STR 13
+    LDR 12
+    ADD 13
+    STM 0x8027
+
+float32_read__convert:
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    CLL float32_from_int32
+    LDR 8
+    STM 0x8023
+    LDR 9
+    STM 0x8024
+    LDR 10
+    STM 0x8025
+    LDR 11
+    STM 0x8026
+
+float32_read__scale:
+    LDM 0x8027
+    JA0 float32_read__sign
+    STR 13
+    LDI 0x80
+    AND 13
+    JA1 float32_read__down
+
+    LDI 234         // - 22, the largest chunk that cannot overflow
+    ADD 13
+    JC1 float32_read__up22
+    LDR 13
+    STR 0
+    LDI 0
+    STM 0x8027
+    JMP float32_read__mul
+
+float32_read__up22:
+    LDI 22
+    STR 0
+    LDI 234
+    ADD 13
+    STM 0x8027
+    JMP float32_read__mul
+
+float32_read__down:
+    LDR 13
+    NOT
+    STR 14
+    LDI 1
+    ADD 14
+    STR 14
+    LDI 234         // - 22
+    ADD 14
+    JC1 float32_read__down22
+    LDR 14
+    STR 0
+    LDI 0
+    STM 0x8027
+    JMP float32_read__div
+
+float32_read__down22:
+    LDI 22
+    STR 0
+    LDI 22
+    ADD 13
+    STM 0x8027
+    JMP float32_read__div
+
+float32_read__mul:
+    CLL float32_pow10
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STM 0x8023
+    LDR 9
+    STM 0x8024
+    LDR 10
+    STM 0x8025
+    LDR 11
+    STM 0x8026
+    JMP float32_read__scale
+
+float32_read__div:
+    CLL float32_pow10
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    CLL float32_div
+    LDR 8
+    STM 0x8023
+    LDR 9
+    STM 0x8024
+    LDR 10
+    STM 0x8025
+    LDR 11
+    STM 0x8026
+    JMP float32_read__scale
+
+float32_read__sign:
+    LDM 0x8023
+    STR 0
+    LDM 0x8024
+    STR 1
+    LDM 0x8025
+    STR 2
+    LDM 0x8026
+    STR 3
+    LDM 0x8028
+    STR 13
+    LDI 0x01
+    AND 13
+    JA0 float32_read__done
+    LDI 0x80
+    STR 13
+    LDR 3
+    XOR 13
+    STR 3
+
+float32_read__done:
+    LDM 0x802C
+    STR 14
+    RET
+
+float32_read__zero:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    STR 3
+    LDM 0x8028
+    STR 13
+    LDI 0x01
+    AND 13
+    JA0 float32_read__done
+    LDI 0x80
+    STR 3
+    JMP float32_read__done

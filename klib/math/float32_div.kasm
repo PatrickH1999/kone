@@ -1,0 +1,305 @@
+// float32_div: C = A / B, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R7, R12 - R15
+//
+// The operands are taken apart by 'float32_unpack' and put back together by
+// 'float32_pack', both of which live in klib/math/float32_add.kasm. The signs
+// are XORed, the exponents are subtracted and the bias of 127 is put back in
+// once, and the mantissa of A is divided by the mantissa of B.
+//
+// int32_div is of no use for the mantissas: it divides by repeated subtraction,
+// so a quotient of about 2^24 would cost it 16 million rounds. Instead the
+// quotient is built one bit per round by restoring division, 25 rounds of
+// 'subtract the divisor from the remainder, add it back again if that
+// borrowed, and shift'. The remainder lives in R0 - R3, the quotient in
+// R8 - R11.
+//
+// The bits below the 24 bit quotient are dropped without rounding, i.e., the
+// result is truncated towards zero. Dividing zero by a non-zero value yields a
+// signed zero, dividing by zero yields a signed infinity (including 0 / 0,
+// which should be a NaN), an exponent that drops below 1 is flushed to a signed
+// zero (subnormals are not produced) and one that reaches 255 becomes a signed
+// infinity. Operands with exponent 255 (infinity, NaN) are treated as ordinary
+// numbers, so they produce garbage rather than an infinity or a NaN.
+float32_div:
+    CLL float32_unpack
+
+    LDR 12
+    XOR 13
+    STR 12
+
+    LDR 7
+    JA0 float32_div__inf
+    LDR 3
+    JA0 float32_div__zero
+
+    LDR 7
+    NOT
+    STR 14
+    LDI 1
+    ADD 14
+    STR 14
+    LDR 3
+    ADD 14
+    STR 14
+    JC1 float32_div__exp_high
+
+    LDI 126         // + 127, the exponent bias, less the one the loop scales by
+    ADD 14
+    STR 14
+    JC0 float32_div__zero
+    JMP float32_div__exp_done
+
+float32_div__exp_high:
+    LDI 126         // as above, on a difference that carried out of its byte
+    ADD 14
+    STR 14
+    JC1 float32_div__inf
+
+float32_div__exp_done:
+    LDI 1
+    ADD 14
+    JA0 float32_div__inf
+    LDR 14
+    STR 7
+
+    LDI 0
+    STR 3
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    LDI 25
+    STR 13         // one round per quotient bit
+
+float32_div__loop:
+    LDI 0x01
+    STR 14
+    LDR 11
+    BSL
+    STR 11
+    LDR 10
+    BRL
+    AND 14
+    ORR 11
+    STR 11
+    LDR 10
+    BSL
+    STR 10
+    LDR 9
+    BRL
+    AND 14
+    ORR 10
+    STR 10
+    LDR 9
+    BSL
+    STR 9
+    LDR 8
+    BRL
+    AND 14
+    ORR 9
+    STR 9
+    LDR 8
+    BSL
+    STR 8
+
+    LDI 1
+    STR 15
+
+    LDR 4
+    NOT
+    STR 14
+    LDR 0
+    ADD 15
+    STR 0
+    LDR 26
+    STR 15
+    LDR 0
+    ADD 14
+    STR 0
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 5
+    NOT
+    STR 14
+    LDR 1
+    ADD 15
+    STR 1
+    LDR 26
+    STR 15
+    LDR 1
+    ADD 14
+    STR 1
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 6
+    NOT
+    STR 14
+    LDR 2
+    ADD 15
+    STR 2
+    LDR 26
+    STR 15
+    LDR 2
+    ADD 14
+    STR 2
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDI 0xFF        // the fourth divisor byte is always zero
+    STR 14
+    LDR 3
+    ADD 15
+    STR 3
+    LDR 26
+    STR 15
+    LDR 3
+    ADD 14
+    STR 3
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 15
+    JA0 float32_div__restore
+    LDI 1
+    ORR 8
+    STR 8
+    JMP float32_div__next
+
+float32_div__restore:
+    LDR 0
+    ADD 4
+    STR 0
+    LDR 26
+    STR 14
+
+    LDR 1
+    ADD 14
+    STR 1
+    LDR 26
+    STR 14
+    LDR 1
+    ADD 5
+    STR 1
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 2
+    ADD 14
+    STR 2
+    LDR 26
+    STR 14
+    LDR 2
+    ADD 6
+    STR 2
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 3
+    ADD 14
+    STR 3
+
+float32_div__next:
+    LDI 0x01
+    STR 14
+    LDR 3
+    BSL
+    STR 3
+    LDR 2
+    BRL
+    AND 14
+    ORR 3
+    STR 3
+    LDR 2
+    BSL
+    STR 2
+    LDR 1
+    BRL
+    AND 14
+    ORR 2
+    STR 2
+    LDR 1
+    BSL
+    STR 1
+    LDR 0
+    BRL
+    AND 14
+    ORR 1
+    STR 1
+    LDR 0
+    BSL
+    STR 0
+
+    LDI 255
+    ADD 13
+    STR 13
+    JA1 float32_div__loop
+
+    LDR 11
+    JA0 float32_div__pack
+
+    LDI 0x80
+    STR 15
+    LDR 8
+    BSR
+    STR 8
+    LDR 9
+    BRR
+    AND 15
+    ORR 8
+    STR 8
+    LDR 9
+    BSR
+    STR 9
+    LDR 10
+    BRR
+    AND 15
+    ORR 9
+    STR 9
+    LDR 10
+    BSR
+    STR 10
+    LDI 0x80
+    ORR 10
+    STR 10
+
+    LDI 1
+    ADD 7
+    STR 7
+    LDI 1
+    ADD 7
+    JA0 float32_div__inf
+
+float32_div__pack:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 7
+    STR 3
+    JMP float32_pack
+
+float32_div__zero:
+    LDI 0
+    STR 3
+    JMP float32_pack
+
+float32_div__inf:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    LDI 255
+    STR 3
+    JMP float32_pack

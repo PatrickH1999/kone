@@ -1,0 +1,520 @@
+// float32_add: C = A + B, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R7, R12 - R15
+//
+// The operands are taken apart by 'float32_unpack', the mantissa with the
+// smaller exponent is shifted right until both exponents match, the two
+// mantissas are added (equal signs) or the smaller is subtracted from the
+// larger one (opposite signs), and the result is renormalized and put back
+// together by 'float32_pack'. Both mantissas carry an 8 bit guard byte below
+// their 24 bits (R8 for A, R9 for B), which the alignment shift fills and the
+// renormalization shifts back in, so that a subtraction of two close values
+// stays within one unit in the last place.
+//
+// The guard byte is dropped without rounding, i.e., the result is truncated
+// towards zero. A zero operand is returned as the other operand unchanged, an
+// exact cancellation yields +0, an exponent that drops below 1 is flushed to a
+// signed zero (subnormals are not produced) and one that reaches 255 becomes a
+// signed infinity. Operands with exponent 255 (infinity, NaN) are treated as
+// ordinary numbers, so they produce garbage rather than an infinity or a NaN.
+//
+// This file also holds 'float32_unpack' and 'float32_pack' (see below), which
+// every other float32 routine in klib/math/ uses as well.
+float32_add:
+    CLL float32_unpack
+
+    LDI 0
+    STR 8
+    STR 9           // guard byte of A and of B
+
+    LDR 7
+    JA0 float32_add__pack
+
+    LDR 3
+    JA1 float32_add__align
+    LDR 4
+    STR 0
+    LDR 5
+    STR 1
+    LDR 6
+    STR 2
+    LDR 7
+    STR 3
+    LDR 13
+    STR 12
+    JMP float32_add__pack
+
+float32_add__align:
+    LDR 7
+    NOT
+    STR 14
+    LDI 1
+    ADD 14
+    STR 14
+    LDR 3
+    ADD 14
+    STR 14
+    JC1 float32_add__shift_b
+
+    LDR 14
+    NOT
+    STR 14
+    LDI 1
+    ADD 14
+    STR 14
+    LDR 7
+    STR 3
+
+float32_add__shift_a:
+    LDR 14
+    JA0 float32_add__signs
+    LDI 255
+    ADD 14
+    STR 14
+
+    LDI 0x80
+    STR 15
+    LDR 8
+    BSR
+    STR 8
+    LDR 0
+    BRR
+    AND 15
+    ORR 8
+    STR 8
+    LDR 0
+    BSR
+    STR 0
+    LDR 1
+    BRR
+    AND 15
+    ORR 0
+    STR 0
+    LDR 1
+    BSR
+    STR 1
+    LDR 2
+    BRR
+    AND 15
+    ORR 1
+    STR 1
+    LDR 2
+    BSR
+    STR 2
+    JMP float32_add__shift_a
+
+float32_add__shift_b:
+    LDR 14
+    JA0 float32_add__signs
+    LDI 255
+    ADD 14
+    STR 14
+
+    LDI 0x80
+    STR 15
+    LDR 9
+    BSR
+    STR 9
+    LDR 4
+    BRR
+    AND 15
+    ORR 9
+    STR 9
+    LDR 4
+    BSR
+    STR 4
+    LDR 5
+    BRR
+    AND 15
+    ORR 4
+    STR 4
+    LDR 5
+    BSR
+    STR 5
+    LDR 6
+    BRR
+    AND 15
+    ORR 5
+    STR 5
+    LDR 6
+    BSR
+    STR 6
+    JMP float32_add__shift_b
+
+float32_add__signs:
+    LDR 12
+    XOR 13
+    JA1 float32_add__diff
+
+    LDR 8
+    ADD 9
+    STR 8
+    LDR 26
+    STR 14
+
+    LDR 0
+    ADD 14
+    STR 0
+    LDR 26
+    STR 14
+    LDR 0
+    ADD 4
+    STR 0
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 1
+    ADD 14
+    STR 1
+    LDR 26
+    STR 14
+    LDR 1
+    ADD 5
+    STR 1
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 2
+    ADD 14
+    STR 2
+    LDR 26
+    STR 14
+    LDR 2
+    ADD 6
+    STR 2
+    LDR 26
+    ADD 14
+    STR 14
+
+    LDR 14
+    JA0 float32_add__norm
+
+    LDI 0x80
+    STR 15
+    LDR 8
+    BSR
+    STR 8
+    LDR 0
+    BRR
+    AND 15
+    ORR 8
+    STR 8
+    LDR 0
+    BSR
+    STR 0
+    LDR 1
+    BRR
+    AND 15
+    ORR 0
+    STR 0
+    LDR 1
+    BSR
+    STR 1
+    LDR 2
+    BRR
+    AND 15
+    ORR 1
+    STR 1
+    LDR 2
+    BSR
+    STR 2
+    LDI 0x80
+    ORR 2
+    STR 2
+
+    LDI 1
+    ADD 3
+    STR 3
+    LDI 1
+    ADD 3
+    JA0 float32_add__inf
+    JMP float32_add__pack
+
+float32_add__diff:
+    LDI 1
+    STR 15
+
+    LDR 9
+    NOT
+    STR 14
+    LDR 8
+    ADD 15
+    STR 8
+    LDR 26
+    STR 15
+    LDR 8
+    ADD 14
+    STR 8
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 4
+    NOT
+    STR 14
+    LDR 0
+    ADD 15
+    STR 0
+    LDR 26
+    STR 15
+    LDR 0
+    ADD 14
+    STR 0
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 5
+    NOT
+    STR 14
+    LDR 1
+    ADD 15
+    STR 1
+    LDR 26
+    STR 15
+    LDR 1
+    ADD 14
+    STR 1
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 6
+    NOT
+    STR 14
+    LDR 2
+    ADD 15
+    STR 2
+    LDR 26
+    STR 15
+    LDR 2
+    ADD 14
+    STR 2
+    LDR 26
+    ADD 15
+    STR 15
+
+    LDR 15
+    JA1 float32_add__norm
+
+    LDR 13
+    STR 12
+
+    LDI 1
+    STR 14
+    LDR 8
+    NOT
+    ADD 14
+    STR 8
+    LDR 26
+    STR 14
+    LDR 0
+    NOT
+    ADD 14
+    STR 0
+    LDR 26
+    STR 14
+    LDR 1
+    NOT
+    ADD 14
+    STR 1
+    LDR 26
+    STR 14
+    LDR 2
+    NOT
+    ADD 14
+    STR 2
+
+float32_add__norm:
+    LDR 8
+    ORR 0
+    ORR 1
+    ORR 2
+    JA0 float32_add__cancel
+
+float32_add__norm_loop:
+    LDI 0x80
+    STR 14
+    LDR 2
+    AND 14
+    JA1 float32_add__pack
+
+    LDI 0x01
+    STR 14
+    LDR 2
+    BSL
+    STR 2
+    LDR 1
+    BRL
+    AND 14
+    ORR 2
+    STR 2
+    LDR 1
+    BSL
+    STR 1
+    LDR 0
+    BRL
+    AND 14
+    ORR 1
+    STR 1
+    LDR 0
+    BSL
+    STR 0
+    LDR 8
+    BRL
+    AND 14
+    ORR 0
+    STR 0
+    LDR 8
+    BSL
+    STR 8
+
+    LDI 255
+    ADD 3
+    STR 3
+    JA1 float32_add__norm_loop
+
+    LDI 0
+    STR 3
+    JMP float32_add__pack
+
+float32_add__cancel:
+    LDI 0
+    STR 3
+    STR 12
+
+float32_add__pack:
+    CLL float32_pack
+    RET
+
+float32_add__inf:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+    LDI 255
+    STR 3
+    JMP float32_add__pack
+
+// float32_unpack: splits both operands into sign, exponent and 24 bit
+// mantissa with the implicit leading one restored
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      mantissa A -> R0 - R2, exponent A -> R3, sign A -> R12,
+//               mantissa B -> R4 - R6, exponent B -> R7, sign B -> R13;
+//               a sign is 0x80 when the operand is negative, 0x00 otherwise
+//     clobbers: R14, R15
+//
+// An exponent of 0 marks a zero or a subnormal; its mantissa is cleared and
+// gets no leading one, so subnormals are flushed to zero.
+float32_unpack:
+    LDI 0x80
+    STR 14
+    LDR 3
+    AND 14
+    STR 12
+    LDR 7
+    AND 14
+    STR 13
+
+    LDI 0x01
+    STR 15
+    LDR 2
+    BRL
+    AND 15
+    STR 14
+    LDR 3
+    BSL
+    ORR 14
+    STR 3
+    LDR 6
+    BRL
+    AND 15
+    STR 14
+    LDR 7
+    BSL
+    ORR 14
+    STR 7
+
+    LDI 0x7F
+    STR 15
+    LDR 2
+    AND 15
+    STR 2
+    LDR 6
+    AND 15
+    STR 6
+
+    LDI 0x80
+    STR 15
+    LDR 3
+    JA0 float32_unpack__zero_a
+    LDR 2
+    ORR 15
+    STR 2
+    JMP float32_unpack__b
+
+float32_unpack__zero_a:
+    LDI 0
+    STR 0
+    STR 1
+    STR 2
+
+float32_unpack__b:
+    LDR 7
+    JA0 float32_unpack__zero_b
+    LDR 6
+    ORR 15
+    STR 6
+    RET
+
+float32_unpack__zero_b:
+    LDI 0
+    STR 4
+    STR 5
+    STR 6
+    RET
+
+// float32_pack: reassembles a sign, an exponent and a 24 bit mantissa into an
+// IEEE 754 single precision value
+//     in:       mantissa -> R0 - R2, exponent -> R3, sign -> R12 (bit 7)
+//     out:      C -> R8 - R11
+//     clobbers: R14
+//
+// The leading one of the mantissa is dropped again; an exponent of 0 yields a
+// signed zero whatever the mantissa holds.
+float32_pack:
+    LDR 3
+    JA1 float32_pack__value
+    LDI 0
+    STR 8
+    STR 9
+    STR 10
+    LDR 12
+    STR 11
+    RET
+
+float32_pack__value:
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDI 0x7F
+    STR 14
+    LDR 2
+    AND 14
+    STR 10
+    LDI 0x01
+    STR 14
+    LDR 3
+    AND 14
+    BRR
+    ORR 10
+    STR 10
+    LDR 3
+    BSR
+    ORR 12
+    STR 11
+    RET

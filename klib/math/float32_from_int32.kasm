@@ -1,0 +1,110 @@
+// float32_from_int32: C = A as an IEEE 754 single precision value
+//     in:       A -> R0 - R3, byte order LSB -> MSB, two's complement
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R3, R12 - R15
+//
+// The magnitude is shifted left until its top bit sits in bit 31, which counts
+// the exponent down from 158 (127 + 31), and the top 24 bit of the result are
+// the mantissa. Values that need more than 24 bit lose their low bits without
+// rounding, i.e., they are truncated towards zero like everywhere else in
+// klib/math; -2147483648 converts exactly, as its magnitude is a power of two.
+float32_from_int32:
+    LDI 0x80
+    STR 14
+    LDR 3
+    AND 14
+    STR 12
+    JA0 float32_from_int32__mag
+
+    LDI 1
+    STR 14
+    LDR 0
+    NOT
+    ADD 14
+    STR 0
+    LDR 26
+    STR 14
+    LDR 1
+    NOT
+    ADD 14
+    STR 1
+    LDR 26
+    STR 14
+    LDR 2
+    NOT
+    ADD 14
+    STR 2
+    LDR 26
+    STR 14
+    LDR 3
+    NOT
+    ADD 14
+    STR 3
+
+float32_from_int32__mag:
+    LDR 0
+    ORR 1
+    ORR 2
+    ORR 3
+    JA0 float32_from_int32__zero
+
+    LDI 158         // 127 + 31, the exponent if bit 31 is already set
+    STR 13
+
+float32_from_int32__norm:
+    LDI 0x80
+    STR 14
+    LDR 3
+    AND 14
+    JA1 float32_from_int32__pack
+
+    LDI 0x01
+    STR 14
+    LDR 3
+    BSL
+    STR 3
+    LDR 2
+    BRL
+    AND 14
+    ORR 3
+    STR 3
+    LDR 2
+    BSL
+    STR 2
+    LDR 1
+    BRL
+    AND 14
+    ORR 2
+    STR 2
+    LDR 1
+    BSL
+    STR 1
+    LDR 0
+    BRL
+    AND 14
+    ORR 1
+    STR 1
+    LDR 0
+    BSL
+    STR 0
+
+    LDI 255
+    ADD 13
+    STR 13
+    JMP float32_from_int32__norm
+
+float32_from_int32__pack:
+    LDR 1
+    STR 0
+    LDR 2
+    STR 1
+    LDR 3
+    STR 2
+    LDR 13
+    STR 3
+    JMP float32_pack
+
+float32_from_int32__zero:
+    LDI 0
+    STR 3
+    JMP float32_pack
