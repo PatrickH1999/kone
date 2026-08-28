@@ -1,9 +1,80 @@
+// count: counts up in R0 and prints every value to the display as a decimal
+// number, one per row. The counter is 8 bit, so it runs from 0 to 255 and
+// then wraps around to 0 again.
+
+    JMP main
+
+.include "../klib/math.kasm"
+
 main:
-    LDI 1
-    STR 1
     LDI 0
+    STR 0           // the counter
 
 loop:
-    ADD 1
-    STR 0
+    CLL count__print
+    LDI 1
+    ADD 0
+    STR 0           // R0 = R0 + 1, wraps around from 255 to 0
     JMP loop
+
+// count__print: prints the 8 bit value in R0 to the display as a decimal
+// number without leading zeros, followed by a newline
+//     in:       value -> R0
+//     out:      -
+//     clobbers: R10 - R14
+count__print:
+    LDR 0
+    STR 10          // remainder
+    LDI 0
+    STR 14          // no digit has been printed yet
+
+    LDI 156         // 256 - 100 -> hundreds
+    STR 11
+    CLL count__digit
+    LDI 246         // 256 - 10 -> tens
+    STR 11
+    CLL count__digit
+    LDI 255         // 256 - 1 -> ones
+    STR 11
+    LDI 1
+    STR 14          // the ones digit is printed even if it is zero
+    CLL count__digit
+
+    CLL disp_nl
+    RET
+
+// count__digit: prints one decimal digit, i.e., how often the place value in
+// R11 fits into the remainder in R10, and leaves the rest in R10. A leading
+// zero is skipped as long as R14 is still zero.
+//     in:       negated place value -> R11, remainder -> R10, printed -> R14
+//     out:      remainder -> R10, printed -> R14
+//     clobbers: R12, R13 (via disp_putc)
+count__digit:
+    LDI 0
+    STR 12          // digit = 0
+
+count__digit__loop:
+    LDR 10
+    ADD 11          // remainder - place value; carry set only if it fits
+    JC0 count__digit__test
+    STR 10
+    LDI 1
+    ADD 12
+    STR 12          // digit = digit + 1
+    JMP count__digit__loop
+
+count__digit__test:
+    LDR 12
+    JA1 count__digit__put
+    LDR 14
+    JA0 count__digit__done  // leading zero -> print nothing
+
+count__digit__put:
+    LDI 1
+    STR 14          // from here on every digit is printed
+    LDI 48          // '0'
+    ADD 12
+    CLL disp_putc
+
+count__digit__done:
+    RET
