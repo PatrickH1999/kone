@@ -7,6 +7,7 @@
 #define DISP_NROWS 24
 #define DISP_ASCII_LO 32    // Lower limit of ASCII printable chars (incl.)
 #define DISP_ASCII_HI 126   // Upper limit of ASCII printable chars (incl.)
+#define DISP_ASCII_BS 8     // Backspace: clears the cell before the cursor
 #define REG_ID_DISP_CHAR 19 // CPU register ID for send char
 #define REG_ID_DISP_SET 18  // CPU register ID for send set bit
 

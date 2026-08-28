@@ -28,7 +28,8 @@ int keyboard_get_char() {
 void keyboard_push_cpu(CPU *cpu) {
     int char_ = keyboard_get_char();
     if (char_ != -1) {
-        if (KEYBOARD_ASCII_LO <= char_ && char_ <= KEYBOARD_ASCII_HI) {
+        if ((KEYBOARD_ASCII_LO <= char_ && char_ <= KEYBOARD_ASCII_HI) ||
+            char_ == KEYBOARD_ASCII_BS) {
             cpu->R[REG_ID_KEYBOARD_CHAR] = char_;
         } else {
             cpu->R[REG_ID_KEYBOARD_CHAR] = ' ';

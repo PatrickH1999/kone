@@ -11,6 +11,7 @@ void test_display_reset();
 void test_display_push_char_basic();
 void test_display_push_char_col_wrap();
 void test_display_push_char_row_wrap();
+void test_display_push_char_backspace();
 void test_display_fetch_set();
 void test_display_fetch_no_set();
 
