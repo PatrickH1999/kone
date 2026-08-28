@@ -1,0 +1,224 @@
+// An interactive 32 bit floating point calculator, built from klib's
+// float32_read and float32_write. A line that starts with an operator ('+',
+// '-', '*' or '/') applies that operator and a number to the accumulator, a
+// line that starts with a digit or a '.' is a bare number that replaces the
+// accumulator and so starts a new calculation:
+//     >1.5
+//     =1.5
+//     >*2.0
+//     =3
+//     >+0.25
+//     =3.25
+// Values are IEEE 754 single precision, so magnitudes run from about 1.2e-38
+// to 3.4e38 and six significant digits are printed. A number may carry a
+// decimal point and an exponent ('1.5e-7') as well as a leading '-' ('+-5'
+// adds -5, '*-1' flips the sign), and backspace erases the last char of the
+// number being typed. A line starting with '-' is always subtraction, so a
+// negative accumulator is entered as '0' followed by '-5'. Unknown operators
+// leave the accumulator alone. Dividing by zero would yield an infinity, which
+// klib does not carry through its arithmetic, so it prints 'ERR' and keeps the
+// accumulator instead, just like examples/calculator_int32.kasm does.
+//
+// Scratch memory, above the 0x8000 - 0x802C that klib uses (klib/disp.kasm):
+//     0x8030          the operator of the line being read
+//     0x8031 - 0x8034 the accumulator
+
+    JMP main
+
+.include "../klib/disp.kasm"
+.include "../klib/math/int32.kasm"
+.include "../klib/math/float32.kasm"
+.include "../klib/float32_write.kasm"
+.include "../klib/float32_read.kasm"
+
+// main: prompt, read one line, apply it and print the accumulator; every
+// path loops back here
+main:
+    LDI 62          // '>'
+    CLL disp_putc
+
+calculator_float32__key:
+    CLL calculator_float32__read_key
+    STR 13
+    LDI 129         // 256 - 127 -> DEL, nothing typed yet -> ignore it
+    ADD 13
+    JA0 calculator_float32__key
+    LDI 248         // 256 - 8 -> BS, same
+    ADD 13
+    JA0 calculator_float32__key
+    LDI 210         // 256 - 46 -> '.', '.5' is a number as well
+    ADD 13
+    JA0 calculator_float32__number
+    LDI 208         // 256 - 48; carry set only for chars >= '0'
+    ADD 13
+    JC0 calculator_float32__operator
+    STR 12
+    LDI 246         // 256 - 10; carry set only for chars > '9'
+    ADD 12
+    JC1 calculator_float32__operator
+
+// calculator_float32__number: the line starts a number, so hand the first char
+// back to the keyboard for float32_read to read (and echo) it, and let the
+// number it returns replace the accumulator
+calculator_float32__number:
+    LDR 13
+    STR 17
+    LDI 1
+    STR 16
+    CLL float32_read
+    CLL calculator_float32__erased
+    JA1 calculator_float32__key     // erased back past the first char
+    CLL disp_nl
+    LDR 0
+    STM 0x8031
+    LDR 1
+    STM 0x8032
+    LDR 2
+    STM 0x8033
+    LDR 3
+    STM 0x8034
+    JMP calculator_float32__print
+
+calculator_float32__operator:
+    LDR 13
+    STM 0x8030      // float32_read clobbers every register, so park it here
+    CLL disp_putc
+
+    CLL float32_read    // R0 - R3 = operand
+    CLL calculator_float32__erased
+    JA1 calculator_float32__cancel  // erased back past the operator
+    CLL disp_nl
+
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7           // R4 - R7 = operand
+    LDM 0x8031
+    STR 0
+    LDM 0x8032
+    STR 1
+    LDM 0x8033
+    STR 2
+    LDM 0x8034
+    STR 3           // R0 - R3 = accumulator
+
+    LDM 0x8030
+    STR 13
+    LDI 213         // 256 - 43 -> '+'
+    ADD 13
+    JA0 calculator_float32__add
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA0 calculator_float32__sub
+    LDI 214         // 256 - 42 -> '*'
+    ADD 13
+    JA0 calculator_float32__mul
+    LDI 209         // 256 - 47 -> '/'
+    ADD 13
+    JA0 calculator_float32__div
+    JMP calculator_float32__print   // unknown operator -> unchanged
+
+calculator_float32__add:
+    CLL float32_add
+    JMP calculator_float32__store
+
+calculator_float32__sub:
+    CLL float32_sub
+    JMP calculator_float32__store
+
+calculator_float32__mul:
+    CLL float32_mul
+    JMP calculator_float32__store
+
+// calculator_float32__div: klib's float32_div sorts the signs out on its own,
+// so only the divisor has to be checked; both +0 and -0 count as zero, hence
+// the sign bit is masked off first
+calculator_float32__div:
+    LDI 0x7F
+    STR 12
+    LDR 7
+    AND 12
+    STR 12
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 12
+    JA0 calculator_float32__div_zero
+    CLL float32_div
+    JMP calculator_float32__store
+
+calculator_float32__div_zero:
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    CLL disp_nl
+    JMP main
+
+calculator_float32__store:
+    LDR 8
+    STM 0x8031
+    LDR 9
+    STM 0x8032
+    LDR 10
+    STM 0x8033
+    LDR 11
+    STM 0x8034
+
+calculator_float32__print:
+    LDM 0x8031
+    STR 0
+    LDM 0x8032
+    STR 1
+    LDM 0x8033
+    STR 2
+    LDM 0x8034
+    STR 3
+    CLL float32_write
+    JMP main
+
+// calculator_float32__cancel: the operand was erased away, so take the operator
+// off the display again and read the line from the start
+calculator_float32__cancel:
+    CLL disp_bs
+    JMP calculator_float32__key
+
+// calculator_float32__erased: tells whether float32_read stopped on a
+// backspace, which it does once there is nothing left to erase
+//     in:       terminator -> R14
+//     out:      accumulator = 0 if the number ended some other way
+//     clobbers: R13
+calculator_float32__erased:
+    LDR 14
+    STR 13
+    LDI 129         // 256 - 127 -> DEL
+    ADD 13
+    JA0 calculator_float32__erased_yes
+    LDI 248         // 256 - 8 -> BS
+    ADD 13
+    JA0 calculator_float32__erased_yes
+    LDI 0
+    RET
+
+calculator_float32__erased_yes:
+    LDI 1
+    RET
+
+// calculator_float32__read_key: waits for a key press and returns its char
+//     out:      char -> accumulator
+//     clobbers: R12
+calculator_float32__read_key:
+    LDR 16
+    JA0 calculator_float32__read_key
+    LDR 17
+    STR 12
+    LDI 0
+    STR 16          // clear the set-bit -> acknowledge the char
+    LDR 12
+    RET
