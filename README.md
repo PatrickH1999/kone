@@ -157,9 +157,11 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 
 ## `klib` standard library
 
+`klib/` is split into the two classes below. Every routine has its own file, and next to the two folders sit `klib/io.kasm` and `klib/math.kasm`, which pull in a whole class at once: `.include`-ing one of them is the same as including every file of that class by hand. Note that an include is not idempotent, i.e., a file that is reached along two paths contributes its labels twice and the assembler rejects that as a duplicate label, so include either a class file or the single files below it, never both.
+
 ### `io`
 
-`klib/io/` holds the routines that talk to the two devices: the display helpers and the decimal readers and writers built on top of them. Each file is included on its own; `disp` is the one every other file here needs, and the readers and writers additionally sit on the groups of `klib/math/` listed below.
+`klib/io/` holds the routines that talk to the two devices: the display helpers and the decimal readers and writers built on top of them. `klib/io.kasm` includes all five of them; `disp` is the one every other file here needs, and the readers and writers additionally sit on the groups of `klib/math/` listed below, so `klib/io.kasm` only ever works together with `klib/math.kasm`.
 
 - `disp`: The display helpers `disp_putc`, `disp_bs` and `disp_nl`, which `int32_read` and `int32_write` echo and print through and which a program can just as well use on its own. The kone display has no cursor that a program could read back, so `disp_putc` keeps the column of the next cell at `0x8000`. `disp_bs` steps back onto the previous cell and clears it, and `disp_nl` pads the rest of the row with spaces, since the display has no newline char and wraps on its own once a row is full. Only `R13` is clobbered. This file also lists the whole klib scratch memory map, so that a new routine can tell which addresses are already taken.
 
@@ -173,7 +175,7 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 
 ### `math`
 
-`klib/math/` holds one routine per file, plus the two files below that pull a whole group in. Include a group rather than the single files as soon as a program needs more than one routine from it; the two groups do not depend on each other, so a program pays only for the one it actually uses.
+`klib/math/` holds one routine per file, plus the two files below that pull a whole group in, and `klib/math.kasm` pulls in both groups at once. Include a group rather than the single files as soon as a program needs more than one routine from it; the two groups do not depend on each other, so a program that needs only one of them pays for that one alone rather than including `klib/math.kasm`.
 
 - `math/int32`: The four 32 bit integer routines `int32_add`, `int32_sub`, `int32_mul` and `int32_div` in one include. `klib/io/int32_write.kasm`, `klib/io/int32_read.kasm` and `klib/io/float32_read.kasm` all sit on top of them, so a program that uses any of those three includes this group alongside `klib/io/disp.kasm` and the reader or writer itself. `io/float32_write` is the one decimal routine that does not need it.
 

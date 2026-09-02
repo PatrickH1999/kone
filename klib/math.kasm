@@ -1,0 +1,9 @@
+// math: all arithmetic operations of klib, the 32 bit integer group and the
+// IEEE 754 single precision group in one include. Include this when a program
+// needs both groups; the two do not depend on each other, so a program that
+// needs only one of them is better off including klib/math/int32.kasm or
+// klib/math/float32.kasm on its own and paying for that group alone. See the
+// individual files in klib/math/ for the calling conventions.
+
+.include "math/int32.kasm"
+.include "math/float32.kasm"
