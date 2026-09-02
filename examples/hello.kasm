@@ -1,0 +1,42 @@
+// hello: prints 'Hello, World!' to the display and then loops forever, since
+// a kone program never halts on its own.
+//
+// One char per LDI: kasm has no way to emit data, so there is no string
+// constant to walk over, and every char is spelled out as its ASCII code.
+// Printing goes through 'disp_putc' from klib, which pushes the char in the
+// accumulator to the display and waits for the display to take it.
+
+    JMP main
+
+.include "../klib/io/disp.kasm"
+
+main:
+    LDI 72          // 'H'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 44          // ','
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 87          // 'W'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 100         // 'd'
+    CLL disp_putc
+    LDI 33          // '!'
+    CLL disp_putc
+
+hello__done:
+    JMP hello__done

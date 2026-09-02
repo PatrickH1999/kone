@@ -74,6 +74,8 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 
 - `display`: Cycles endlessly through the printable ASCII chars (32 to 126) and pushes each one to the display via `R19`/`R18`, which fills the character grid row by row. It waits for the display to clear `R18` again before it pushes the next char, the same handshake `disp_putc` does, since the display runs beside the cpu and takes a char only every so often. Run it with `bin/kone -b bin/display.bin`, or with `-t 20` to follow the wrapping.
 
+- `hello`: Prints `Hello, World!` to the display and then loops forever, since a kone program never halts on its own. The smallest program here and the one to read first: it does nothing but call `disp_putc` from klib once per char, spelled out as ASCII codes because kasm cannot emit data and so has no string constant to point at. Run it with `bin/kone -b bin/hello.bin`.
+
 - `keyboard`: Polls the keyboard set-bit (`R16`), copies every received char to the display and clears the set-bit again to acknowledge it, i.e., it echoes what you type. `R1` counts the chars on the display, so backspace erases the last one and is ignored once there is nothing left to erase. Run it with `bin/kone -b bin/keyboard.bin` and press some keys.
 
 - `pi`: Approximates π by summing the 255 equal edge lengths of a regular polygon into a 16 bit fixed-point perimeter, halving it and printing the digits of the result through repeated subtraction. Run it with `bin/kone -b bin/pi.bin`; it prints `3.1415` and then loops in place.
@@ -157,7 +159,7 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 
 ## `klib` standard library
 
-`klib/` is split into the two classes below. Every routine has its own file, and next to the two folders sit `klib/io.kasm` and `klib/math.kasm`, which pull in a whole class at once: `.include`-ing one of them is the same as including every file of that class by hand. Note that an include is not idempotent, i.e., a file that is reached along two paths contributes its labels twice and the assembler rejects that as a duplicate label, so include either a class file or the single files below it, never both.
+`klib/` is split into the two classes below. Every routine has its own file, and next to the two folders sit `klib/io.kasm` and `klib/math.kasm`, which pull in a whole class at once: `.include`-ing one of them is the same as including every file of that class by hand. Note that an include is not idempotent and kasm has no include guards, i.e., a file that is reached along two paths is quietly assembled twice, taking up the memory twice over and resolving every call to it to the second copy, so include either a class file or the single files below it, never both.
 
 ### `io`
 
