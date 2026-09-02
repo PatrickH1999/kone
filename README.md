@@ -72,7 +72,7 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 
 - `count`: Counts up in `R0`-`R3` in an endless loop and prints every value to the display as a decimal number, one per row. Both halves of the loop are klib routines, `int32_add` for the counting and `int32_write` for the printing, which the example pulls in through the two class includes `klib/math.kasm` and `klib/io.kasm`; every row therefore carries the `=` that `int32_write` always prefixes. The counter is a 32 bit signed integer, so it runs up to 2147483647 and then wraps around to -2147483648. Run it with `bin/kone -b bin/count.bin`, or add `-vvv` to watch the counter in the register dump as well.
 
-- `display`: Cycles endlessly through the printable ASCII chars (32 to 126) and pushes each one to the display via `R19`/`R18`, which fills the character grid row by row. Run it with `bin/kone -b bin/display.bin`, or with `-t 20` to follow the wrapping.
+- `display`: Cycles endlessly through the printable ASCII chars (32 to 126) and pushes each one to the display via `R19`/`R18`, which fills the character grid row by row. It waits for the display to clear `R18` again before it pushes the next char, the same handshake `disp_putc` does, since the display runs beside the cpu and takes a char only every so often. Run it with `bin/kone -b bin/display.bin`, or with `-t 20` to follow the wrapping.
 
 - `keyboard`: Polls the keyboard set-bit (`R16`), copies every received char to the display and clears the set-bit again to acknowledge it, i.e., it echoes what you type. `R1` counts the chars on the display, so backspace erases the last one and is ignored once there is nothing left to erase. Run it with `bin/kone -b bin/keyboard.bin` and press some keys.
 
@@ -105,7 +105,7 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 
 ### Devices
 - __Keyboard:__ pressed keys are polled in the background and, once received, exposed via `R16` (set flag) and `R17` (char, ASCII 32-255, plus backspace: 8 or 127, depending on the terminal); every other char is reported as a space. kasm programs should clear the set flag after reading to acknowledge the char (see `examples/keyboard.kasm`).
-- __Display:__ writing an ASCII char (32-126) to `R19` and setting `R18` pushes it to the next cell of a 40x24 character grid, wrapping to a new (cleared) row once the current row is full and starting over on a cleared display once the last row is full (see `examples/display.kasm`). Writing a backspace (8) instead steps back onto the previous cell and clears it, which is how a program erases what it printed; at the start of a row it does nothing.
+- __Display:__ writing an ASCII char (32-126) to `R19` and setting `R18` pushes it to the next cell of a 40x24 character grid, wrapping to a new (cleared) row once the current row is full and starting over on a cleared display once the last row is full (see `examples/display.kasm`). Writing a backspace (8) instead steps back onto the previous cell and clears it, which is how a program erases what it printed; at the start of a row it does nothing. The display clears `R18` once it has taken the char, and it does that on its own schedule rather than per instruction, so a program has to wait for `R18` to go back to 0 before it pushes the next char or the char is overwritten before the display ever sees it.
 
 ## Instruction set
 The __kone__ decoder first evaluates opcode flags, which tell the decoder what kind of arguments are to be expected and how long they are:
