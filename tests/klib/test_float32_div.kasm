@@ -10,14 +10,14 @@
 // truncates to 3EAAAAAA where round to nearest would give 3EAAAAAB, and it is
 // also the only one whose quotient needs no renormalization.
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
+// klib/io/disp.kasm is pulled in as well: the test needs the display helpers
 // 'disp_putc' and 'disp_nl', which live there. The number of failed cases
 // is kept at 0x8040 rather than in a register, because float32_div
 // clobbers R0 - R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
 
 main:

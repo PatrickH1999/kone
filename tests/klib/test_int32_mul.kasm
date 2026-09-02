@@ -5,12 +5,12 @@
 //     000000FF * 000000FF = 0000FE01
 //     0000ABCD * 00001234 = 0C374FA4
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
+// klib/io/disp.kasm is pulled in as well: the test needs the display helpers
 // 'disp_putc' and 'disp_nl', which live there.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/int32.kasm"
 
 main:

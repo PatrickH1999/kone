@@ -122,10 +122,10 @@ test: $(TEST_BINS) $(KASM_TEST_BIN) $(KLIB_TEST_BINS) $(TARGET)
 		rm -f $$out; \
 	done; \
 	if [ $$klib_failed -eq 0 ]; then \
-		printf "$${bld}$${grn}[ PASS ] $${dflt}klib/math$${rst}\n\n"; \
+		printf "$${bld}$${grn}[ PASS ] $${dflt}klib$${rst}\n\n"; \
 		passed=$$((passed + 1)); \
 	else \
-		printf "$${bld}$${red}[ FAIL ] $${dflt}klib/math$${rst}\n\n"; \
+		printf "$${bld}$${red}[ FAIL ] $${dflt}klib$${rst}\n\n"; \
 		failed=$$((failed + 1)); \
 	fi; \
 	echo; \

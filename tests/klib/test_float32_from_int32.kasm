@@ -7,14 +7,14 @@
 //     -2147483648 -> CF000000
 //      1234567890 -> 4E932C05
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
+// klib/io/disp.kasm is pulled in as well: the test needs the display helpers
 // 'disp_putc' and 'disp_nl', which live there. The number of failed cases
 // is kept at 0x8040 rather than in a register, because the routine under
 // test clobbers R0 - R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
 
 main:
