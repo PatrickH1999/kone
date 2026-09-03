@@ -45,7 +45,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 ## `kone` usage
 The virtual machine loads a boot file into memory and runs it until it is interrupted (`Ctrl-C`): A kone program never halts on its own. It takes the following arguments:
  - `-b BOOTFILE`, `--bootfile BOOTFILE`: path to the binary boot file that is loaded into memory before execution starts. This argument is required and has no default.
- - `-t MSEC`, `--clockspeed MSEC`: number of milliseconds to sleep between clock cycles (default: `0`, run as fast as possible). A value like `-t 100` is useful for watching an example step through its instructions.
+ - `-t USEC`, `--clockspeed USEC`: number of microseconds to sleep between clock cycles (default: `0`, run as fast as possible). A value like `-t 100000` is useful for watching an example step through its instructions.
  - `-v [0-3]`, `--verbose [0-3]`: verbosity level of the output (default: `0`). The levels are cumulative:
     - `0`: only the 40x24 display
     - `1`: additionally the cycle counter and the program counter, printed as `[ cycle : PC ]`
@@ -72,7 +72,7 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 
 - `count`: Counts up in `R0`-`R3` in an endless loop and prints every value to the display as a decimal number, one per row. Both halves of the loop are klib routines, `int32_add` for the counting and `int32_write` for the printing, which the example pulls in through the two class includes `klib/math.kasm` and `klib/io.kasm`; every row therefore carries the `=` that `int32_write` always prefixes. The counter is a 32 bit signed integer, so it runs up to 2147483647 and then wraps around to -2147483648. Run it with `bin/kone -b bin/count.bin`, or add `-vvv` to watch the counter in the register dump as well.
 
-- `display`: Cycles endlessly through the printable ASCII chars (32 to 126) and pushes each one to the display via `R19`/`R18`, which fills the character grid row by row. It waits for the display to clear `R18` again before it pushes the next char, the same handshake `disp_putc` does, since the display runs beside the cpu and takes a char only every so often. Run it with `bin/kone -b bin/display.bin`, or with `-t 20` to follow the wrapping.
+- `display`: Cycles endlessly through the printable ASCII chars (32 to 126) and pushes each one to the display via `R19`/`R18`, which fills the character grid row by row. It waits for the display to clear `R18` again before it pushes the next char, the same handshake `disp_putc` does, since the display runs beside the cpu and takes a char only every so often. Run it with `bin/kone -b bin/display.bin`, or with `-t 20000` to follow the wrapping.
 
 - `hello`: Prints `Hello, World!` to the display and then loops forever, since a kone program never halts on its own. The smallest program here and the one to read first: it does nothing but call `disp_putc` from klib once per char, spelled out as ASCII codes because kasm cannot emit data and so has no string constant to point at. Run it with `bin/kone -b bin/hello.bin`.
 
