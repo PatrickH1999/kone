@@ -1,190 +1,322 @@
+// Archimedes' polygon: the regular hexagon inscribed in the unit circle has
+// the side s = 1, and doubling the corner count of a polygon with the side s
+// gives the side
+//     s' = s / sqrt(2 + 2 * sqrt(1 - (s/2)^2))
+// which is Pythagoras on the two right triangles over half an edge, written
+// so that no two nearly equal values are subtracted. Half the perimeter,
+// h * s for a polygon of 2h corners, approaches pi and is printed after
+// every doubling, from the 12-gon up to the 6144-gon.
+//
+// The scratch memory used here, klib's own map being in klib/io/disp.kasm:
+//     0x8040 - 0x8043 the side s
+//     0x8044 - 0x8047 h, half the corner count
+//     0x8048 - 0x804B the square root's argument
+//     0x804C - 0x804F the square root's running estimate
+//     0x8050          doublings left
+//     0x8051          square root rounds left
+//     0x8054 - 0x8057 1.0
+//     0x8058 - 0x805B 2.0
+//     0x805C - 0x805F 4.0
+
+    JMP main
+
+.include "../klib/math/float32.kasm"
+.include "../klib/io/disp.kasm"
+.include "../klib/io/float32_write.kasm"
+
 main:
-    LDI 0
-    STR 0
-    STR 1
-    STR 2
-    STR 3
-    LDI 255
-    STR 4
+    LDI 1
+    CLL pi__int_to_float
+    LDR 8
+    STM 0x8054
+    STM 0x8040
+    LDR 9
+    STM 0x8055
+    STM 0x8041
+    LDR 10
+    STM 0x8056
+    STM 0x8042
+    LDR 11
+    STM 0x8057
+    STM 0x8043      // 1.0, and the hexagon's side is the radius
 
-perimeter_loop:
-    LDI 246
-    ADD 0
+    LDI 2
+    CLL pi__int_to_float
+    LDR 8
+    STM 0x8058
+    LDR 9
+    STM 0x8059
+    LDR 10
+    STM 0x805A
+    LDR 11
+    STM 0x805B      // 2.0
+
+    LDI 4
+    CLL pi__int_to_float
+    LDR 8
+    STM 0x805C
+    LDR 9
+    STM 0x805D
+    LDR 10
+    STM 0x805E
+    LDR 11
+    STM 0x805F      // 4.0
+
+    LDI 3
+    CLL pi__int_to_float
+    LDR 8
+    STM 0x8044
+    LDR 9
+    STM 0x8045
+    LDR 10
+    STM 0x8046
+    LDR 11
+    STM 0x8047      // the hexagon's six corners, counted in halves
+
+    LDI 10
+    STM 0x8050
+
+pi__loop:
+    LDM 0x8040
     STR 0
-    JC1 pcarry1
-    JMP e_add
-pcarry1:
-    LDI 1
-    ADD 1
+    LDM 0x8041
     STR 1
-e_add:
-    LDI 168
-    ADD 2
+    LDM 0x8042
     STR 2
-    JC1 ecarry_lo
-    LDI 0
-    JMP ecarry_in_set
-ecarry_lo:
-    LDI 1
-ecarry_in_set:
+    LDM 0x8043
+    STR 3
+    CLL pi__a_to_b
+    CLL float32_mul // s^2
+
+    CLL pi__c_to_a
+    LDM 0x805C
+    STR 4
+    LDM 0x805D
     STR 5
-    LDI 100
-    ADD 3
-    JC1 ehi_had_carry
-    ADD 5
-    STR 3
-    JC1 e_overflow
-    JMP loop_ctrl
-ehi_had_carry:
-    ADD 5
-    STR 3
-    JMP e_overflow
-e_overflow:
-    LDI 1
-    ADD 0
-    STR 0
-    JC1 pcarry2
-    JMP loop_ctrl
-pcarry2:
-    LDI 1
-    ADD 1
-    STR 1
-loop_ctrl:
-    LDI 255
-    ADD 4
-    STR 4
-    JA0 perimeter_done
-    JMP perimeter_loop
+    LDM 0x805E
+    STR 6
+    LDM 0x805F
+    STR 7
+    CLL float32_div // (s/2)^2
 
-perimeter_done:
-    LDI 1
-    STR 2
-    LDR 1
-    AND 2
-    JA0 hi_lsb_0
-    LDI 128
-    JMP hi_lsb_set
-hi_lsb_0:
-    LDI 0
-hi_lsb_set:
-    STR 3
-    LDR 1
-    BSR
+    CLL pi__c_to_b
+    LDM 0x8054
+    STR 0
+    LDM 0x8055
     STR 1
+    LDM 0x8056
+    STR 2
+    LDM 0x8057
+    STR 3
+    CLL float32_sub
+    CLL pi__c_to_a
+    CLL pi__sqrt    // the centre's distance from the edge
+
+    CLL pi__c_to_a
+    CLL pi__c_to_b
+    CLL float32_add // twice that
+    CLL pi__c_to_b
+    LDM 0x8058
+    STR 0
+    LDM 0x8059
+    STR 1
+    LDM 0x805A
+    STR 2
+    LDM 0x805B
+    STR 3
+    CLL float32_add
+    CLL pi__c_to_a
+    CLL pi__sqrt
+
+    CLL pi__c_to_b
+    LDM 0x8040
+    STR 0
+    LDM 0x8041
+    STR 1
+    LDM 0x8042
+    STR 2
+    LDM 0x8043
+    STR 3
+    CLL float32_div // the doubled polygon's side
+    LDR 8
+    STM 0x8040
+    LDR 9
+    STM 0x8041
+    LDR 10
+    STM 0x8042
+    LDR 11
+    STM 0x8043
+
+    LDM 0x8044
+    STR 0
+    LDM 0x8045
+    STR 1
+    LDM 0x8046
+    STR 2
+    LDM 0x8047
+    STR 3
+    CLL pi__a_to_b
+    CLL float32_add // twice as many corners
+    LDR 8
+    STM 0x8044
+    LDR 9
+    STM 0x8045
+    LDR 10
+    STM 0x8046
+    LDR 11
+    STM 0x8047
+
+    CLL pi__c_to_a  // float32_add left h in R8 - R11 only
+    LDM 0x8040
+    STR 4
+    LDM 0x8041
+    STR 5
+    LDM 0x8042
+    STR 6
+    LDM 0x8043
+    STR 7
+    CLL float32_mul // half the perimeter
+    CLL pi__c_to_a
+    CLL float32_write
+
+    LDM 0x8050
+    STR 12
+    LDI 255
+    ADD 12
+    STM 0x8050
+    JA1 pi__loop
+
+pi__halt:
+    JMP pi__halt
+
+// pi__sqrt: Newton's iteration x = (x + a/x) / 2, run six times from a start
+// of 2, which reaches single precision for the arguments here (all of them
+// lie between 0.75 and 4)
+//     in:       a -> R0 - R3
+//     out:      sqrt(a) -> R8 - R11
+//     clobbers: R0 - R15, 0x8048 - 0x8051
+pi__sqrt:
     LDR 0
-    BSR
-    ADD 3
+    STM 0x8048
+    LDR 1
+    STM 0x8049
+    LDR 2
+    STM 0x804A
+    LDR 3
+    STM 0x804B
+    LDM 0x8058
+    STM 0x804C
+    LDM 0x8059
+    STM 0x804D
+    LDM 0x805A
+    STM 0x804E
+    LDM 0x805B
+    STM 0x804F      // the first estimate is 2
+    LDI 6
+    STM 0x8051
+
+pi__sqrt__loop:
+    LDM 0x8048
     STR 0
-
-    LDI 216
-    STR 3
-    LDI 240
+    LDM 0x8049
+    STR 1
+    LDM 0x804A
     STR 2
-    LDI 0
-    STR 4
-    CLL digit
-    LDI 48
-    ADD 4
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
-
-    LDI 46
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
-
-    LDI 252
+    LDM 0x804B
     STR 3
-    LDI 24
-    STR 2
-    LDI 0
+    LDM 0x804C
     STR 4
-    CLL digit
-    LDI 48
-    ADD 4
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
+    LDM 0x804D
+    STR 5
+    LDM 0x804E
+    STR 6
+    LDM 0x804F
+    STR 7
+    CLL float32_div // a / x
 
+    CLL pi__c_to_b
+    LDM 0x804C
+    STR 0
+    LDM 0x804D
+    STR 1
+    LDM 0x804E
+    STR 2
+    LDM 0x804F
+    STR 3
+    CLL float32_add // x + a / x
+
+    CLL pi__c_to_a
+    LDM 0x8058
+    STR 4
+    LDM 0x8059
+    STR 5
+    LDM 0x805A
+    STR 6
+    LDM 0x805B
+    STR 7
+    CLL float32_div
+    LDR 8
+    STM 0x804C
+    LDR 9
+    STM 0x804D
+    LDR 10
+    STM 0x804E
+    LDR 11
+    STM 0x804F
+
+    LDM 0x8051
+    STR 12
     LDI 255
-    STR 3
-    LDI 156
-    STR 2
+    ADD 12
+    STM 0x8051
+    JA1 pi__sqrt__loop
+    RET             // R8 - R11 still hold the estimate
+
+// pi__int_to_float: the single precision value of a small integer
+//     in:       n -> accumulator (0 - 255)
+//     out:      n as a single precision value -> R8 - R11
+//     clobbers: R0 - R3, R12 - R15
+pi__int_to_float:
+    STR 0
     LDI 0
-    STR 4
-    CLL digit
-    LDI 48
-    ADD 4
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
-
-    LDI 255
-    STR 3
-    LDI 246
+    STR 1
     STR 2
-    LDI 0
-    STR 4
-    CLL digit
-    LDI 48
-    ADD 4
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
-
-    LDI 255
     STR 3
-    LDI 255
-    STR 2
-    LDI 0
-    STR 4
-    CLL digit
-    LDI 48
-    ADD 4
-    STR 19
-    LDI 1
-    STR 18
-    CLL wait_disp
-
-halt:
-    JMP halt
-
-wait_disp:
-    LDR 18
-    JA1 wait_disp
+    CLL float32_from_int32
     RET
 
-digit:
-attempt:
+// pi__a_to_b: copies the first operand to the second
+pi__a_to_b:
     LDR 0
-    ADD 2
-    JC1 lo_carry_set
-    LDI 0
-    JMP lo_carry_stored
-lo_carry_set:
-    LDI 1
-lo_carry_stored:
-    STR 5
-    LDR 1
-    ADD 3
-    JC1 hi_had_carry
-    ADD 5
-    JC1 commit
-    RET
-hi_had_carry:
-    ADD 5
-commit:
-    STR 1
-    LDR 0
-    ADD 2
-    STR 0
-    LDI 1
-    ADD 4
     STR 4
-    JMP attempt
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7
+    RET
+
+// pi__c_to_a: moves the result of the last klib call to the first operand
+pi__c_to_a:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    RET
+
+// pi__c_to_b: moves the result of the last klib call to the second operand
+pi__c_to_b:
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    RET

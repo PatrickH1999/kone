@@ -78,7 +78,7 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 
 - `keyboard`: Polls the keyboard set-bit (`R16`), copies every received char to the display and clears the set-bit again to acknowledge it, i.e., it echoes what you type. `R1` counts the chars on the display, so backspace erases the last one and is ignored once there is nothing left to erase. Run it with `bin/kone -b bin/keyboard.bin` and press some keys.
 
-- `pi`: Approximates π by summing the 255 equal edge lengths of a regular polygon into a 16 bit fixed-point perimeter, halving it and printing the digits of the result through repeated subtraction. Run it with `bin/kone -b bin/pi.bin`; it prints `3.1415` and then loops in place.
+- `pi`: Approximates π the way Archimedes did, by doubling the corner count of a polygon inscribed in the unit circle: the hexagon's side is the radius, and a polygon with the side `s` doubles into one with the side `s / sqrt(2 + 2 * sqrt(1 - (s/2)^2))`, i.e., Pythagoras on the two right triangles over half an edge. Half the perimeter approaches π and is printed after every doubling, from the 12-gon (`=3.10583`) up to the 6144-gon (`=3.14159`). It is built from klib's `math/float32` group, `io/disp` and `io/float32_write`, and does its own square roots by Newton's iteration, since klib has none. Six significant digits are all that single precision carries and all that `float32_write` prints, and the polygons settle onto them by the 1536-gon. Run it with `bin/kone -b bin/pi.bin`; it prints the ten lines and then loops in place.
 
 ## Architecture
 
