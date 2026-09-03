@@ -21,19 +21,15 @@ TEST_OBJS := $(filter-out obj/kone.o, $(OBJS))
 EXAMPLE_SRCS := $(wildcard examples/*.kasm)
 EXAMPLE_TARGETS := $(patsubst examples/%.kasm, bin/%.bin, $(EXAMPLE_SRCS))
 
-# Library sources are pulled in via '.include'; kasm emits no dependency
-# files, so every example is rebuilt whenever any of them changes.
+# kasm emits no dependency files, so any klib change rebuilds every example.
 KLIB_SRCS := $(wildcard klib/*.kasm klib/*/*.kasm)
 
 KLIB_TEST_SRCS := $(wildcard tests/klib/*.kasm)
 KLIB_TEST_BINS := $(patsubst tests/klib/test_%.kasm, bin/test_klib_%.bin, \
                             $(KLIB_TEST_SRCS))
 
-# The kone vm never halts on its own, so a klib test is run in the background
-# and its display output is polled for the summary line until this many
-# seconds have passed. A test may bring two companion files: test_X.in is
-# piped in as keystrokes, and every row of test_X.expect has to show up on
-# the display, which is how the routines that only print are checked.
+# A klib test never halts, so its display is polled for the summary row for
+# this long.
 KLIB_TEST_TIMEOUT := 20
 
 KASM_DIR := src/kasm
@@ -42,34 +38,89 @@ KASM_SRCS := $(wildcard $(KASM_DIR)/*.c) $(wildcard $(KASM_DIR)/*.h)
 KASM_OBJS := obj/assembler.o obj/isa.o obj/symtab.o
 KASM_TEST_BIN := bin/test_kasm
 
+TEST_GROUPS := test-kone test-kasm test-klib
+
+# Shell snippets for the test recipes; TEST_SUMMARY reads the shell variables
+# 'group', 'passed' and 'failed'.
+TEST_COLORS = if [ -t 1 ]; then \
+    bld='\033[1m'; rst='\033[0m'; dflt='\033[39m'; \
+    grn='\033[38;2;0;255;0m'; red='\033[38;2;255;0;0m'; \
+    dgrn='\033[38;2;0;200;0m'; dred='\033[38;2;200;0;0m'; \
+    wht='\033[38;2;200;200;200m'; \
+    else bld=''; rst=''; dflt=''; grn=''; red=''; \
+    dgrn=''; dred=''; wht=''; fi
+
+TEST_SUMMARY = if [ $$failed -gt 0 ]; then \
+    printf "$${bld}$${red}[ FAIL ] $${dflt}%s: %d/%d passed$${rst}\n\n" \
+        "$$group" "$$passed" "$$((passed + failed))"; \
+    exit 1; \
+    else \
+    printf "$${bld}$${grn}[ PASS ] $${dflt}%s: %d/%d passed$${rst}\n\n" \
+        "$$group" "$$passed" "$$((passed + failed))"; \
+    fi
+
 PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all kone kasm debug examples test install clean format check
+.PHONY: all check clean debug examples format install kasm kone test \
+        $(TEST_GROUPS)
+
+# Main targets.
 
 all: $(TARGET) $(KASM) $(EXAMPLE_TARGETS)
 
-kone: $(TARGET)
+check: format all
 
-kasm: $(KASM)
-
-$(KASM): $(KASM_SRCS)
-	$(MAKE) -C $(KASM_DIR)
-
-$(TARGET): $(OBJS)
-	$(CC) $(OBJS) $(LDFLAGS) -o $@
-
-obj/%.o: src/%.c | obj bin
-	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
-
-obj bin:
-	mkdir -p $@
+clean:
+	$(MAKE) -C $(KASM_DIR) clean
+	rm -rf bin/ obj/
+	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
 
 debug: CFLAGS += -g -O0 -DDEBUG
 debug: clean all
 
 examples: $(EXAMPLE_TARGETS)
+
+format:
+	clang-format -i $$(find . -name '*.c' -or -name '*.h')
+
+install: $(TARGET) $(KASM) examples
+	mkdir -p $(PREFIX)/bin
+	install -Dm755 $(TARGET) $(PREFIX)/bin/kone
+	install -Dm755 $(KASM) $(PREFIX)/bin/kasm
+
+kasm: $(KASM)
+
+kone: $(TARGET)
+
+# Sub makes, not prerequisites: a failing group must not stop the others.
+test:
+	@$(TEST_COLORS); \
+	passed=0; failed=0; \
+	for g in $(TEST_GROUPS); do \
+		if $(MAKE) --no-print-directory $$g; then \
+			passed=$$((passed + 1)); \
+		else \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	group='test groups'; \
+	$(TEST_SUMMARY)
+
+# Rules they build through.
+
+$(KASM): $(KASM_SRCS)
+	$(MAKE) -C $(KASM_DIR)
+
+$(KASM_TEST_BIN): tests/kasm/test_kasm.c $(KASM)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(KASM_OBJS) -o $@
+
+$(TARGET): $(OBJS)
+	$(CC) $(OBJS) $(LDFLAGS) -o $@
+
+bin/%: tests/%.c $(TEST_OBJS)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
 
 bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
 	$(KASM) -i $< -o $@
@@ -77,23 +128,30 @@ bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
 bin/test_klib_%.bin: tests/klib/test_%.kasm $(KLIB_SRCS) $(KASM)
 	$(KASM) -i $< -o $@
 
-test: $(TEST_BINS) $(KASM_TEST_BIN) $(KLIB_TEST_BINS) $(TARGET)
-	@passed=0; failed=0; \
-	if [ -t 1 ]; then bld='\033[1m'; grn='\033[38;2;0;255;0m'; red='\033[38;2;255;0;0m'; \
-	dflt='\033[39m'; rst='\033[0m'; dgrn='\033[38;2;0;200;0m'; \
-	dred='\033[38;2;200;0;0m'; wht='\033[38;2;200;200;200m'; \
-	else bld=''; grn=''; red=''; dflt=''; rst=''; dgrn=''; dred=''; wht=''; fi; \
+obj bin:
+	mkdir -p $@
+
+obj/%.o: src/%.c | obj bin
+	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
+
+test-kasm: $(KASM_TEST_BIN)
+	@$(TEST_COLORS); \
+	passed=0; failed=0; \
 	printf "\n"; \
-	for t in $(TEST_BINS) $(KASM_TEST_BIN); do \
-		if ./$$t; then \
-			printf "$${bld}$${grn}[ PASS ] $${dflt}%s$${rst}\n\n" "$$t"; \
-			passed=$$((passed + 1)); \
-		else \
-			printf "$${bld}$${red}[ FAIL ] $${dflt}%s$${rst}\n\n" "$$t"; \
-			failed=$$((failed + 1)); \
-		fi; \
-	done; \
-	klib_failed=0; \
+	if ./$(KASM_TEST_BIN); then \
+		printf "$${bld}$${grn}[ PASS ] $${dflt}%s$${rst}\n\n" "$(KASM_TEST_BIN)"; \
+		passed=1; \
+	else \
+		printf "$${bld}$${red}[ FAIL ] $${dflt}%s$${rst}\n\n" "$(KASM_TEST_BIN)"; \
+		failed=1; \
+	fi; \
+	group=kasm; \
+	$(TEST_SUMMARY)
+
+test-klib: $(KLIB_TEST_BINS) $(TARGET)
+	@$(TEST_COLORS); \
+	passed=0; failed=0; \
+	printf "\n"; \
 	for t in $(KLIB_TEST_BINS); do \
 		name=$$(basename $$t .bin | sed 's/^test_klib_//'); \
 		stem=tests/klib/test_$$name; \
@@ -138,48 +196,32 @@ test: $(TEST_BINS) $(KASM_TEST_BIN) $(KLIB_TEST_BINS) $(TARGET)
 				printf "$$dred[ FAIL ] $${rst}$${wht}%s: no summary within %ss$${rst}\n" \
 					"$$t" "$(KLIB_TEST_TIMEOUT)"; \
 			fi; \
-			klib_failed=$$((klib_failed + 1)); \
+			failed=$$((failed + 1)); \
 		elif [ $$expect_failed -ne 0 ]; then \
-			klib_failed=$$((klib_failed + 1)); \
+			failed=$$((failed + 1)); \
+		else \
+			passed=$$((passed + 1)); \
 		fi; \
 		rm -f $$out $$out.frame; \
 	done; \
-	if [ $$klib_failed -eq 0 ]; then \
-		printf "$${bld}$${grn}[ PASS ] $${dflt}klib$${rst}\n\n"; \
-		passed=$$((passed + 1)); \
-	else \
-		printf "$${bld}$${red}[ FAIL ] $${dflt}klib$${rst}\n\n"; \
-		failed=$$((failed + 1)); \
-	fi; \
-	echo; \
-	if [ $$failed -gt 0 ]; then \
-		printf "$${bld}$${red}[ FAIL ] $${dflt}%d/%d test binaries passed$${rst}\n" \
-			"$$passed" "$$((passed + failed))"; \
-		exit 1; \
-	else \
-		printf "$${bld}$${grn}[ PASS ] $${dflt}%d/%d test binaries passed$${rst}\n" \
-			"$$passed" "$$((passed + failed))"; \
-	fi
+	printf "\n"; \
+	group=klib; \
+	$(TEST_SUMMARY)
 
-bin/%: tests/%.c $(TEST_OBJS)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
-
-$(KASM_TEST_BIN): tests/kasm/test_kasm.c $(KASM)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(KASM_OBJS) -o $@
-
-install: $(TARGET) $(KASM) examples
-	mkdir -p $(PREFIX)/bin
-	install -Dm755 $(TARGET) $(PREFIX)/bin/kone
-	install -Dm755 $(KASM) $(PREFIX)/bin/kasm
-
-clean:
-	$(MAKE) -C $(KASM_DIR) clean
-	rm -rf bin/ obj/
-	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
-
-format:
-	clang-format -i $$(find . -name '*.c' -or -name '*.h')
-
-check: format all
+test-kone: $(TEST_BINS)
+	@$(TEST_COLORS); \
+	passed=0; failed=0; \
+	printf "\n"; \
+	for t in $(TEST_BINS); do \
+		if ./$$t; then \
+			printf "$${bld}$${grn}[ PASS ] $${dflt}%s$${rst}\n\n" "$$t"; \
+			passed=$$((passed + 1)); \
+		else \
+			printf "$${bld}$${red}[ FAIL ] $${dflt}%s$${rst}\n\n" "$$t"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	group=kone; \
+	$(TEST_SUMMARY)
 
 -include $(DEPS)

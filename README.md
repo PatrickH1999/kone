@@ -37,7 +37,10 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
- - `make test`: run the test suite
+ - `make test`: run the whole test suite, i.e. the three groups below one after the other (a failing group does not keep the others from running)
+ - `make test-kone`: run only the C unit tests of the virtual machine
+ - `make test-kasm`: run only the C unit test of the assembler
+ - `make test-klib`: run only the `klib` tests, i.e. one kasm program per routine, run on the vm
  - `make debug`: build with debugging symbols and no optimization
  - `make kasm`: build only the assembler
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
