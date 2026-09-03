@@ -1,7 +1,3 @@
-// keyboard: echoes every typed char to the display. R1 counts the chars that
-// are currently on the display, so that a backspace is only passed on when
-// there is something left to erase.
-
 main:
     LDI 0
     STR 1           // R1 = number of chars typed so far
@@ -13,8 +9,6 @@ loop:
     LDR 17          // load received key char (R17) into accumulator
     STR 2
 
-    // depending on the terminal the backspace key arrives as BS or as DEL,
-    // so DEL is folded onto BS and only BS is tested for below
     LDI 129         // 256 - 127 -> the char is DEL
     ADD 2
     JA1 keyboard__test_bs

@@ -11,10 +11,6 @@ loop:
     LDI 1
     STR 18      // REG_ID_DISP_SET
 
-    // The display runs beside the cpu and only looks at the two registers
-    // every so often, so the next char may not be written before it has taken
-    // this one; it clears the set-bit to say so. This is the same handshake
-    // that 'disp_putc' in klib/io/disp.kasm does.
 display__wait:
     LDR 18
     JA1 display__wait

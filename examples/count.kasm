@@ -1,14 +1,3 @@
-// count: counts up in R0 - R3 and prints every value to the display as a
-// decimal number, one per row. The counter is a 32 bit signed integer, so it
-// runs from 0 up to 2147483647 and then wraps around to -2147483648.
-//
-// Both halves of the loop are klib routines: 'int32_add' from klib/math.kasm
-// does the counting and 'int32_write' from klib/io.kasm the printing, which
-// is why every row is prefixed with '=' the way int32_write always prints.
-// The two class includes below pull in all of klib; a program that wants no
-// more than this one needs can include klib/io/disp.kasm, klib/math/int32.kasm
-// and klib/io/int32_write.kasm instead.
-
     JMP main
 
 .include "../klib/math.kasm"
