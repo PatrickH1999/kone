@@ -34,6 +34,8 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 - [`klib` standard library](#klib-standard-library)
     - [`io`](#io)
     - [`math`](#math)
+    - [`mem`](#mem)
+    - [`str`](#str)
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
@@ -68,6 +70,17 @@ The assembler translates a kasm assembly source file into the flat binary that `
 The assembler is deliberately minimal, which is worth keeping in mind when writing kasm programs. `.include "file"` (resolved relative to the including file) is the only directive. There is no `.equ`, so every operand has to be spelled out as a literal (decimal, `0x`, `0b` or `0o`) or as a label. There is no way to emit or reserve data, so constants have to be built with `LDI` and scratch memory has to be addressed by hand with `LDM`/`STM`. Labels are only accepted as the operand of a control-flow instruction (`JMP`, `JC0`, `JC1`, `JA0`, `JA1`, `CLL`), so passing one to `LDM` or `STM` is an error. `.include` has no include guards: Only circular includes are caught, so a file that is pulled in twice is assembled twice and its labels silently resolve to the second copy.
 
 ## Examples
+
+- `basic`: A BASIC interpreter with the keyboard as its terminal and the display as its screen, built from klib's `io/disp`, `math` (both groups), `io/int32_write`, `io/float32_write`, `mem` and `str`. It prints `READY.` and a `>` prompt and takes one line at a time: a line that starts with a line number goes into the program, a bare line number deletes that line again, and anything else is carried out at once (`RUN`, `LIST`, `CLEAR`). The statements are `LET`, `PRINT`, `IF ... THEN`, `GOTO` and `END`, the variables are the single letters `A` - `Z`, and the program holds 32 lines of 40 bytes. Every value is a single precision float the way a classic BASIC treats its numbers, so `LET A = 1 / 3` followed by `PRINT A` gives `0.333333` while a value that happens to be whole prints without a decimal point; literals may carry a decimal point and an exponent (`1.5e-7`, `-.5`), and klib's float32 group does the arithmetic. Either side of an operator may be a literal or a variable, so `LET A = A + 1` is a statement like any other, but an expression holds at most one operator: there is no precedence to get right and no bracketing, so `A * B + C` is a syntax error. A line ends with `~` rather than with ENTER: kone hands every key below ASCII 32 to the program as a space (see [Devices](#devices)), so ENTER cannot be told apart from the spaces between the words of a statement. The line is read into a buffer and parsed only once it is complete, so backspace erases the char before the cursor anywhere in it, down to the prompt. Run it with `bin/kone -b bin/basic.bin` and type
+```
+10 LET A = 7~
+20 LET B = 5~
+30 LET C = A * B~
+40 PRINT "RESULT: "; C~
+50 END~
+RUN~
+```
+which prints `RESULT: 35` and `DONE.`. The program lives in 32 fixed width slots and every indexed access into it goes through klib's `mem_peek` and `mem_poke`, since the kone ISA has no register indirect addressing; `examples/basic.kasm` maps the whole layout at the top. Numbers are printed with klib's `float32_puts` but read by the interpreter itself: klib's readers poll the keyboard, which a line that has already been typed and edited cannot be fed back into, so the digits are folded into an integer and scaled by a power of ten the way `float32_read` does it.
 
 - `calculator_float32`: An interactive 32 bit floating point calculator, the same program as `calculator_int32` below but on IEEE 754 single precision values, built from klib's `io/disp`, `math/int32`, `math/float32`, `io/float32_read`, and `io/float32_write`. Magnitudes run from about 1.2e-38 to 3.4e38 and six significant digits are printed, so `1` followed by `/3` comes out as `0.333333`. A number may carry a decimal point and an exponent (`1.5e-7`) as well as a leading `-`, and a line that starts with a digit or a `.` replaces the accumulator. Dividing by zero would give an infinity, which klib does not carry through its arithmetic, so it prints `ERR` and keeps the accumulator just like the integer version does. Backspace walks back through the number being typed and then through the operator, so a line can always be taken back to the bare prompt. Run it with `bin/kone -b bin/calculator_float32.bin` and type, e.g., `1.5`, then `*2.0`, then `+0.25`.
 
@@ -162,7 +175,7 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 
 ## `klib` standard library
 
-`klib/` is split into the two classes below, one routine per file, with `klib/io.kasm` and `klib/math.kasm` next to the folders to pull in a whole class at once. Every routine documents its own calling convention (in, out, clobbered registers) at the top of its file; the lists here only say what each one is for. Note that an include is not idempotent and kasm has no include guards, i.e., a file that is reached along two paths is quietly assembled twice, taking up the memory twice over and resolving every call to it to the second copy, so include either a class file or the single files below it, never both.
+`klib/` is split into the four classes below, one routine or one closely related group per file, with `klib/io.kasm`, `klib/math.kasm`, `klib/mem.kasm` and `klib/str.kasm` next to the folders to pull in a whole class at once. Every routine documents its own calling convention (in, out, clobbered registers) at the top of its file; the lists here only say what each one is for. Note that an include is not idempotent and kasm has no include guards, i.e., a file that is reached along two paths is quietly assembled twice, taking up the memory twice over and resolving every call to it to the second copy, so include either a class file or the single files below it, never both.
 
 ### `io`
 
@@ -170,9 +183,9 @@ The routines that talk to the two devices. `disp` is the one every other file he
 
 - `disp`: the display helpers `disp_putc`, `disp_bs` and `disp_nl` that every other `io` routine prints through. The kone display has no cursor a program could read back, so `disp_putc` keeps the column of the next cell at `0x8000`. This file also documents the whole klib scratch memory map.
 - `int32_read`: reads a decimal number from the keyboard into `R0`-`R3` and echoes it, taking a leading `-`, thousands separators and backspace; the char that ended the number is left in `R14`.
-- `int32_write`: prints the 32 bit signed integer in `R0`-`R3` as a decimal number, prefixed with `=` and followed by a newline.
+- `int32_write`: prints the 32 bit signed integer in `R0`-`R3` as a decimal number, prefixed with `=` and followed by a newline. `int32_puts`, which prints the bare digits without either of them, lives here as well and is what a program that prints a number of its own wants.
 - `float32_read`: reads `[-] digits [ . digits ] [ (e|E) [+|-] digits ]` from the keyboard into `R0`-`R3` as a single precision value; backspace undoes any typed char, the decimal point and the `e` included.
-- `float32_write`: prints the single precision value in `R0`-`R3` with six significant digits, in the layout of printf's `%g`. Its digit generator `float32_digits` lives here as well and is what the test covers.
+- `float32_write`: prints the single precision value in `R0`-`R3` with six significant digits, in the layout of printf's `%g`, prefixed with `=` and followed by a newline. `float32_puts` prints it without either of them, and the digit generator `float32_digits` that both sit on lives here as well and is what the test covers.
 
 ### `math`
 
@@ -180,10 +193,23 @@ Two independent groups, `math/int32.kasm` and `math/float32.kasm`, which `klib/m
 
 - `int32_add`, `int32_sub`: 32 bit two's complement addition and subtraction of `R0`-`R3` and `R4`-`R7` into `R8`-`R11`. Carry and borrow out of the MSB are discarded, so both wrap around and serve signed and unsigned operands alike.
 - `int32_mul`: shift-and-add multiplication that keeps the low 32 bit of the product, which is the same for signed and unsigned operands. It consumes both of them.
+- `int32_cmp`: compares two 32 bit signed integers and says which is the larger one. Two values of the same sign are told apart by the sign of their difference, which cannot overflow in that case, two of different signs by the sign of the first alone.
 - `int32_div`: unsigned division, yielding `0xFFFFFFFF` rather than failing when the divisor is zero. It subtracts the divisor over and over, so its run time grows with the quotient: a nine digit quotient costs a few hundred million rounds.
 - `float32_add`, `float32_sub`: IEEE 754 single precision addition and subtraction, with a guard byte below both mantissas so that subtracting two close values stays within one unit in the last place. This file also holds `float32_unpack` and `float32_pack`, which every other float32 routine uses.
 - `float32_mul`, `float32_div`: single precision multiplication and division. Neither can build on the integer routines: the mantissa product is 48 bit wide and only its top half is wanted, while `int32_mul` keeps the low 32 bit, and `int32_div` would need 16 million rounds for a 24 bit quotient, so the quotient is built one bit per round by restoring division.
 - `float32_from_int32`, `float32_to_int32`: the conversions in both directions. A value that needs more than 24 bit loses its low bits, and a magnitude that does not fit into a signed 32 bit integer saturates rather than wrapping.
+- `float32_cmp`: compares two single precision values and says which is the larger one. It compares the bit patterns rather than the values, which needs no arithmetic: the magnitude bits grow with the value, so two of the same sign are ordered by them and two of different signs by the sign alone. Both zeros count as equal.
 - `float32_pow10`: 10 raised to a power of 0 to 38, built from the six constants 10, 1e2, 1e4, 1e8, 1e16 and 1e32, one per bit of the exponent. This is what `float32_read` and `float32_write` scale with.
 
 Every float32 routine truncates towards zero, flushes an exponent below 1 to a signed zero (subnormals are not produced) and treats an operand with exponent 255 as an ordinary number, so infinities and NaNs are not carried through the arithmetic.
+
+### `mem`
+
+The kone ISA has no register indirect addressing: `LDM` and `STM` take an absolute address and nothing can point them at a computed one. These routines fill that gap by patching the address into an `LDM`/`STM` that they write into scratch memory and then call, so a program can walk a table at run time.
+
+- `mem_peek`, `mem_poke`: read and write the byte at the address in `R12`/`R13`.
+- `mem_copy`: copies a block of up to 255 bytes from one address to another through the two above.
+
+### `str`
+
+- `str_eq`: compares two null terminated strings and returns 0 or 1 in `R0`. It reads them through `mem_peek`, so `klib/mem.kasm` has to be included alongside `klib/str.kasm`.

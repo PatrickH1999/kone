@@ -4,7 +4,8 @@
 // What it prints cannot be read back from inside the vm, so the rows are
 // checked by the harness against tests/klib/test_float32_write.expect:
 //     0, 0.5 and -0.1 positionally, 1e10 in the exponent layout and an
-//     exponent of 255 as 'inf'
+//     exponent of 255 as 'inf', plus the bare rows that float32_puts prints
+//     for 0.5 and -12.25
 // The one case checked here prints 'PASS:<case>' or 'FAIL:<case>' followed by
 // a summary row ('ALL PASS' or '<n> FAILED').
 //
@@ -135,6 +136,29 @@ main__float32_write_ends_row_name:
     CLL disp_putc
     LDI 119         // 'w'
     CLL disp_putc
+    CLL disp_nl
+
+    // the same layout without the '=' and the newline around it;
+    // tests/klib/test_float32_write.expect holds these rows as well
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x00
+    STR 2
+    LDI 0x3F
+    STR 3           // 0.5
+    CLL float32_puts
+    CLL disp_nl
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x44
+    STR 2
+    LDI 0xC1
+    STR 3           // -12.25
+    CLL float32_puts
     CLL disp_nl
 
 main__summary:

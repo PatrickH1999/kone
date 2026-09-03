@@ -1,0 +1,320 @@
+// test_mem: checks klib's memory routines against known results; every case
+// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
+// summary row ('ALL PASS' or '<n> FAILED').
+//
+// The addresses are in the scratch memory above klib's own map, which
+// klib/io/disp.kasm documents.
+
+    JMP main
+
+.include "../../klib/io/disp.kasm"
+.include "../../klib/mem.kasm"
+
+main:
+    LDI 0
+    STR 15          // number of failed cases
+
+    LDI 0x00
+    STR 12
+    LDI 0x90
+    STR 13
+    LDI 0xAB
+    STR 14
+    CLL mem_poke
+    LDI 0x00
+    STR 12
+    LDI 0x90
+    STR 13
+    CLL mem_peek
+    STR 0
+    LDI 0xAB
+    XOR 0
+    JA0 main__mem_poke_peek_pass
+    LDI 1
+    ADD 15
+    STR 15          // one more failed case
+    CLL print_fail
+    JMP main__mem_poke_peek_name
+main__mem_poke_peek_pass:
+    CLL print_pass
+main__mem_poke_peek_name:
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 107         // 'k'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 107         // 'k'
+    CLL disp_putc
+    CLL disp_nl
+
+    LDI 0x23
+    STR 12
+    LDI 0x91
+    STR 13
+    LDI 0x5A
+    STR 14
+    CLL mem_poke
+    LDI 0x23
+    STR 12
+    LDI 0x91
+    STR 13
+    CLL mem_peek
+    STR 0
+    LDI 0x5A
+    XOR 0
+    JA0 main__mem_peek_page_pass
+    LDI 1
+    ADD 15
+    STR 15          // one more failed case
+    CLL print_fail
+    JMP main__mem_peek_page_name
+main__mem_peek_page_pass:
+    CLL print_pass
+main__mem_peek_page_name:
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 107         // 'k'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 103         // 'g'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    CLL disp_nl
+
+    LDI 0x11
+    STM 0x9200
+    LDI 0x22
+    STM 0x9201
+    LDI 0x33
+    STM 0x9202
+    LDI 0x44
+    STM 0x9203
+    LDI 0x00
+    STR 0
+    LDI 0x92
+    STR 1           // source
+    LDI 0x10
+    STR 2
+    LDI 0x92
+    STR 3           // target
+    LDI 4
+    STR 4
+    CLL mem_copy
+    LDM 0x9210
+    STR 0
+    LDI 0x11
+    XOR 0
+    STR 5
+    LDM 0x9211
+    STR 0
+    LDI 0x22
+    XOR 0
+    ORR 5
+    STR 5
+    LDM 0x9212
+    STR 0
+    LDI 0x33
+    XOR 0
+    ORR 5
+    STR 5
+    LDM 0x9213
+    STR 0
+    LDI 0x44
+    XOR 0
+    ORR 5
+    STR 5
+    LDR 5
+    JA0 main__mem_copy_pass
+    LDI 1
+    ADD 15
+    STR 15          // one more failed case
+    CLL print_fail
+    JMP main__mem_copy_name
+main__mem_copy_pass:
+    CLL print_pass
+main__mem_copy_name:
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 99          // 'c'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 121         // 'y'
+    CLL disp_putc
+    CLL disp_nl
+
+    LDI 0x77
+    STM 0x9220
+    LDI 0x00
+    STR 0
+    LDI 0x92
+    STR 1
+    LDI 0x20
+    STR 2
+    LDI 0x92
+    STR 3
+    LDI 0
+    STR 4
+    CLL mem_copy
+    LDM 0x9220
+    STR 0
+    LDI 0x77
+    XOR 0
+    JA0 main__mem_copy_zero_pass
+    LDI 1
+    ADD 15
+    STR 15          // one more failed case
+    CLL print_fail
+    JMP main__mem_copy_zero_name
+main__mem_copy_zero_pass:
+    CLL print_pass
+main__mem_copy_zero_name:
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 109         // 'm'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 99          // 'c'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 121         // 'y'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 122         // 'z'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    CLL disp_nl
+
+main__summary:
+    LDR 15
+    JA0 main__all_pass
+    LDI 48          // '0'
+    ADD 15          // at most one digit, there are only a few cases
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 68          // 'D'
+    CLL disp_putc
+    CLL disp_nl
+    JMP main__halt
+
+main__all_pass:
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 80          // 'P'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    CLL disp_nl
+
+main__halt:
+    JMP main__halt
+
+// print_pass: prints the 'PASS:' prefix; the caller appends the case name and
+// ends the display row
+//     clobbers: R13
+print_pass:
+    LDI 80          // 'P'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 58          // ':'
+    CLL disp_putc
+    RET
+
+// print_fail: prints the 'FAIL:' prefix; the caller appends the case name and
+// ends the display row
+//     clobbers: R13
+print_fail:
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 58          // ':'
+    CLL disp_putc
+    RET

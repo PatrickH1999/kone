@@ -1,0 +1,47 @@
+// int32_cmp: compares two 32 bit signed integers, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      accumulator -> 0 if A = B, 1 if A < B, 2 if A > B
+//     clobbers: R8 - R13
+//
+// Two values of the same sign are compared by the sign of A - B, which cannot
+// overflow in that case; two of different signs by the sign of A alone. The
+// difference comes from 'int32_sub' in klib/math/int32_sub.kasm, which this
+// file needs alongside it.
+int32_cmp:
+    LDI 0x80
+    STR 12
+    LDR 3
+    XOR 7
+    AND 12
+    JA0 int32_cmp__same
+
+    LDR 3
+    AND 12
+    JA0 int32_cmp__greater  // A is the positive one
+    JMP int32_cmp__less
+
+int32_cmp__same:
+    CLL int32_sub   // R8 - R11 = A - B
+    LDR 8
+    ORR 9
+    ORR 10
+    ORR 11
+    JA0 int32_cmp__equal
+
+    LDI 0x80
+    STR 12
+    LDR 11
+    AND 12
+    JA0 int32_cmp__greater
+
+int32_cmp__less:
+    LDI 1
+    RET
+
+int32_cmp__greater:
+    LDI 2
+    RET
+
+int32_cmp__equal:
+    LDI 0
+    RET

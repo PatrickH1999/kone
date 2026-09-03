@@ -1,9 +1,10 @@
 // int32: all 32 bit integer operations of klib, see the individual files for
 // their calling conventions. Include this rather than the single files when a
 // program needs more than one of them, and note that klib/io/int32_write.kasm
-// and klib/io/int32_read.kasm build on all four.
+// and klib/io/int32_read.kasm build on the four arithmetic ones.
 
 .include "int32_add.kasm"
 .include "int32_sub.kasm"
 .include "int32_mul.kasm"
 .include "int32_div.kasm"
+.include "int32_cmp.kasm"

@@ -1,0 +1,7 @@
+// mem: all memory routines of klib, the byte access through a computed
+// address and the block copy built on it. See the individual files in
+// klib/mem/ for their calling conventions.
+
+.include "mem/mem_peek.kasm"
+.include "mem/mem_poke.kasm"
+.include "mem/mem_copy.kasm"

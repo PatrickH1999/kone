@@ -4,28 +4,37 @@
 //     out:      -
 //     clobbers: R0 - R15
 //
+// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
+// also documents the scratch memory this file uses.
+float32_write:
+    LDI 61          // '='
+    CLL disp_putc
+    CLL float32_puts
+    CLL disp_nl
+    RET
+
+// float32_puts: prints an IEEE 754 single precision value without the prefix
+// and the newline that 'float32_write' puts around it
+//     in:       A -> R0 - R3, byte order LSB -> MSB
+//     out:      -
+//     clobbers: R0 - R15
+//
 // Six significant digits are printed, trailing zeros are dropped, and the
 // layout follows printf's '%g': positional while the decimal exponent is
 // between -4 and 5, 'd.dddddemdd' outside that range. A zero prints as '0' and
 // an exponent of 255 as 'inf' or 'nan'. The digits come from 'float32_digits'
 // (see below), so the last one may be off by one, and six digits are too few
 // to read the value back unchanged, which would take nine.
-//
-// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
-// also documents the scratch memory this file uses.
-float32_write:
-    LDI 61          // '='
-    CLL disp_putc
-
+float32_puts:
     LDI 0x80
     STR 12
     LDR 3
     AND 12
-    JA0 float32_write__abs
+    JA0 float32_puts__abs
     LDI 45          // '-'
     CLL disp_putc
 
-float32_write__abs:
+float32_puts__abs:
     LDI 0x7F
     STR 12
     LDR 3
@@ -42,40 +51,40 @@ float32_write__abs:
     BSL
     ORR 14
     STR 13
-    JA0 float32_write__zero
+    JA0 float32_puts__zero
     LDI 1
     ADD 13
-    JA0 float32_write__special
+    JA0 float32_puts__special
 
     CLL float32_digits
     LDR 12
     STM 0x8020      // the decimal exponent
-    CLL float32_write__split
+    CLL float32_puts__split
 
     LDI 6
     STM 0x801F
     LDM 0x801C
-    JA1 float32_write__layout
+    JA1 float32_puts__layout
     LDI 5
     STM 0x801F
     LDM 0x801B
-    JA1 float32_write__layout
+    JA1 float32_puts__layout
     LDI 4
     STM 0x801F
     LDM 0x801A
-    JA1 float32_write__layout
+    JA1 float32_puts__layout
     LDI 3
     STM 0x801F
     LDM 0x8019
-    JA1 float32_write__layout
+    JA1 float32_puts__layout
     LDI 2
     STM 0x801F
     LDM 0x8018
-    JA1 float32_write__layout
+    JA1 float32_puts__layout
     LDI 1
     STM 0x801F
 
-float32_write__layout:
+float32_puts__layout:
     LDM 0x801F
     STM 0x801D      // every significant digit is printed
     LDI 0
@@ -89,19 +98,19 @@ float32_write__layout:
     STR 14
     LDI 0x80
     AND 14
-    JA0 float32_write__sci
+    JA0 float32_puts__sci
     LDI 4           // + 4, negative for an exponent below -4
     ADD 13
     STR 14
     LDI 0x80
     AND 14
-    JA1 float32_write__sci
+    JA1 float32_puts__sci
 
     LDI 0x80
     STR 14
     LDR 13
     AND 14
-    JA1 float32_write__small
+    JA1 float32_puts__small
 
     LDI 1
     ADD 13
@@ -113,18 +122,18 @@ float32_write__layout:
     STR 14
     LDM 0x801F
     ADD 14
-    JC0 float32_write__pad
-    JA0 float32_write__pad
-    JMP float32_write__digits
+    JC0 float32_puts__pad
+    JA0 float32_puts__pad
+    JMP float32_puts__digits
 
-float32_write__pad:
+float32_puts__pad:
     LDM 0x801E
     STM 0x801D      // no digit is left over -> pad with zeros, print no point
     LDI 0
     STM 0x801E
-    JMP float32_write__digits
+    JMP float32_puts__digits
 
-float32_write__small:
+float32_puts__small:
     LDI 48          // '0'
     CLL disp_putc
     LDI 46          // '.'
@@ -133,211 +142,211 @@ float32_write__small:
     NOT
     STR 12          // - E - 1 leading zeros
 
-float32_write__lead:
+float32_puts__lead:
     LDR 12
-    JA0 float32_write__digits
+    JA0 float32_puts__digits
     LDI 255
     ADD 12
     STR 12
     LDI 48          // '0'
     CLL disp_putc
-    JMP float32_write__lead
+    JMP float32_puts__lead
 
-float32_write__sci:
+float32_puts__sci:
     LDI 1
     STM 0x8021
     LDM 0x801F
     STR 13
     LDI 255
     ADD 13
-    JA0 float32_write__digits
+    JA0 float32_puts__digits
     LDI 1
     STM 0x801E      // the point goes behind the first digit
 
-float32_write__digits:
+float32_puts__digits:
     LDM 0x801D
     STR 13
     LDI 255
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 255
     ADD 13
-    JC0 float32_write__pad1
+    JC0 float32_puts__pad1
     LDM 0x8017
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put1
+    JMP float32_puts__put1
 
-float32_write__pad1:
+float32_puts__pad1:
     LDI 48          // '0'
 
-float32_write__put1:
+float32_puts__put1:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 255
     ADD 13
-    JA1 float32_write__next1
+    JA1 float32_puts__next1
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next1:
+float32_puts__next1:
     LDM 0x801D
     STR 13
     LDI 254
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 254
     ADD 13
-    JC0 float32_write__pad2
+    JC0 float32_puts__pad2
     LDM 0x8018
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put2
+    JMP float32_puts__put2
 
-float32_write__pad2:
+float32_puts__pad2:
     LDI 48          // '0'
 
-float32_write__put2:
+float32_puts__put2:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 254
     ADD 13
-    JA1 float32_write__next2
+    JA1 float32_puts__next2
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next2:
+float32_puts__next2:
     LDM 0x801D
     STR 13
     LDI 253
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 253
     ADD 13
-    JC0 float32_write__pad3
+    JC0 float32_puts__pad3
     LDM 0x8019
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put3
+    JMP float32_puts__put3
 
-float32_write__pad3:
+float32_puts__pad3:
     LDI 48          // '0'
 
-float32_write__put3:
+float32_puts__put3:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 253
     ADD 13
-    JA1 float32_write__next3
+    JA1 float32_puts__next3
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next3:
+float32_puts__next3:
     LDM 0x801D
     STR 13
     LDI 252
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 252
     ADD 13
-    JC0 float32_write__pad4
+    JC0 float32_puts__pad4
     LDM 0x801A
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put4
+    JMP float32_puts__put4
 
-float32_write__pad4:
+float32_puts__pad4:
     LDI 48          // '0'
 
-float32_write__put4:
+float32_puts__put4:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 252
     ADD 13
-    JA1 float32_write__next4
+    JA1 float32_puts__next4
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next4:
+float32_puts__next4:
     LDM 0x801D
     STR 13
     LDI 251
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 251
     ADD 13
-    JC0 float32_write__pad5
+    JC0 float32_puts__pad5
     LDM 0x801B
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put5
+    JMP float32_puts__put5
 
-float32_write__pad5:
+float32_puts__pad5:
     LDI 48          // '0'
 
-float32_write__put5:
+float32_puts__put5:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 251
     ADD 13
-    JA1 float32_write__next5
+    JA1 float32_puts__next5
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next5:
+float32_puts__next5:
     LDM 0x801D
     STR 13
     LDI 250
     ADD 13
-    JC0 float32_write__tail
+    JC0 float32_puts__tail
     LDM 0x801F
     STR 13
     LDI 250
     ADD 13
-    JC0 float32_write__pad6
+    JC0 float32_puts__pad6
     LDM 0x801C
     STR 13
     LDI 48          // '0'
     ADD 13
-    JMP float32_write__put6
+    JMP float32_puts__put6
 
-float32_write__pad6:
+float32_puts__pad6:
     LDI 48          // '0'
 
-float32_write__put6:
+float32_puts__put6:
     CLL disp_putc
     LDM 0x801E
     STR 13
     LDI 250
     ADD 13
-    JA1 float32_write__next6
+    JA1 float32_puts__next6
     LDI 46          // '.'
     CLL disp_putc
 
-float32_write__next6:
-float32_write__tail:
+float32_puts__next6:
+float32_puts__tail:
     LDM 0x8021
-    JA0 float32_write__done
+    JA0 float32_puts__done
 
     LDI 101         // 'e'
     CLL disp_putc
@@ -345,7 +354,7 @@ float32_write__tail:
     STR 13
     LDI 0x80
     AND 13
-    JA0 float32_write__eplus
+    JA0 float32_puts__eplus
     LDI 45          // '-'
     CLL disp_putc
     LDM 0x8020      // disp_putc clobbers R13
@@ -354,29 +363,29 @@ float32_write__tail:
     LDI 1
     ADD 12
     STR 12
-    JMP float32_write__etens
+    JMP float32_puts__etens
 
-float32_write__eplus:
+float32_puts__eplus:
     LDI 43          // '+'
     CLL disp_putc
     LDM 0x8020
     STR 12
 
-float32_write__etens:
+float32_puts__etens:
     LDI 0
     STR 13
 
-float32_write__eloop:
+float32_puts__eloop:
     LDI 246         // - 10
     ADD 12
-    JC0 float32_write__eput
+    JC0 float32_puts__eput
     STR 12
     LDI 1
     ADD 13
     STR 13
-    JMP float32_write__eloop
+    JMP float32_puts__eloop
 
-float32_write__eput:
+float32_puts__eput:
     LDI 48          // '0'
     ADD 13
     CLL disp_putc
@@ -384,17 +393,15 @@ float32_write__eput:
     ADD 12
     CLL disp_putc
 
-float32_write__done:
-    CLL disp_nl
+float32_puts__done:
     RET
 
-float32_write__zero:
+float32_puts__zero:
     LDI 48          // '0'
     CLL disp_putc
-    CLL disp_nl
     RET
 
-float32_write__special:
+float32_puts__special:
     LDR 0
     ORR 1
     STR 14
@@ -403,31 +410,29 @@ float32_write__special:
     LDR 2
     AND 15
     ORR 14
-    JA1 float32_write__qnan
+    JA1 float32_puts__qnan
     LDI 105         // 'i'
     CLL disp_putc
     LDI 110         // 'n'
     CLL disp_putc
     LDI 102         // 'f'
     CLL disp_putc
-    CLL disp_nl
     RET
 
-float32_write__qnan:
+float32_puts__qnan:
     LDI 110         // 'n'
     CLL disp_putc
     LDI 97          // 'a'
     CLL disp_putc
     LDI 110         // 'n'
     CLL disp_putc
-    CLL disp_nl
     RET
 
-// float32_write__split: cuts the six digit value in R8 - R11 into single digits
+// float32_puts__split: cuts the six digit value in R8 - R11 into single digits
 //     in:       v -> R8 - R11, 100000 to 999999
 //     out:      the six digits at 0x8017 - 0x801C, most significant first
 //     clobbers: R0 - R2, R4 - R6, R8 - R10, R13 - R15
-float32_write__split:
+float32_puts__split:
     LDR 8
     STR 0
     LDR 9
@@ -441,7 +446,7 @@ float32_write__split:
     STR 5
     LDI 0x01
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x8017      // 100000
 
     LDI 0x10
@@ -450,7 +455,7 @@ float32_write__split:
     STR 5
     LDI 0x00
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x8018      // 10000
 
     LDI 0xE8
@@ -459,7 +464,7 @@ float32_write__split:
     STR 5
     LDI 0x00
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x8019      // 1000
 
     LDI 0x64
@@ -468,7 +473,7 @@ float32_write__split:
     STR 5
     LDI 0x00
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x801A      // 100
 
     LDI 0x0A
@@ -477,7 +482,7 @@ float32_write__split:
     STR 5
     LDI 0x00
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x801B      // 10
 
     LDI 0x01
@@ -486,20 +491,20 @@ float32_write__split:
     STR 5
     LDI 0x00
     STR 6
-    CLL float32_write__count
+    CLL float32_puts__count
     STM 0x801C      // 1
 
     RET
 
-// float32_write__count: how often the power of ten in R4 - R6 fits into the
+// float32_puts__count: how often the power of ten in R4 - R6 fits into the
 // remainder in R0 - R2, subtracting it off as it counts
 //     out:      digit -> accumulator, remainder -> R0 - R2
 //     clobbers: R8 - R10, R13 - R15
-float32_write__count:
+float32_puts__count:
     LDI 0
     STR 13
 
-float32_write__count_loop:
+float32_puts__count_loop:
     LDI 1
     STR 15
 
@@ -549,7 +554,7 @@ float32_write__count_loop:
     STR 15
 
     LDR 15
-    JA0 float32_write__count_done
+    JA0 float32_puts__count_done
     LDR 8
     STR 0
     LDR 9
@@ -559,9 +564,9 @@ float32_write__count_loop:
     LDI 1
     ADD 13
     STR 13
-    JMP float32_write__count_loop
+    JMP float32_puts__count_loop
 
-float32_write__count_done:
+float32_puts__count_done:
     LDR 13
     RET
 

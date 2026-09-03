@@ -4,15 +4,27 @@
 //     out:      -
 //     clobbers: R4 - R15
 //
+// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
+// also documents the scratch memory this file uses.
+int32_write:
+    LDI 61          // '='
+    CLL disp_putc
+    CLL int32_puts
+    CLL disp_nl
+    RET
+
+// int32_puts: prints the digits of a 32 bit signed integer, without the
+// prefix and the newline that 'int32_write' puts around them
+//     in:       A -> R0 - R3, byte order LSB -> MSB, two's complement
+//     out:      -
+//     clobbers: R4 - R15
+//
 // A negative value is printed as '-' plus its magnitude, so the range is
 // -2147483648 to 2147483647. Digits are produced least significant first
 // (magnitude / 10 via int32_div, the digit itself via int32_mul and
 // int32_sub) and pushed onto the stack, which hands them back most
 // significant first for printing.
-//
-// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
-// also documents the scratch memory this file uses.
-int32_write:
+int32_puts:
     LDR 0
     PSH
     LDR 1
@@ -28,7 +40,7 @@ int32_write:
     STR 4
     LDR 3
     AND 4
-    JA0 int32_write__store
+    JA0 int32_puts__store
 
     LDI 1
     STM 0x8009      // the top bit is set -> print '-' and the magnitude
@@ -55,7 +67,7 @@ int32_write:
     LDR 11
     STR 3
 
-int32_write__store:
+int32_puts__store:
     LDR 0
     STM 0x8001
     LDR 1
@@ -68,21 +80,19 @@ int32_write__store:
     LDI 0
     STR 15          // number of digits pushed onto the stack
 
-    LDI 61          // '='
-    CLL disp_putc
     LDM 0x8009
-    JA0 int32_write__test
+    JA0 int32_puts__test
     LDI 45          // '-'
     CLL disp_putc
 
-int32_write__test:
+int32_puts__test:
     LDR 0
     ORR 1
     ORR 2
     ORR 3
-    JA0 int32_write__zero
+    JA0 int32_puts__zero
 
-int32_write__loop:
+int32_puts__loop:
     LDM 0x8001
     STR 0
     LDM 0x8002
@@ -162,17 +172,17 @@ int32_write__loop:
     LDM 0x8008
     STM 0x8004
     ORR 12
-    JA1 int32_write__loop
-    JMP int32_write__print
+    JA1 int32_puts__loop
+    JMP int32_puts__print
 
-int32_write__zero:
+int32_puts__zero:
     LDI 48          // '0'
     CLL disp_putc
-    JMP int32_write__done
+    JMP int32_puts__done
 
-int32_write__print:
+int32_puts__print:
     LDR 15
-    JA0 int32_write__done
+    JA0 int32_puts__done
     POP
     STR 12
     LDI 48          // '0'
@@ -181,10 +191,9 @@ int32_write__print:
     LDI 255
     ADD 15
     STR 15          // one digit less left on the stack
-    JMP int32_write__print
+    JMP int32_puts__print
 
-int32_write__done:
-    CLL disp_nl
+int32_puts__done:
     POP
     STR 3
     POP

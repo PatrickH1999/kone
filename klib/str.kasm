@@ -1,0 +1,9 @@
+// str: all string routines of klib. See the individual files in klib/str/ for
+// their calling conventions.
+//
+// The routines read the strings through klib/mem.kasm, so that has to be
+// included alongside this file. It is not pulled in here: an include is not
+// idempotent, and a program that ends up including the same file along two
+// paths gets every label in it twice.
+
+.include "str/str_eq.kasm"
