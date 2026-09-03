@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include "alu_functions.h"
+#include "display_struct.h"
 #include "utility.h"
 
 void cpu_init(CPU *cpu) {
@@ -33,6 +34,7 @@ void cpu_reset(CPU *cpu) {
     memset(cpu->R, 0, sizeof(cpu->R));
     memset(cpu->M, 0, sizeof(cpu->M));
 
+    // the top of memory is reserved for a display-sized block
     const uint16_t SP16 = MEM_SIZE - (DISP_NCOLS * DISP_NROWS) - 1;
     uint8_t SP8[2];
     addr_convert_16_to_8(SP8, SP16);
@@ -97,9 +99,7 @@ void cpu_fetch(CPU *cpu, const Args *args) {
     }
 }
 
-void cpu_decode_exec(CPU *cpu, char *msg, const size_t msg_size,
-                     const Args *args) {
-    (void)args;
+void cpu_decode_exec(CPU *cpu, char *msg, const size_t msg_size) {
     uint8_t opcode = *cpu->IR[0];
     const int opcode_flag_pos = get_pos_first_1_in_byte(opcode);
     if (opcode_flag_pos == OC_FLAG_POS_R) opcode = opcode & 0b11110000;
@@ -206,7 +206,7 @@ void cpu_print_count(const CPU *cpu) {
 }
 
 void cpu_print_state(const CPU *cpu) {
-    const int n = 22; // number of general purpose registers
+    const int n = 22; // R0 - R21, the registers before the stack pointer
     const int regs_per_row = 3;
     for (int reg_id = 0; reg_id < n; reg_id++) {
         const int mod = reg_id % regs_per_row;

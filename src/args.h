@@ -8,7 +8,7 @@
 #include <unistd.h>
 
 typedef struct {
-    const char *bootfile;     // bootfile
+    const char *bootfile;
     unsigned int cycle_sleep; // sleep time between clock cycles [us]
     int v;                    // verbosity
     int log;                  // If =1: logs are written continuously at every

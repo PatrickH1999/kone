@@ -47,11 +47,10 @@ void cpu_reset(CPU *cpu);
 int cpu_boot_file(CPU *cpu, const char *path);
 void cpu_pc_increment(CPU *cpu, const Args *args);
 void cpu_fetch(CPU *cpu, const Args *args);
-void cpu_decode_exec(CPU *cpu, char *msg, size_t msg_size, const Args *args);
+void cpu_decode_exec(CPU *cpu, char *msg, size_t msg_size);
 uint8_t cpu_get_flag(const CPU *cpu, uint8_t flag_pos);
 void cpu_set_flag(const CPU *cpu, uint8_t flag_pos, uint8_t value);
 void cpu_print_count(const CPU *cpu);
 void cpu_print_state(const CPU *cpu);
-void cpu_print_d(const CPU *cpu);
 
 #endif

@@ -108,5 +108,6 @@ void parse_args(Args *args, const int argc, char *argv[]) {
             print_usage(argv);
         }
     }
+    if (args->v > 3) args->v = 3;
     if (found < 1) print_usage(argv);
 }

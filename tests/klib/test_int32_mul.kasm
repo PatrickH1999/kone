@@ -1,12 +1,11 @@
 // test_int32_mul: checks klib's int32_mul against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
+// summary row ('ALL PASS' or '<n> FAILED'):
 //     00000003 * 00000005 = 0000000F
 //     000000FF * 000000FF = 0000FE01
 //     0000ABCD * 00001234 = 0C374FA4
 //
-// klib/io/disp.kasm is pulled in as well: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live there.
+// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 
     JMP main
 

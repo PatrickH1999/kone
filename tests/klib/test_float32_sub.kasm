@@ -1,15 +1,13 @@
 // test_float32_sub: checks klib's float32_sub against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
+// summary row ('ALL PASS' or '<n> FAILED'):
 //     40400000 - 3F800000 = 40000000    (3 - 1 = 2)
 //     3F800000 - 3F000000 = 3F000000    (1 - 0.5 = 0.5)
 //     C0200000 - 3FA00000 = C0700000    (-2.5 - 1.25 = -3.75)
 //     40200000 - 40200000 = 00000000    (2.5 - 2.5 = 0)
 //
-// klib/io/disp.kasm is pulled in as well: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live there. The number of failed cases
-// is kept at 0x8040 rather than in a register, because float32_sub
-// clobbers R0 - R15.
+// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
+// The failure count lives at 0x8040, as float32_sub clobbers R0 - R15.
 
     JMP main
 

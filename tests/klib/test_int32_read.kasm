@@ -1,68 +1,52 @@
-// test_float32_add: checks klib's float32_add against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED'):
-//     3F800000 + 40000000 = 40400000    (1 + 2 = 3)
-//     3F800000 + 3F000000 = 3FC00000    (1 + 0.5 = 1.5)
-//     40A00000 + C0400000 = 40000000    (5 + -3 = 2)
-//     00000000 + 40E80000 = 40E80000    (0 + 7.25 = 7.25)
+
+// test_int32_read: checks klib's int32_read against the keystrokes in
+// tests/klib/test_int32_read.in, which the harness pipes into the vm; every
+// case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
+// by a summary row ('ALL PASS' or '<n> FAILED'):
+//     '12345 '      -> 12345
+//     '-42 '        -> -42
+//     '1.234.567 '  -> 1234567, the separators dropped
+//     '12<DEL>3 '   -> 13, the backspace dropping a digit
+//     '7x'          -> 'x' left in R14 as the terminator
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
-// The failure count lives at 0x8040, as float32_add clobbers R0 - R15.
+// The echo of every keystroke is what the first display rows are made of. The
+// expected value goes to R4 - R7 before the call, which int32_read preserves.
+// The failure count lives at 0x8040, as int32_read clobbers R12 - R15.
 
     JMP main
 
 .include "../../klib/io/disp.kasm"
-.include "../../klib/math/float32.kasm"
+.include "../../klib/math/int32.kasm"
+.include "../../klib/io/int32_read.kasm"
 
 main:
     LDI 0
     STM 0x8040      // number of failed cases
 
-    // plain: 3F800000 + 40000000 = 40400000
-    LDI 0x00
-    STR 0
-    LDI 0x00
-    STR 1
-    LDI 0x80
-    STR 2
-    LDI 0x3F
-    STR 3
-    LDI 0x00
+    LDI 0x39
     STR 4
-    LDI 0x00
+    LDI 0x30
     STR 5
     LDI 0x00
     STR 6
-    LDI 0x40
-    STR 7
-    CLL float32_add
     LDI 0x00
-    STR 4
-    LDI 0x00
-    STR 5
-    LDI 0x40
-    STR 6
-    LDI 0x40
-    STR 7
-    CLL check
-    JA0 main__plain_pass
+    STR 7           // 12345
+    CLL int32_read
+    CLL check_a
+    JA0 main__int32_read_plain_pass
     LDM 0x8040
-    STR 15
+    STR 12
     LDI 1
-    ADD 15
+    ADD 12
     STM 0x8040      // one more failed case
     CLL print_fail
-    JMP main__plain_name
-main__plain_pass:
+    JMP main__int32_read_plain_name
+main__int32_read_plain_pass:
     CLL print_pass
-main__plain_name:
-    LDI 102         // 'f'
+main__int32_read_plain_name:
+    LDI 105         // 'i'
     CLL disp_putc
-    LDI 108         // 'l'
-    CLL disp_putc
-    LDI 111         // 'o'
-    CLL disp_putc
-    LDI 97          // 'a'
+    LDI 110         // 'n'
     CLL disp_putc
     LDI 116         // 't'
     CLL disp_putc
@@ -72,9 +56,11 @@ main__plain_name:
     CLL disp_putc
     LDI 95          // '_'
     CLL disp_putc
-    LDI 97          // 'a'
+    LDI 114         // 'r'
     CLL disp_putc
-    LDI 100         // 'd'
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 97          // 'a'
     CLL disp_putc
     LDI 100         // 'd'
     CLL disp_putc
@@ -92,125 +78,81 @@ main__plain_name:
     CLL disp_putc
     CLL disp_nl
 
-    // align: 3F800000 + 3F000000 = 3FC00000
-    LDI 0x00
-    STR 0
-    LDI 0x00
-    STR 1
-    LDI 0x80
-    STR 2
-    LDI 0x3F
-    STR 3
-    LDI 0x00
+    LDI 0xD6
     STR 4
-    LDI 0x00
+    LDI 0xFF
     STR 5
-    LDI 0x00
+    LDI 0xFF
     STR 6
-    LDI 0x3F
-    STR 7
-    CLL float32_add
-    LDI 0x00
-    STR 4
-    LDI 0x00
-    STR 5
-    LDI 0xC0
-    STR 6
-    LDI 0x3F
-    STR 7
-    CLL check
-    JA0 main__align_pass
+    LDI 0xFF
+    STR 7           // -42
+    CLL int32_read
+    CLL check_a
+    JA0 main__int32_read_neg_pass
     LDM 0x8040
-    STR 15
+    STR 12
     LDI 1
-    ADD 15
+    ADD 12
     STM 0x8040      // one more failed case
     CLL print_fail
-    JMP main__align_name
-main__align_pass:
+    JMP main__int32_read_neg_name
+main__int32_read_neg_pass:
     CLL print_pass
-main__align_name:
-    LDI 102         // 'f'
-    CLL disp_putc
-    LDI 108         // 'l'
-    CLL disp_putc
-    LDI 111         // 'o'
-    CLL disp_putc
-    LDI 97          // 'a'
-    CLL disp_putc
-    LDI 116         // 't'
-    CLL disp_putc
-    LDI 51          // '3'
-    CLL disp_putc
-    LDI 50          // '2'
-    CLL disp_putc
-    LDI 95          // '_'
-    CLL disp_putc
-    LDI 97          // 'a'
-    CLL disp_putc
-    LDI 100         // 'd'
-    CLL disp_putc
-    LDI 100         // 'd'
-    CLL disp_putc
-    LDI 95          // '_'
-    CLL disp_putc
-    LDI 97          // 'a'
-    CLL disp_putc
-    LDI 108         // 'l'
-    CLL disp_putc
+main__int32_read_neg_name:
     LDI 105         // 'i'
-    CLL disp_putc
-    LDI 103         // 'g'
     CLL disp_putc
     LDI 110         // 'n'
     CLL disp_putc
-    CLL disp_nl
-
-    // signs: 40A00000 + C0400000 = 40000000
-    LDI 0x00
-    STR 0
-    LDI 0x00
-    STR 1
-    LDI 0xA0
-    STR 2
-    LDI 0x40
-    STR 3
-    LDI 0x00
-    STR 4
-    LDI 0x00
-    STR 5
-    LDI 0x40
-    STR 6
-    LDI 0xC0
-    STR 7
-    CLL float32_add
-    LDI 0x00
-    STR 4
-    LDI 0x00
-    STR 5
-    LDI 0x00
-    STR 6
-    LDI 0x40
-    STR 7
-    CLL check
-    JA0 main__signs_pass
-    LDM 0x8040
-    STR 15
-    LDI 1
-    ADD 15
-    STM 0x8040      // one more failed case
-    CLL print_fail
-    JMP main__signs_name
-main__signs_pass:
-    CLL print_pass
-main__signs_name:
-    LDI 102         // 'f'
+    LDI 116         // 't'
     CLL disp_putc
-    LDI 108         // 'l'
+    LDI 51          // '3'
     CLL disp_putc
-    LDI 111         // 'o'
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 101         // 'e'
     CLL disp_putc
     LDI 97          // 'a'
+    CLL disp_putc
+    LDI 100         // 'd'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 103         // 'g'
+    CLL disp_putc
+    CLL disp_nl
+
+    LDI 0x87
+    STR 4
+    LDI 0xD6
+    STR 5
+    LDI 0x12
+    STR 6
+    LDI 0x00
+    STR 7           // 1234567
+    CLL int32_read
+    CLL check_a
+    JA0 main__int32_read_sep_pass
+    LDM 0x8040
+    STR 12
+    LDI 1
+    ADD 12
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__int32_read_sep_name
+main__int32_read_sep_pass:
+    CLL print_pass
+main__int32_read_sep_name:
+    LDI 105         // 'i'
+    CLL disp_putc
+    LDI 110         // 'n'
     CLL disp_putc
     LDI 116         // 't'
     CLL disp_putc
@@ -220,9 +162,11 @@ main__signs_name:
     CLL disp_putc
     LDI 95          // '_'
     CLL disp_putc
-    LDI 97          // 'a'
+    LDI 114         // 'r'
     CLL disp_putc
-    LDI 100         // 'd'
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 97          // 'a'
     CLL disp_putc
     LDI 100         // 'd'
     CLL disp_putc
@@ -230,61 +174,36 @@ main__signs_name:
     CLL disp_putc
     LDI 115         // 's'
     CLL disp_putc
-    LDI 105         // 'i'
+    LDI 101         // 'e'
     CLL disp_putc
-    LDI 103         // 'g'
-    CLL disp_putc
-    LDI 110         // 'n'
-    CLL disp_putc
-    LDI 115         // 's'
+    LDI 112         // 'p'
     CLL disp_putc
     CLL disp_nl
 
-    // zero: 00000000 + 40E80000 = 40E80000
-    LDI 0x00
-    STR 0
-    LDI 0x00
-    STR 1
-    LDI 0x00
-    STR 2
-    LDI 0x00
-    STR 3
-    LDI 0x00
+    LDI 0x0D
     STR 4
     LDI 0x00
     STR 5
-    LDI 0xE8
-    STR 6
-    LDI 0x40
-    STR 7
-    CLL float32_add
     LDI 0x00
-    STR 4
-    LDI 0x00
-    STR 5
-    LDI 0xE8
     STR 6
-    LDI 0x40
-    STR 7
-    CLL check
-    JA0 main__zero_pass
+    LDI 0x00
+    STR 7           // 13
+    CLL int32_read
+    CLL check_a
+    JA0 main__int32_read_bs_pass
     LDM 0x8040
-    STR 15
+    STR 12
     LDI 1
-    ADD 15
+    ADD 12
     STM 0x8040      // one more failed case
     CLL print_fail
-    JMP main__zero_name
-main__zero_pass:
+    JMP main__int32_read_bs_name
+main__int32_read_bs_pass:
     CLL print_pass
-main__zero_name:
-    LDI 102         // 'f'
+main__int32_read_bs_name:
+    LDI 105         // 'i'
     CLL disp_putc
-    LDI 108         // 'l'
-    CLL disp_putc
-    LDI 111         // 'o'
-    CLL disp_putc
-    LDI 97          // 'a'
+    LDI 110         // 'n'
     CLL disp_putc
     LDI 116         // 't'
     CLL disp_putc
@@ -294,30 +213,76 @@ main__zero_name:
     CLL disp_putc
     LDI 95          // '_'
     CLL disp_putc
-    LDI 97          // 'a'
+    LDI 114         // 'r'
     CLL disp_putc
-    LDI 100         // 'd'
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 97          // 'a'
     CLL disp_putc
     LDI 100         // 'd'
     CLL disp_putc
     LDI 95          // '_'
     CLL disp_putc
-    LDI 122         // 'z'
+    LDI 98          // 'b'
+    CLL disp_putc
+    LDI 115         // 's'
+    CLL disp_putc
+    CLL disp_nl
+
+    CLL int32_read
+    LDR 14          // the terminator
+    STR 12
+    LDI 136         // 256 - 120
+    ADD 12
+    JA0 main__int32_read_term_pass
+    LDM 0x8040
+    STR 12
+    LDI 1
+    ADD 12
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__int32_read_term_name
+main__int32_read_term_pass:
+    CLL print_pass
+main__int32_read_term_name:
+    LDI 105         // 'i'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 100         // 'd'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 116         // 't'
     CLL disp_putc
     LDI 101         // 'e'
     CLL disp_putc
     LDI 114         // 'r'
     CLL disp_putc
-    LDI 111         // 'o'
+    LDI 109         // 'm'
     CLL disp_putc
     CLL disp_nl
 
 main__summary:
     LDM 0x8040
-    STR 15
     JA0 main__all_pass
+    STR 12
     LDI 48          // '0'
-    ADD 15          // at most one digit, there are four cases
+    ADD 12          // at most one digit, there are fewer than ten cases
     CLL disp_putc
     LDI 32          // ' '
     CLL disp_putc
@@ -358,29 +323,28 @@ main__all_pass:
 main__halt:
     JMP main__halt
 
-// check: compares the result in R8 - R11 against the expected value in
-// R4 - R7
+// check_a: compares the value in R0 - R3 against the expected value in R4 - R7
 //     out:      accumulator = 0 if the two are equal
 //     clobbers: R12
-check:
-    LDR 8
+check_a:
+    LDR 0
     XOR 4
     STR 12
-    LDR 9
+    LDR 1
     XOR 5
     ORR 12
     STR 12
-    LDR 10
+    LDR 2
     XOR 6
     ORR 12
     STR 12
-    LDR 11
+    LDR 3
     XOR 7
     ORR 12
     RET
 
-// print_pass: prints the 'PASS:' prefix; the caller appends the case
-// name and ends the display row
+// print_pass: prints the 'PASS:' prefix; the caller appends the case name and
+// ends the display row
 //     clobbers: R13
 print_pass:
     LDI 80          // 'P'
@@ -395,8 +359,8 @@ print_pass:
     CLL disp_putc
     RET
 
-// print_fail: prints the 'FAIL:' prefix; the caller appends the case name
-// and ends the display row
+// print_fail: prints the 'FAIL:' prefix; the caller appends the case name and
+// ends the display row
 //     clobbers: R13
 print_fail:
     LDI 70          // 'F'

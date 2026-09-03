@@ -32,7 +32,7 @@ static void print_help(char *argv[]) {
     fprintf(stdout, "  -h, --help           Show this help and exit\n\n");
 
     fprintf(stdout, "Examples:\n");
-    fprintf(stdout, "  %s -i examples/patrick.kasm -o bin/patrick.bin\n",
+    fprintf(stdout, "  %s -i examples/hello.kasm -o bin/hello.bin\n",
             basename(argv[0]));
 
     exit(EXIT_SUCCESS);

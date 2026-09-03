@@ -8,9 +8,8 @@ void display_reset(Display *display) {
 }
 
 void display_print(const Display *display) {
-    for (int i = 0; i < DISP_NROWS; i++) { // i:
+    for (int i = 0; i < DISP_NROWS; i++) {
         for (int j = 0; j < DISP_NCOLS; j++) {
-            // i: relative to DRP
             const uint8_t char_ = display->DM[i * DISP_NCOLS + j];
             if (DISP_ASCII_LO <= char_ && char_ <= DISP_ASCII_HI) {
                 printf("%c", char_);

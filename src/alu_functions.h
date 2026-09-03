@@ -16,8 +16,6 @@ void alu_brr(const CPU *cpu, char *msg, size_t msg_size);
 void alu_psh(CPU *cpu, char *msg, size_t msg_size);
 void alu_pop(CPU *cpu, char *msg, size_t msg_size);
 void alu_ret(CPU *cpu, char *msg, size_t msg_size);
-void alu_dsh(CPU *cpu, char *msg, size_t msg_size);
-void alu_dop(CPU *cpu, char *msg, size_t msg_size);
 
 // Operations with 'register' argument:
 void alu_ldr(const CPU *cpu, char *msg, size_t msg_size);
