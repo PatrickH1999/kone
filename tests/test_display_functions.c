@@ -2,7 +2,6 @@
 
 static Display display;
 static CPU cpu;
-static Args args = {.v = 0};
 
 static void setup() {
     cpu_init(&cpu);
@@ -66,9 +65,11 @@ void test_display_push_char_row_wrap() {
     // fill all rows
     for (int i = 0; i < DISP_NROWS * DISP_NCOLS; i++)
         display_push_char(&display, 'Z');
-    // DRP and DCP should have wrapped around without crash
-    assert(display.DRP < DISP_NROWS);
-    assert(display.DCP < DISP_NCOLS);
+    // the last cell of the last row starts over on a cleared display
+    assert(display.DRP == 0);
+    assert(display.DCP == 0);
+    for (int i = 0; i < DISP_NROWS * DISP_NCOLS; i++)
+        assert(display.DM[i] == 0);
 }
 
 void test_display_push_char_backspace() {

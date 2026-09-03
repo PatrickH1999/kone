@@ -11,6 +11,10 @@ loop:
     LDI 1
     STR 18      // REG_ID_DISP_SET
 
+display__wait:
+    LDR 18
+    JA1 display__wait
+
     LDI 1
     ADD 0       // A = R0 + 1
     STR 0

@@ -11,7 +11,7 @@
 // (see below), so the last one may be off by one, and six digits are too few
 // to read the value back unchanged, which would take nine.
 //
-// Printing goes through 'disp_putc' and 'disp_nl' from klib/disp.kasm, which
+// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
 // also documents the scratch memory this file uses.
 float32_write:
     LDI 61          // '='

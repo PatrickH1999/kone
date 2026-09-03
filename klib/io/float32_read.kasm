@@ -22,9 +22,9 @@
 // printed something before the call can take that back itself (see
 // examples/calculator_float32.kasm).
 //
-// Besides klib/disp.kasm this file needs klib/math/float32.kasm for the
+// Besides klib/io/disp.kasm this file needs klib/math/float32.kasm for the
 // conversion and the scaling and klib/math/int32.kasm to grow and shrink the
-// mantissa; klib/disp.kasm also documents the scratch memory it uses.
+// mantissa; klib/io/disp.kasm also documents the scratch memory it uses.
 float32_read:
     LDI 0
     STM 0x8023

@@ -16,16 +16,16 @@ void test_cpu_init(CPU *cpu) {
     cpu_init(cpu);
     cpu_reset(cpu);
     // pointers should point into R at correct indices
-    assert(*cpu->SP[0] == cpu->R[22]);
-    assert(*cpu->SP[1] == cpu->R[23]);
-    assert(*cpu->I == cpu->R[24]);
-    assert(*cpu->A == cpu->R[25]);
-    assert(*cpu->F == cpu->R[26]);
-    assert(*cpu->IR[0] == cpu->R[27]);
-    assert(*cpu->IR[1] == cpu->R[28]);
-    assert(*cpu->IR[2] == cpu->R[29]);
-    assert(*cpu->PC[0] == cpu->R[30]);
-    assert(*cpu->PC[1] == cpu->R[31]);
+    assert(cpu->SP[0] == &cpu->R[22]);
+    assert(cpu->SP[1] == &cpu->R[23]);
+    assert(cpu->I == &cpu->R[24]);
+    assert(cpu->A == &cpu->R[25]);
+    assert(cpu->F == &cpu->R[26]);
+    assert(cpu->IR[0] == &cpu->R[27]);
+    assert(cpu->IR[1] == &cpu->R[28]);
+    assert(cpu->IR[2] == &cpu->R[29]);
+    assert(cpu->PC[0] == &cpu->R[30]);
+    assert(cpu->PC[1] == &cpu->R[31]);
 }
 
 void test_cpu_reset(CPU *cpu) {
@@ -46,6 +46,8 @@ void test_cpu_reset(CPU *cpu) {
     // R and M should be zeroed (except SP/PC set above)
     for (int i = 0; i < 22; i++)
         assert(cpu->R[i] == 0);
+    for (int i = 0; i < MEM_SIZE; i++)
+        assert(cpu->M[i] == 0);
 }
 
 void test_cpu_get_flag(CPU *cpu) {

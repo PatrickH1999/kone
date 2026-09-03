@@ -6,16 +6,15 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
-// Dimmer than the bold, fully-saturated colors `make test` uses for its
-// per-binary/aggregate lines, so those summary lines stand out more.
+// Dimmer than the bold colors of the `make test` summary lines, so those
+// stand out.
 #define TEST_CLR_GREEN "\033[38;2;0;200;0m"
 #define TEST_CLR_RED "\033[38;2;200;0;0m"
 #define TEST_CLR_WHITE "\033[38;2;200;200;200m"
 #define TEST_CLR_RESET "\033[0m"
 
-// Prints `tag` in `color` if stdout is a terminal, plain otherwise (so
-// piped/redirected logs, e.g. `make test > log.txt`, stay free of escape
-// codes).
+// Prints `tag` in `color` on a terminal, plain otherwise, so redirected logs
+// stay free of escape codes.
 static inline void test_tag(const char *color, const char *tag) {
     if (isatty(fileno(stdout)))
         printf("%s%s%s", color, tag, TEST_CLR_RESET);
@@ -32,11 +31,9 @@ static int test_g_failed = 0;
         test_g_failed = 0;                                                     \
     } while (0)
 
-// Runs `fn` in a forked child so that a failed assert() -- which already
-// prints "file:line: ... assertion failed" to stderr before calling abort()
-// -- only tears down that one test. The parent reports the outcome as a
-// single [ PASS ] / [ FAIL ] line and keeps going, so the remaining tests in
-// this binary still run.
+// Runs `fn` in a forked child, so a failed assert() (which prints its own
+// "file:line: assertion failed" before aborting) tears down that test alone.
+// The parent reports [ PASS ] / [ FAIL ] and runs the rest of the binary.
 #define RUN_TEST(fn, ...)                                                      \
     do {                                                                       \
         pid_t _test_pid = fork();                                              \
@@ -58,18 +55,16 @@ static int test_g_failed = 0;
         }                                                                      \
     } while (0)
 
-// No output here: `make test` already prints one [ PASSED ]/[ FAILED ] line
-// per binary, and the per-test [ PASS ]/[ FAIL ] lines above already show
-// which (if any) failed -- a module-level tally would just repeat the same
-// information in a different shape.
+// No output here: `make test` prints one line per binary and RUN_TEST one per
+// test, so a module tally would only repeat them.
 #define TEST_MODULE_END(module, count)                                         \
     do {                                                                       \
         (void)(module);                                                        \
         (void)(count);                                                         \
     } while (0)
 
-// Exit code for main() to return: nonzero if any test in this binary failed,
-// so `make test` (which checks each binary's exit status) still reports it.
+// For main() to return: nonzero if any test failed, which is what `make test`
+// checks.
 #define TEST_EXIT_CODE (test_g_failed > 0 ? 1 : 0)
 
 #endif

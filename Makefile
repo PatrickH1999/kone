@@ -31,7 +31,9 @@ KLIB_TEST_BINS := $(patsubst tests/klib/test_%.kasm, bin/test_klib_%.bin, \
 
 # The kone vm never halts on its own, so a klib test is run in the background
 # and its display output is polled for the summary line until this many
-# seconds have passed.
+# seconds have passed. A test may bring two companion files: test_X.in is
+# piped in as keystrokes, and every row of test_X.expect has to show up on
+# the display, which is how the routines that only print are checked.
 KLIB_TEST_TIMEOUT := 20
 
 KASM_DIR := src/kasm
@@ -93,8 +95,11 @@ test: $(TEST_BINS) $(KASM_TEST_BIN) $(KLIB_TEST_BINS) $(TARGET)
 	done; \
 	klib_failed=0; \
 	for t in $(KLIB_TEST_BINS); do \
+		name=$$(basename $$t .bin | sed 's/^test_klib_//'); \
+		stem=tests/klib/test_$$name; \
+		if [ -f $$stem.in ]; then in=$$stem.in; else in=/dev/null; fi; \
 		out=$$t.out; \
-		./$(TARGET) -b $$t < /dev/null > $$out 2>&1 & \
+		./$(TARGET) -b $$t < $$in > $$out 2>&1 & \
 		pid=$$!; \
 		i=0; \
 		while [ $$i -lt $$(($(KLIB_TEST_TIMEOUT) * 5)) ]; do \
@@ -107,25 +112,43 @@ test: $(TEST_BINS) $(KASM_TEST_BIN) $(KLIB_TEST_BINS) $(TARGET)
 		kill $$pid > /dev/null 2>&1; \
 		wait $$pid 2>/dev/null; \
 		a='BEGIN{RS="\033\\[3J"}{p=c;c=$$0}END{printf "%s",p}'; \
-		awk "$$a" $$out | grep -oE '(PASS|FAIL):[a-z0-9_]+' | \
+		awk "$$a" $$out | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/[[:space:]]*$$//' \
+			> $$out.frame; \
+		grep -oE '(PASS|FAIL):[a-z0-9_]+' $$out.frame | \
 		while IFS=: read -r r c; do \
 			if [ "$$r" = PASS ]; then col=$$dgrn; else col=$$dred; fi; \
 			printf "$$col[ %s ] $${rst}$${wht}%s$${rst}\n" "$$r" "$$c"; \
 		done; \
+		expect_failed=0; \
+		if [ -f $$stem.expect ]; then \
+			while IFS= read -r row; do \
+				if [ -z "$$row" ]; then continue; fi; \
+				if grep -Fxq -- "$$row" $$out.frame; then \
+					printf "$$dgrn[ PASS ] $${rst}$${wht}%s_printed_%s$${rst}\n" \
+						"$$name" "$$row"; \
+				else \
+					printf "$$dred[ FAIL ] $${rst}$${wht}%s: no display row '%s'$${rst}\n" \
+						"$$name" "$$row"; \
+					expect_failed=1; \
+				fi; \
+			done < $$stem.expect; \
+		fi; \
 		if ! grep -aq 'ALL PASS' $$out; then \
 			if ! grep -aq 'FAILED' $$out; then \
 				printf "$$dred[ FAIL ] $${rst}$${wht}%s: no summary within %ss$${rst}\n" \
 					"$$t" "$(KLIB_TEST_TIMEOUT)"; \
 			fi; \
 			klib_failed=$$((klib_failed + 1)); \
+		elif [ $$expect_failed -ne 0 ]; then \
+			klib_failed=$$((klib_failed + 1)); \
 		fi; \
-		rm -f $$out; \
+		rm -f $$out $$out.frame; \
 	done; \
 	if [ $$klib_failed -eq 0 ]; then \
-		printf "$${bld}$${grn}[ PASS ] $${dflt}klib/math$${rst}\n\n"; \
+		printf "$${bld}$${grn}[ PASS ] $${dflt}klib$${rst}\n\n"; \
 		passed=$$((passed + 1)); \
 	else \
-		printf "$${bld}$${red}[ FAIL ] $${dflt}klib/math$${rst}\n\n"; \
+		printf "$${bld}$${red}[ FAIL ] $${dflt}klib$${rst}\n\n"; \
 		failed=$$((failed + 1)); \
 	fi; \
 	echo; \

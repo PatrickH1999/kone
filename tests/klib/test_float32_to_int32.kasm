@@ -1,20 +1,18 @@
-// test_float32_to_int32: checks klib's float32_to_int32 against known
-// results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
-//     40300000 (2.75     ) -> 2
-//     C2C9CCCD (-100.9   ) -> -100
-//     3F000000 (0.5      ) -> 0
-//     501502F9 (100000000) -> 2147483647
+// test_float32_to_int32: checks klib's float32_to_int32 against known results;
+// every case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row,
+// followed by a summary row ('ALL PASS' or '<n> FAILED'):
+//     40300000 (2.75       ) -> 2
+//     C2C9CCCD (-100.9     ) -> -100
+//     3F000000 (0.5        ) -> 0
+//     501502F9 (10000000000) -> 2147483647
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live there. The number of failed cases
-// is kept at 0x8040 rather than in a register, because the routine under
-// test clobbers R0 - R15.
+// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
+// The failure count lives at 0x8040, as the routine under test clobbers R0 -
+// R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
 
 main:

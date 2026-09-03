@@ -5,8 +5,6 @@
 
 #define REG_SIZE 32
 #define MEM_SIZE 65536
-#define DISP_NCOLS 40
-#define DISP_NROWS 24
 
 typedef struct {
     uint32_t cycle; // cycle counter for debugging (not physical part of the

@@ -18,10 +18,10 @@
 
     JMP main
 
-.include "../klib/disp.kasm"
+.include "../klib/io/disp.kasm"
 .include "../klib/math/int32.kasm"
-.include "../klib/int32_write.kasm"
-.include "../klib/int32_read.kasm"
+.include "../klib/io/int32_write.kasm"
+.include "../klib/io/int32_read.kasm"
 
 // main: prompt, read one line, apply it and print the accumulator; every
 // path loops back here

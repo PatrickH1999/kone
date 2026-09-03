@@ -1,6 +1,6 @@
 // test_float32_div: checks klib's float32_div against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
+// summary row ('ALL PASS' or '<n> FAILED'):
 //     41000000 / 40000000 = 40800000    (8 / 2 = 4)
 //     3F800000 / 40800000 = 3E800000    (1 / 4 = 0.25)
 //     C1100000 / 40400000 = C0400000    (-9 / 3 = -3)
@@ -10,14 +10,12 @@
 // truncates to 3EAAAAAA where round to nearest would give 3EAAAAAB, and it is
 // also the only one whose quotient needs no renormalization.
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live there. The number of failed cases
-// is kept at 0x8040 rather than in a register, because float32_div
-// clobbers R0 - R15.
+// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
+// The failure count lives at 0x8040, as float32_div clobbers R0 - R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
 
 main:

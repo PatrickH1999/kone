@@ -1,23 +1,21 @@
-// test_float32_digits: checks the numeric core of klib's float32_write
-// against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// test_float32_digits: checks the numeric core of klib's float32_write against
+// known results; every case prints 'PASS:<case>' or 'FAIL:<case>' on its own
+// display row, followed by a summary row ('ALL PASS' or '<n> FAILED'):
 //     3F800000 (1.0          ) -> 100000, exponent 0
 //     3DCCCCCD (0.1          ) -> 100000, exponent -1
 //     66FF0C2C (6.02214e+23  ) -> 602214, exponent 23
 //     00800000 (1.1754944e-38) -> 117549, exponent -38
 //
-// float32_digits lives in klib/float32_write.kasm, which is pulled in along
-// with klib/disp.kasm: the test needs the display helpers 'disp_putc' and
-// 'disp_nl', which live there. The number of failed cases
-// is kept at 0x8040 rather than in a register, because the routine under
-// test clobbers R0 - R15.
+// float32_digits lives in klib/io/float32_write.kasm, which is pulled in along
+// with klib/io/disp.kasm: the test needs the display helpers 'disp_putc' and
+// 'disp_nl', which live there. The failure count lives at 0x8040, as the
+// routine under test clobbers R0 - R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
-.include "../../klib/float32_write.kasm"
+.include "../../klib/io/float32_write.kasm"
 
 main:
     LDI 0

@@ -1,0 +1,34 @@
+    JMP main
+
+.include "../klib/io/disp.kasm"
+
+main:
+    LDI 72          // 'H'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 44          // ','
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 87          // 'W'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 100         // 'd'
+    CLL disp_putc
+    LDI 33          // '!'
+    CLL disp_putc
+
+hello__done:
+    JMP hello__done

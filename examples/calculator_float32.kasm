@@ -19,17 +19,17 @@
 // klib does not carry through its arithmetic, so it prints 'ERR' and keeps the
 // accumulator instead, just like examples/calculator_int32.kasm does.
 //
-// Scratch memory, above the 0x8000 - 0x802C that klib uses (klib/disp.kasm):
+// Scratch memory, above the 0x8000 - 0x802C that klib uses (klib/io/disp.kasm):
 //     0x8030          the operator of the line being read
 //     0x8031 - 0x8034 the accumulator
 
     JMP main
 
-.include "../klib/disp.kasm"
+.include "../klib/io/disp.kasm"
 .include "../klib/math/int32.kasm"
 .include "../klib/math/float32.kasm"
-.include "../klib/float32_write.kasm"
-.include "../klib/float32_read.kasm"
+.include "../klib/io/float32_write.kasm"
+.include "../klib/io/float32_read.kasm"
 
 // main: prompt, read one line, apply it and print the accumulator; every
 // path loops back here

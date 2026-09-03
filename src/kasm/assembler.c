@@ -334,6 +334,9 @@ uint8_t *assemble_file(const char *input_path, size_t *out_len) {
         char *tok[MAX_TOKENS];
         int ntok = tokenize(scratch, tok);
 
+        if (ntok > MAX_TOKENS)
+            die_at(ln->file, ln->lineno, "more than %d tokens on one line",
+                   MAX_TOKENS);
         int first = process_labels(tok, ntok, (uint16_t)pc, &symbols, 1, ln);
         if (first < ntok)
             pc += encode_instruction(tok, first, ntok, &symbols, ln, 0, NULL);

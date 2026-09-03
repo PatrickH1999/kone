@@ -38,15 +38,11 @@ int main(int argc, char *argv[]) {
     pid_t cpu_pid = fork();
     if (cpu_pid == 0) {
         cpu_init(cpu);
-        uint16_t PC16 = 0;
-        do {
-            uint8_t PC8[2] = {*cpu->PC[0], *cpu->PC[1]};
-            addr_convert_8_to_16(&PC16, PC8);
+        while (1) { // a kone program never halts on its own
             cpu_fetch(cpu, &args);
-            cpu_decode_exec(cpu, cpu_msg, CPU_MSG_SIZE, &args);
+            cpu_decode_exec(cpu, cpu_msg, CPU_MSG_SIZE);
             if (args.log) print_out(cpu, cpu_msg, display, &args);
-        } while (PC16 < MEM_SIZE);
-        exit(0);
+        }
     }
 
     pid_t display_pid = fork();

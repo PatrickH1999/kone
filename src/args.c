@@ -9,13 +9,13 @@ static struct option long_options[] = {
     {NULL, 0, NULL, 0}};
 
 void print_usage(char *argv[]) {
-    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC] [-l] [-h]\n",
+    fprintf(stderr, "Usage: %s -b BOOTFILE [-v[v[v]]] [-t USEC] [-l] [-h]\n",
             basename(argv[0]));
     exit(EXIT_FAILURE);
 }
 
 void print_help(char *argv[]) {
-    printf("Usage: %s -b BOOTFILE [-v[v[v]]] [-t MSEC] [-l] [-h]\n\n",
+    printf("Usage: %s -b BOOTFILE [-v[v[v]]] [-t USEC] [-l] [-h]\n\n",
            basename(argv[0]));
 
     printf("-b, --bootfile BOOTFILE\n");
@@ -23,9 +23,9 @@ void print_help(char *argv[]) {
     printf("    Path to the binary boot file that is loaded into memory\n");
     printf("    before execution starts. This argument is required.\n\n");
 
-    printf("-t, --clockspeed MSEC\n");
+    printf("-t, --clockspeed USEC\n");
     printf("    Default: 0 (run as fast as possible)\n");
-    printf("    Number of milliseconds to sleep between clock cycles.\n");
+    printf("    Number of microseconds to sleep between clock cycles.\n");
     printf("    Lower values run the simulation faster.\n\n");
 
     printf("-v, --verbose [0-3]\n");
@@ -51,7 +51,7 @@ void print_help(char *argv[]) {
 
 void parse_args(Args *args, const int argc, char *argv[]) {
     args->bootfile = NULL;
-    args->cycle_sleep = 0; // [ms]; 0 = run as fast as possible
+    args->cycle_sleep = 0; // [us]; 0 = run as fast as possible
     args->v = 0;
     args->log = 0;
     int opt;
@@ -108,5 +108,6 @@ void parse_args(Args *args, const int argc, char *argv[]) {
             print_usage(argv);
         }
     }
+    if (args->v > 3) args->v = 3;
     if (found < 1) print_usage(argv);
 }

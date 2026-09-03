@@ -1,19 +1,17 @@
 // test_float32_mul: checks klib's float32_mul against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
+// summary row ('ALL PASS' or '<n> FAILED'):
 //     3F000000 * 40800000 = 40000000    (0.5 * 4 = 2)
 //     3FC00000 * 40400000 = 40900000    (1.5 * 3 = 4.5)
 //     C0200000 * 40800000 = C1200000    (-2.5 * 4 = -10)
 //     00000000 * 40400000 = 00000000    (0 * 3 = 0)
 //
-// klib/disp.kasm is pulled in as well: the test needs the display helpers
-// 'disp_putc' and 'disp_nl', which live there. The number of failed cases
-// is kept at 0x8040 rather than in a register, because float32_mul
-// clobbers R0 - R15.
+// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
+// The failure count lives at 0x8040, as float32_mul clobbers R0 - R15.
 
     JMP main
 
-.include "../../klib/disp.kasm"
+.include "../../klib/io/disp.kasm"
 .include "../../klib/math/float32.kasm"
 
 main:
