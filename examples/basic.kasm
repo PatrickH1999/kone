@@ -2,12 +2,12 @@
 // kone display as its screen, in the shape of the classic home computer
 // BASICs. It prints 'READY.' and a '>' prompt, takes a line, and either
 // stores it as a numbered program line or carries it out at once:
-//     >10 LET A = 7~
-//     >20 LET B = 5~
-//     >30 LET C = A * B~
-//     >40 PRINT "RESULT: "; C~
-//     >50 END~
-//     >RUN~
+//     >10 LET A = 7
+//     >20 LET B = 5
+//     >30 LET C = A * B
+//     >40 PRINT "RESULT: "; C
+//     >50 END
+//     >RUN
 //     RESULT: 35
 //     DONE.
 //
@@ -19,11 +19,10 @@
 // that happens to be whole prints without a decimal point. Only line numbers
 // are integers.
 //
-// A line ends with '~', not with ENTER: kone hands every key below ASCII 32
-// to the program as a space (see 'Devices' in README.md), so ENTER cannot be
-// told apart from the spaces between the words of a statement. The line is
-// read into a buffer and only parsed once it is complete, so backspace
-// erases the char before the cursor anywhere in it, down to the prompt.
+// A line ends with ENTER, which kone hands to the program as ASCII 10 (see
+// 'Devices' in README.md). The line is read into a buffer and only parsed
+// once it is complete, so backspace erases the char before the cursor
+// anywhere in it, down to the prompt.
 // Lower case is folded to upper case outside of string literals, so 'run'
 // and 'RUN' are the same.
 //
@@ -208,44 +207,6 @@ basic__init:
     CLL disp_putc
     LDI 67          // 'C'
     CLL disp_putc
-    LDI 32          // ' '
-    CLL disp_putc
-    LDI 45          // '-'
-    CLL disp_putc
-    LDI 32          // ' '
-    CLL disp_putc
-    LDI 76          // 'L'
-    CLL disp_putc
-    LDI 73          // 'I'
-    CLL disp_putc
-    LDI 78          // 'N'
-    CLL disp_putc
-    LDI 69          // 'E'
-    CLL disp_putc
-    LDI 83          // 'S'
-    CLL disp_putc
-    LDI 32          // ' '
-    CLL disp_putc
-    LDI 69          // 'E'
-    CLL disp_putc
-    LDI 78          // 'N'
-    CLL disp_putc
-    LDI 68          // 'D'
-    CLL disp_putc
-    LDI 32          // ' '
-    CLL disp_putc
-    LDI 87          // 'W'
-    CLL disp_putc
-    LDI 73          // 'I'
-    CLL disp_putc
-    LDI 84          // 'T'
-    CLL disp_putc
-    LDI 72          // 'H'
-    CLL disp_putc
-    LDI 32          // ' '
-    CLL disp_putc
-    LDI 126         // '~'
-    CLL disp_putc
     CLL disp_nl
     CLL basic__ready
     RET
@@ -325,7 +286,7 @@ basic__getc:
 // basic__next: takes the next char of the line into CUR (0x8290).
 // The line is read and edited before it is parsed, so this reads out
 // of the buffer rather than off the keyboard and echoes nothing; the
-// end of the buffer reads as the '~' that ends a line
+// end of the buffer reads as the ENTER (10) that ends a line
 //     clobbers: R0, R12, R13
 basic__next:
     LDM 0x82AA
@@ -343,13 +304,13 @@ basic__next:
     RET
 
 basic__next__end:
-    LDI 126         // the line ends where the buffer does
+    LDI 10          // the line ends where the buffer does
     STM 0x8290
     RET
 
 // basic__read_line: reads a line off the keyboard into the buffer and
 // echoes it. Backspace takes the last char back, down to the prompt,
-// and '~' ends the line
+// and ENTER (10) ends the line
 //     clobbers: R0, R1, R12 - R14
 basic__read_line:
     LDI 0
@@ -366,7 +327,7 @@ basic__read_line__test:
     LDI 248         // BS
     ADD 0
     JA0 basic__read_line__bs
-    LDI 130         // '~'
+    LDI 246         // 256 - 10 -> ENTER
     ADD 0
     JA0 basic__read_line__done
     LDM 0x8294
@@ -1054,7 +1015,7 @@ basic__line:
     CLL basic__skip
     LDM 0x8290
     STR 0
-    LDI 130         // '~'
+    LDI 246         // 256 - 10 -> ENTER
     ADD 0
     JA0 basic__line__empty
     LDI 208
@@ -1079,7 +1040,7 @@ basic__line:
     CLL basic__skip
     LDM 0x8290
     STR 0
-    LDI 130         // '~'
+    LDI 246         // 256 - 10 -> ENTER
     ADD 0
     JA0 basic__line__delete
     CLL basic__stmt
@@ -1325,7 +1286,7 @@ basic__p_print__char:
     LDI 222         // '"'
     ADD 0
     JA0 basic__p_print__string_end
-    LDI 130         // the string is not closed
+    LDI 246         // the string is not closed
     ADD 0
     JA0 basic__fail
     LDM 0x8294

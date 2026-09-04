@@ -72,14 +72,14 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 ## Examples
 
 ### `basic` 
-A BASIC interpreter with the keyboard as its terminal and the display as its screen, built from klib's `io/disp`, `math` (both groups), `io/int32_write`, `io/float32_write`, `mem` and `str`. It prints `READY.` and a `>` prompt and takes one line at a time: a line that starts with a line number goes into the program, a bare line number deletes that line again, and anything else is carried out at once (`RUN`, `LIST`, `CLEAR`). The statements are `LET`, `PRINT`, `IF ... THEN`, `GOTO` and `END`, the variables are the single letters `A` - `Z`, and the program holds 32 lines of 40 bytes. Every value is a single precision float the way a classic BASIC treats its numbers, so `LET A = 1 / 3` followed by `PRINT A` gives `0.333333` while a value that happens to be whole prints without a decimal point; literals may carry a decimal point and an exponent (`1.5e-7`, `-.5`), and klib's float32 group does the arithmetic. Either side of an operator may be a literal or a variable, so `LET A = A + 1` is a statement like any other, but an expression holds at most one operator: there is no precedence to get right and no bracketing, so `A * B + C` is a syntax error. A line ends with `~` rather than with ENTER: kone hands every key below ASCII 32 to the program as a space (see [Devices](#devices)), so ENTER cannot be told apart from the spaces between the words of a statement. The line is read into a buffer and parsed only once it is complete, so backspace erases the char before the cursor anywhere in it, down to the prompt. Run it with `bin/kone -b bin/basic.bin` and type
+A BASIC interpreter with the keyboard as its terminal and the display as its screen, built from klib's `io/disp`, `math` (both groups), `io/int32_write`, `io/float32_write`, `mem` and `str`. It prints `READY.` and a `>` prompt and takes one line at a time: a line that starts with a line number goes into the program, a bare line number deletes that line again, and anything else is carried out at once (`RUN`, `LIST`, `CLEAR`). The statements are `LET`, `PRINT`, `IF ... THEN`, `GOTO` and `END`, the variables are the single letters `A` - `Z`, and the program holds 32 lines of 40 bytes. Every value is a single precision float the way a classic BASIC treats its numbers, so `LET A = 1 / 3` followed by `PRINT A` gives `0.333333` while a value that happens to be whole prints without a decimal point; literals may carry a decimal point and an exponent (`1.5e-7`, `-.5`), and klib's float32 group does the arithmetic. Either side of an operator may be a literal or a variable, so `LET A = A + 1` is a statement like any other, but an expression holds at most one operator: there is no precedence to get right and no bracketing, so `A * B + C` is a syntax error. A line ends with ENTER, which kone hands to the program as ASCII 10 (see [Devices](#devices)). The line is read into a buffer and parsed only once it is complete, so backspace erases the char before the cursor anywhere in it, down to the prompt. Run it with `bin/kone -b bin/basic.bin` and type
 ```
-10 LET A = 7~
-20 LET B = 5~
-30 LET C = A * B~
-40 PRINT "RESULT: "; C~
-50 END~
-RUN~
+10 LET A = 7
+20 LET B = 5
+30 LET C = A * B
+40 PRINT "RESULT: "; C
+50 END
+RUN
 ```
 which prints `RESULT: 35` and `DONE.`. The program lives in 32 fixed width slots and every indexed access into it goes through klib's `mem_peek` and `mem_poke`, since the kone ISA has no register indirect addressing; `examples/basic.kasm` maps the whole layout at the top. Numbers are printed with klib's `float32_puts` but read by the interpreter itself: klib's readers poll the keyboard, which a line that has already been typed and edited cannot be fed back into, so the digits are folded into an integer and scaled by a power of ten the way `float32_read` does it.
 
@@ -131,7 +131,7 @@ Approximates π the way Archimedes did, by doubling the corner count of a polygo
 - Note that the input buffer (i.e., `I`) is there to prevent simultaneous read/write operations on the output accumulator (i.e., `A`). E.g., before performing the add operation (i.e., `ADD`), A is first written to I, which is connected to the left ALU input, while the selected operand register is directly connected to the right ALU input.
 
 ### Devices
-- __Keyboard:__ pressed keys are polled in the background and, once received, exposed via `R16` (set flag) and `R17` (char, ASCII 32-255, plus backspace: 8 or 127, depending on the terminal); every other char is reported as a space. kasm programs should clear the set flag after reading to acknowledge the char (see `examples/keyboard.kasm`).
+- __Keyboard:__ pressed keys are polled in the background and, once received, exposed via `R16` (set flag) and `R17` (char, ASCII 32-255, plus backspace: 8 or 127, depending on the terminal, and ENTER as ASCII 10, whether the terminal sends LF or CR); every other char is reported as a space. kasm programs should clear the set flag after reading to acknowledge the char (see `examples/keyboard.kasm`).
 - __Display:__ writing an ASCII char (32-126) to `R19` and setting `R18` pushes it to the next cell of a 40x24 character grid, wrapping to a new (cleared) row once the current row is full and starting over on a cleared display once the last row is full (see `examples/display.kasm`). Writing a backspace (8) instead steps back onto the previous cell and clears it, which is how a program erases what it printed; at the start of a row it does nothing. The display clears `R18` once it has taken the char, and it does that on its own schedule rather than per instruction, so a program has to wait for `R18` to go back to 0 before it pushes the next char or the char is overwritten before the display ever sees it.
 
 ## Instruction set

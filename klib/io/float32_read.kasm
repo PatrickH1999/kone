@@ -12,7 +12,7 @@
 // 'float32_pow10' scales it, in chunks of at most 22, so a typed exponent
 // beyond the range of the format ends up as infinity or zero. Reading stops at
 // the first char that does not fit the shape above, which is echoed as well and
-// left in R14 for the caller to inspect (kone maps ENTER to a space).
+// left in R14 for the caller to inspect (kone reports ENTER as ASCII 10).
 //
 // A backspace (8 or 127, see README) undoes the last char, whatever it was: the
 // kind of every accepted char is pushed onto the stack, so erasing is a matter
