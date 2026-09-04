@@ -7,6 +7,7 @@
 .include "float32_sub.kasm"
 .include "float32_mul.kasm"
 .include "float32_div.kasm"
+.include "float32_mod.kasm"
 .include "float32_from_int32.kasm"
 .include "float32_to_int32.kasm"
 .include "float32_cmp.kasm"

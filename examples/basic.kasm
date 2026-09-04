@@ -31,17 +31,35 @@
 //     LIST    prints the stored program in line number order
 //     CLEAR   drops every stored line and prints 'READY.'
 // A line that is just a line number deletes that line. The statements that
-// can be stored, where <term> is a literal or a variable:
-//     LET <var> = <term> [ <op> <term> ]      <op> is one of + - * /
+// can be stored, where <term> is a literal, a variable, 'ABS(<var>)' or
+// 'INT(<var>)':
+//     LET <var> = <term> [ <op> <term> ]      <op> is + - * / or MOD
 //     PRINT "<text>"                          a string literal
 //     PRINT <term>                            a value
 //     PRINT "<text>"; <term>                  both, on one row
 //     IF <term> <op> <term> THEN <line>       <op> is one of = < >
 //     GOTO <line>
+//     GOSUB <line>                            calls, RETURN comes back
+//     RETURN                                  back behind the last GOSUB
+//     FOR <var> = <term> TO <term>            counts up in steps of one
+//     NEXT <var>                              closes the loop of that var
+//     INPUT <var>                             prompts '? ' and reads a value
+//     CLS                                     clears the display
+//     REM <text>                              a comment, does nothing
 //     END                                     stops the run, prints 'DONE.'
 // An expression holds at most one operator: there is no precedence to get
 // right and no bracketing, so 'A * B + C' is a syntax error. Variables are
-// the single letters A - Z.
+// the single letters A - Z, and a name of more than one letter only parses
+// as ABS, INT or MOD, so 'AB' is an error rather than A with a stray B behind
+// it. ABS drops the sign of a variable and INT floors it, so INT(-2.5) is -3
+// the way a classic BASIC has it, not the -2 that truncating would give.
+//
+// FOR loops nest four deep and GOSUB eight deep, both on stacks of their own
+// in fixed memory rather than on the hardware stack, which CLL and RET need
+// for themselves between the two halves of a loop or a call. A FOR always
+// counts up by one and always runs its body once, since NEXT is what tests
+// the limit. MOD truncates towards zero, so it keeps the sign of the left
+// side: -7 MOD 3 is -1.
 //
 // The kone ISA has no register indirect addressing and kasm cannot emit data,
 // so every table below is addressed through klib's 'mem_peek' and 'mem_poke',
@@ -51,33 +69,51 @@
 //     0x8100 - 0x8150 the line being typed, null terminated
 //     0x8200 - 0x8227 the statement being parsed, one 40 byte record
 //     0x8230 - 0x823F the word being read, null terminated
-//     0x8240 - 0x8287 the nine keywords, 8 bytes apart, written at startup
 //     0x8290 - 0x829D the parser and run flags, a byte each
 //     0x829E - 0x82A6 the line numbers a search or a run works with
 //     0x82A7 - 0x82AC the operator, the comparison, and where the parser and
 //                     a listing stand
 //     0x82AD - 0x82BB the number being read out of a line
+//     0x8228 - 0x822B the value INT is flooring
+//     0x82BC - 0x82BE the kind of the term being read, the FOR frame being
+//                     worked on, and the function a term stands for
 //     0x82C0 - 0x82CB a variable on its way to or from the table, and the two
 //                     operands of an expression
+//     0x82CC - 0x82CD the depth of the FOR and of the GOSUB stack
+//     0x82D0 - 0x82EB the FOR stack, 4 frames of 7 bytes: the loop variable,
+//                     its limit, and the line the FOR sits on
+//     0x82F0 - 0x82FF the GOSUB stack, 8 frames of 2 bytes: the line the call
+//                     came from
 //     0x8300 - 0x8367 the variables A - Z, 4 bytes each, LSB first
 //     0x8400 - 0x88FF the program, 32 slots of 40 bytes
+//     0x8900 - 0x899B the twenty keywords, 8 bytes apart, written at startup
 //
 // A slot and the record share one layout. Byte 0 and 1 are the line number,
 // LSB first, and a line number of 0 marks the slot as free, which is why
 // program lines start at 1. Byte 2 is the statement (1 LET, 2 PRINT, 3 IF,
-// 4 GOTO, 5 END) and the rest depends on it. A <term> takes six bytes: its
-// kind (0 literal, 1 variable), the variable index, and the literal.
-//     LET     3 target variable, 4 1 when an operator follows, 5 operator,
+// 4 GOTO, 5 END, 6 REM, 7 CLS, 8 INPUT, 9 FOR, 10 NEXT, 11 GOSUB,
+// 12 RETURN) and the rest depends on it. A <term> takes six bytes: its kind
+// (0 literal, 1 variable, 2 the absolute value of one, 3 its floor), the
+// variable index, and the literal.
+//     LET     3 target variable, 4 1 when an operator follows, 5 operator
+//             ('+', '-', '*', '/', or 1 for MOD, which is no char),
 //             6 - 11 left term, 12 - 17 right term
 //     PRINT   3 flags (bit 0 string, bit 1 term), 4 - 9 term,
 //             10 - 39 the string, null terminated (29 chars at most)
 //     IF      3 operator, 4 - 9 left term, 10 - 15 right term,
 //             16 - 17 the line to jump to
 //     GOTO    3 - 4 the line to jump to
+//     GOSUB   3 - 4 the line to jump to
+//     RETURN  -
+//     FOR     3 the loop variable, 4 - 9 start term, 10 - 15 limit term
+//     NEXT    3 the loop variable
+//     INPUT   3 the variable to read into
+//     CLS     -
+//     REM     3 - 39 the comment, null terminated (36 chars at most)
 //     END     -
 //
 // 32 lines of 40 bytes are the limits: a longer program prints '?PROGRAM
-// FULL' and a longer string is cut off at 29 chars.
+// FULL', a longer string is cut off at 29 chars and a longer comment at 36.
 
     JMP main
 
@@ -85,6 +121,7 @@
 .include "../klib/math.kasm"
 .include "../klib/io/int32_write.kasm"
 .include "../klib/io/float32_write.kasm"
+.include "../klib/io/float32_read.kasm"
 .include "../klib/mem.kasm"
 .include "../klib/str.kasm"
 
@@ -101,90 +138,191 @@ basic__loop:
 // variables and prints the banner
 basic__init:
     LDI 76          // 'L'
-    STM 0x8240
+    STM 0x8900
     LDI 69          // 'E'
-    STM 0x8241
+    STM 0x8901
     LDI 84          // 'T'
-    STM 0x8242
+    STM 0x8902
     LDI 0
-    STM 0x8243      // 'LET'
+    STM 0x8903      // 'LET'
     LDI 80          // 'P'
-    STM 0x8248
+    STM 0x8908
     LDI 82          // 'R'
-    STM 0x8249
+    STM 0x8909
     LDI 73          // 'I'
-    STM 0x824A
+    STM 0x890A
     LDI 78          // 'N'
-    STM 0x824B
+    STM 0x890B
     LDI 84          // 'T'
-    STM 0x824C
+    STM 0x890C
     LDI 0
-    STM 0x824D      // 'PRINT'
+    STM 0x890D      // 'PRINT'
     LDI 73          // 'I'
-    STM 0x8250
+    STM 0x8910
     LDI 70          // 'F'
-    STM 0x8251
+    STM 0x8911
     LDI 0
-    STM 0x8252      // 'IF'
+    STM 0x8912      // 'IF'
     LDI 71          // 'G'
-    STM 0x8258
+    STM 0x8918
     LDI 79          // 'O'
-    STM 0x8259
+    STM 0x8919
     LDI 84          // 'T'
-    STM 0x825A
+    STM 0x891A
     LDI 79          // 'O'
-    STM 0x825B
+    STM 0x891B
     LDI 0
-    STM 0x825C      // 'GOTO'
+    STM 0x891C      // 'GOTO'
     LDI 69          // 'E'
-    STM 0x8260
+    STM 0x8920
     LDI 78          // 'N'
-    STM 0x8261
+    STM 0x8921
     LDI 68          // 'D'
-    STM 0x8262
+    STM 0x8922
     LDI 0
-    STM 0x8263      // 'END'
+    STM 0x8923      // 'END'
     LDI 82          // 'R'
-    STM 0x8268
+    STM 0x8928
     LDI 85          // 'U'
-    STM 0x8269
+    STM 0x8929
     LDI 78          // 'N'
-    STM 0x826A
+    STM 0x892A
     LDI 0
-    STM 0x826B      // 'RUN'
+    STM 0x892B      // 'RUN'
     LDI 76          // 'L'
-    STM 0x8270
+    STM 0x8930
     LDI 73          // 'I'
-    STM 0x8271
+    STM 0x8931
     LDI 83          // 'S'
-    STM 0x8272
+    STM 0x8932
     LDI 84          // 'T'
-    STM 0x8273
+    STM 0x8933
     LDI 0
-    STM 0x8274      // 'LIST'
+    STM 0x8934      // 'LIST'
     LDI 67          // 'C'
-    STM 0x8278
+    STM 0x8938
     LDI 76          // 'L'
-    STM 0x8279
+    STM 0x8939
     LDI 69          // 'E'
-    STM 0x827A
+    STM 0x893A
     LDI 65          // 'A'
-    STM 0x827B
+    STM 0x893B
     LDI 82          // 'R'
-    STM 0x827C
+    STM 0x893C
     LDI 0
-    STM 0x827D      // 'CLEAR'
+    STM 0x893D      // 'CLEAR'
     LDI 84          // 'T'
-    STM 0x8280
+    STM 0x8940
     LDI 72          // 'H'
-    STM 0x8281
+    STM 0x8941
     LDI 69          // 'E'
-    STM 0x8282
+    STM 0x8942
     LDI 78          // 'N'
-    STM 0x8283
+    STM 0x8943
     LDI 0
-    STM 0x8284      // 'THEN'
-
+    STM 0x8944      // 'THEN'
+    LDI 82          // 'R'
+    STM 0x8948
+    LDI 69          // 'E'
+    STM 0x8949
+    LDI 77          // 'M'
+    STM 0x894A
+    LDI 0
+    STM 0x894B      // 'REM'
+    LDI 67          // 'C'
+    STM 0x8950
+    LDI 76          // 'L'
+    STM 0x8951
+    LDI 83          // 'S'
+    STM 0x8952
+    LDI 0
+    STM 0x8953      // 'CLS'
+    LDI 73          // 'I'
+    STM 0x8958
+    LDI 78          // 'N'
+    STM 0x8959
+    LDI 80          // 'P'
+    STM 0x895A
+    LDI 85          // 'U'
+    STM 0x895B
+    LDI 84          // 'T'
+    STM 0x895C
+    LDI 0
+    STM 0x895D      // 'INPUT'
+    LDI 70          // 'F'
+    STM 0x8960
+    LDI 79          // 'O'
+    STM 0x8961
+    LDI 82          // 'R'
+    STM 0x8962
+    LDI 0
+    STM 0x8963      // 'FOR'
+    LDI 78          // 'N'
+    STM 0x8968
+    LDI 69          // 'E'
+    STM 0x8969
+    LDI 88          // 'X'
+    STM 0x896A
+    LDI 84          // 'T'
+    STM 0x896B
+    LDI 0
+    STM 0x896C      // 'NEXT'
+    LDI 71          // 'G'
+    STM 0x8970
+    LDI 79          // 'O'
+    STM 0x8971
+    LDI 83          // 'S'
+    STM 0x8972
+    LDI 85          // 'U'
+    STM 0x8973
+    LDI 66          // 'B'
+    STM 0x8974
+    LDI 0
+    STM 0x8975      // 'GOSUB'
+    LDI 82          // 'R'
+    STM 0x8978
+    LDI 69          // 'E'
+    STM 0x8979
+    LDI 84          // 'T'
+    STM 0x897A
+    LDI 85          // 'U'
+    STM 0x897B
+    LDI 82          // 'R'
+    STM 0x897C
+    LDI 78          // 'N'
+    STM 0x897D
+    LDI 0
+    STM 0x897E      // 'RETURN'
+    LDI 84          // 'T'
+    STM 0x8980
+    LDI 79          // 'O'
+    STM 0x8981
+    LDI 0
+    STM 0x8982      // 'TO'
+    LDI 65          // 'A'
+    STM 0x8988
+    LDI 66          // 'B'
+    STM 0x8989
+    LDI 83          // 'S'
+    STM 0x898A
+    LDI 0
+    STM 0x898B      // 'ABS'
+    LDI 77          // 'M'
+    STM 0x8990
+    LDI 79          // 'O'
+    STM 0x8991
+    LDI 68          // 'D'
+    STM 0x8992
+    LDI 0
+    STM 0x8993      // 'MOD'
+    LDI 73          // 'I'
+    STM 0x8998
+    LDI 78          // 'N'
+    STM 0x8999
+    LDI 84          // 'T'
+    STM 0x899A
+    LDI 0
+    STM 0x899B      // 'INT'
     CLL basic__clear
 
     LDI 75          // 'K'
@@ -232,6 +370,8 @@ basic__ready:
 // to zero
 basic__clear:
     LDI 0
+    STM 0x82CC
+    STM 0x82CD      // both stacks go with the program
     STM 0x8293
 basic__clear__slots:
     CLL basic__slot_addr
@@ -901,10 +1041,15 @@ basic__var:
     ADD 1
     RET
 
-// basic__term: reads a literal or a variable
-//     out:      TERMK = 0 and the value -> R0 - R3, or TERMK = 1 and
-//               the variable index -> TERMV
+// basic__term: reads a literal, a variable or 'ABS(<var>)'
+//     out:      TERMK = 0 and the value -> R0 - R3, TERMK = 1 and the
+//               variable index -> TERMV, or TERMK = 2 and that index for
+//               the absolute value of the variable
 //     clobbers: R0 - R15
+//
+// A run of letters is read as a whole, so a name of more than one letter
+// only parses as 'ABS'; 'AB' is an error rather than the variable A with
+// a stray B behind it.
 basic__term:
     CLL basic__skip
     LDM 0x8290
@@ -916,14 +1061,58 @@ basic__term:
     LDI 165
     ADD 0
     JC1 basic__term__number
+    CLL basic__word
+    LDI 0x88
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__term__abs
+    LDI 0x98
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__term__int
+    LDM 0x8231
+    JA1 basic__fail     // a longer name is not a variable
     LDI 1
     STM 0x829A
-    LDR 0
+    LDM 0x8230
     STR 1
-    CLL basic__next
     LDI 191
     ADD 1
     STM 0x829B
+    RET
+
+basic__term__abs:
+    LDI 2
+    STM 0x82BE      // the kind this call stands for
+    JMP basic__term__fun
+
+basic__term__int:
+    LDI 3
+    STM 0x82BE
+
+basic__term__fun:
+    CLL basic__skip
+    LDM 0x8290
+    STR 0
+    LDI 216         // 256 - 40 -> '('
+    ADD 0
+    JA1 basic__fail
+    CLL basic__next
+    CLL basic__var
+    STM 0x829B
+    CLL basic__skip
+    LDM 0x8290
+    STR 0
+    LDI 215         // 256 - 41 -> ')'
+    ADD 0
+    JA1 basic__fail
+    CLL basic__next
+    LDM 0x82BE
+    STM 0x829A
     RET
 
 basic__term__number:
@@ -1059,21 +1248,21 @@ basic__line__toobig:
 
 basic__line__command:
     CLL basic__word
-    LDI 0x68
+    LDI 0x28
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__line__run
-    LDI 0x70
+    LDI 0x30
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__line__list
-    LDI 0x78
+    LDI 0x38
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__line__wipe
@@ -1172,41 +1361,197 @@ basic__line__error:
 // basic__stmt: parses one statement into the record
 basic__stmt:
     CLL basic__word
-    LDI 0x40
+    LDI 0x00
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__p_let
-    LDI 0x48
+    LDI 0x08
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__p_print
-    LDI 0x50
+    LDI 0x10
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__p_if
-    LDI 0x58
+    LDI 0x18
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__p_goto
-    LDI 0x60
+    LDI 0x20
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA1 basic__p_end
+    LDI 0x48
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_rem
+    LDI 0x50
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_cls
+    LDI 0x58
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_input
+    LDI 0x60
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_for
+    LDI 0x68
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_next
+    LDI 0x70
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_gosub
+    LDI 0x78
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA1 basic__p_return
     CLL basic__fail
     RET
 
 basic__p_end:
     LDI 5
+    STM 0x8202
+    RET
+
+// basic__p_rem: REM <text>, the rest of the line kept as it was typed
+basic__p_rem:
+    LDI 6
+    STM 0x8202
+    CLL basic__skip
+    LDI 0
+    STM 0x8294
+basic__p_rem__char:
+    LDM 0x8290
+    STR 0
+    LDI 246         // 256 - 10 -> the line ends here
+    ADD 0
+    JA0 basic__p_rem__done
+    LDM 0x8294
+    STR 1
+    LDI 220         // 256 - 36; the comment is full
+    ADD 1
+    JC1 basic__p_rem__more
+    CLL basic__p_rem__store
+    LDM 0x8294
+    STR 1
+    LDI 1
+    ADD 1
+    STM 0x8294
+basic__p_rem__more:
+    CLL basic__next
+    JMP basic__p_rem__char
+
+basic__p_rem__done:
+    LDI 0
+    STR 0           // the null terminator
+    CLL basic__p_rem__store
+    RET
+
+// basic__p_rem__store: puts the char in R0 at the comment offset in CNT
+basic__p_rem__store:
+    LDM 0x8294
+    STR 1
+    LDI 0x03
+    ADD 1
+    STR 12
+    LDI 0x82
+    STR 13
+    LDR 0
+    STR 14
+    CLL mem_poke
+    RET
+
+// basic__p_cls: CLS
+basic__p_cls:
+    LDI 7
+    STM 0x8202
+    RET
+
+// basic__p_input: INPUT <var>
+basic__p_input:
+    LDI 8
+    STM 0x8202
+    CLL basic__var
+    STM 0x8203
+    RET
+
+// basic__p_for: FOR <var> = <term> TO <term>
+basic__p_for:
+    LDI 9
+    STM 0x8202
+    CLL basic__var
+    STM 0x8203
+    CLL basic__skip
+    LDM 0x8290
+    STR 0
+    LDI 195         // '='
+    ADD 0
+    JA1 basic__fail
+    CLL basic__next
+    LDI 4
+    CLL basic__term_at
+    CLL basic__skip
+    CLL basic__word
+    LDI 0x80
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA0 basic__fail
+    LDI 10
+    CLL basic__term_at
+    RET
+
+// basic__p_next: NEXT <var>
+basic__p_next:
+    LDI 10
+    STM 0x8202
+    CLL basic__var
+    STM 0x8203
+    RET
+
+// basic__p_gosub: GOSUB <line>
+basic__p_gosub:
+    LDI 11
+    STM 0x8202
+    CLL basic__number
+    LDR 0
+    STM 0x8203
+    LDR 1
+    STM 0x8204
+    RET
+
+// basic__p_return: RETURN
+basic__p_return:
+    LDI 12
     STM 0x8202
     RET
 
@@ -1251,6 +1596,29 @@ basic__p_let:
     LDI 209         // '/'
     ADD 0
     JA0 basic__p_let__op
+    CLL basic__upper
+    LDI 191
+    ADD 0
+    JC0 basic__p_let__none
+    LDI 165
+    ADD 0
+    JC1 basic__p_let__none
+    CLL basic__word
+    LDI 0x90
+    STR 2
+    LDI 0x89
+    STR 3
+    CLL basic__match
+    JA0 basic__fail     // a word behind a term can only be 'MOD'
+    LDI 1               // the code MOD is held as, since it is no char
+    STM 0x8205
+    LDI 1
+    STM 0x8204
+    LDI 12
+    CLL basic__term_at
+    RET
+
+basic__p_let__none:
     LDI 0           // one term, no operator behind it
     STM 0x8204
     RET
@@ -1374,9 +1742,9 @@ basic__p_if__op:
     CLL basic__term_at
     CLL basic__skip
     CLL basic__word
-    LDI 0x80
+    LDI 0x40
     STR 2
-    LDI 0x82
+    LDI 0x89
     STR 3
     CLL basic__match
     JA0 basic__fail
@@ -1830,6 +2198,7 @@ basic__term_get:
     STM 0x82AB
     LDM 0x82AB
     CLL basic__slot_get
+    STM 0x82BC      // the kind
     JA0 basic__term_get__literal
     LDM 0x82AB
     STR 0
@@ -1837,6 +2206,87 @@ basic__term_get:
     ADD 0
     CLL basic__slot_get
     CLL basic__var_get
+    LDM 0x82BC
+    STR 4
+    LDI 253         // 256 - 3 -> INT
+    ADD 4
+    JA0 basic__term_get__int
+    LDM 0x82BC
+    STR 4
+    LDI 254         // 256 - 2 -> ABS
+    ADD 4
+    JA1 basic__term_get__done
+    LDI 0x7F
+    STR 4
+    LDR 3
+    AND 4
+    STR 3           // the absolute value is the value without its sign
+basic__term_get__done:
+    RET
+
+// basic__term_get__int: the largest whole value at or below the one in
+// R0 - R3, which is the truncation towards zero for a value at or above
+// zero and one less than it for a negative value with a fraction. The
+// value is kept at 0x8228, since 0x82C4 already holds an operand by the
+// time the second term of an expression is read
+basic__term_get__int:
+    LDR 0
+    STM 0x8228
+    LDR 1
+    STM 0x8229
+    LDR 2
+    STM 0x822A
+    LDR 3
+    STM 0x822B
+    CLL float32_to_int32
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_from_int32
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3           // the truncation
+    LDM 0x822B
+    STR 4
+    LDI 0x80
+    AND 4
+    JA0 basic__term_get__done   // at or above zero it is the floor already
+    LDM 0x8228
+    STR 4
+    LDM 0x8229
+    STR 5
+    LDM 0x822A
+    STR 6
+    LDM 0x822B
+    STR 7
+    CLL float32_cmp
+    JA0 basic__term_get__done   // the value was whole
+    LDI 0x00
+    STR 4
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1.0
+    CLL float32_sub
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
     RET
 
 basic__term_get__literal:
@@ -1880,6 +2330,8 @@ basic__run:
     STM 0x829C
     STM 0x829E
     STM 0x829F
+    STM 0x82CC      // every run starts with an empty FOR stack
+    STM 0x82CD      // and an empty GOSUB stack
     CLL basic__next_line
 basic__run__loop:
     LDM 0x8299
@@ -1984,11 +2436,456 @@ basic__exec:
     LDI 251         // END
     ADD 0
     JA0 basic__x_end
+    LDI 250         // REM
+    ADD 0
+    JA0 basic__x_rem
+    LDI 249         // CLS
+    ADD 0
+    JA0 basic__x_cls
+    LDI 248         // INPUT
+    ADD 0
+    JA0 basic__x_input
+    LDI 247         // FOR
+    ADD 0
+    JA0 basic__x_for
+    LDI 246         // NEXT
+    ADD 0
+    JA0 basic__x_next
+    LDI 245         // GOSUB
+    ADD 0
+    JA0 basic__x_gosub
+    LDI 244         // RETURN
+    ADD 0
+    JA0 basic__x_return
     RET
 
 basic__x_end:
     LDI 1
     STM 0x829C
+    RET
+
+// basic__x_rem: a comment does nothing
+basic__x_rem:
+    RET
+
+// basic__x_cls: clears the display
+basic__x_cls:
+    CLL disp_cls
+    RET
+
+// basic__x_input: prints the '? ' prompt and reads a number into the
+// variable. klib's float32_read polls the keyboard itself, so this is the
+// one statement that reads outside the line buffer
+basic__x_input:
+    LDI 3
+    CLL basic__slot_get
+    STM 0x8295      // the target variable
+    LDI 63          // '?'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 0
+    STR 16          // a key pressed before the prompt is not an answer
+    CLL float32_read
+    CLL disp_nl
+    CLL basic__var_put
+    RET
+
+// basic__x_for: sets the variable to the start value and pushes the limit
+// and the line the loop starts on onto the FOR stack
+basic__x_for:
+    LDI 3
+    CLL basic__slot_get
+    STM 0x8295      // the loop variable
+    LDI 4
+    CLL basic__term_get
+    CLL basic__var_put
+    LDI 10
+    CLL basic__term_get
+    LDR 0
+    STM 0x82C4
+    LDR 1
+    STM 0x82C5
+    LDR 2
+    STM 0x82C6
+    LDR 3
+    STM 0x82C7      // the limit
+    LDM 0x82CC
+    STR 0
+    LDI 252         // 256 - 4; carry set once the stack is full
+    ADD 0
+    JC1 basic__x_for__deep
+    LDM 0x82CC
+    CLL basic__for_addr
+    LDM 0x8295
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x82C4
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x82C5
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x82C6
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x82C7
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x829E
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x829F
+    STR 14
+    CLL mem_poke
+    LDM 0x82CC
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x82CC
+    RET
+
+basic__x_for__deep:
+    LDI 63          // '?'
+    CLL disp_putc
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 71          // 'G'
+    CLL disp_putc
+    CLL disp_nl
+    LDI 2           // stop the run without a 'DONE.'
+    STM 0x829C
+    RET
+
+// basic__x_next: counts the loop variable up and goes back into the loop
+// unless it has passed the limit
+basic__x_next:
+    LDM 0x82CC
+    JA0 basic__x_next__nofor
+    LDI 3
+    CLL basic__slot_get
+    STM 0x8295      // the variable this NEXT names
+    LDM 0x82CC
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x82BD      // the frame on top
+    CLL basic__for_addr
+    CLL mem_peek
+    STR 0
+    LDM 0x8295
+    XOR 0
+    JA1 basic__x_next__nofor    // the top of the stack is another loop
+
+    LDM 0x8295
+    CLL basic__var_get
+    LDI 0x00
+    STR 4
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1.0, the step this BASIC counts in
+    CLL float32_add
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL basic__var_put
+
+    LDM 0x82BD
+    CLL basic__for_addr
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C4
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C5
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C6
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C7      // the limit
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C8
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x82C9      // the line the FOR sits on
+
+    LDM 0x8295
+    CLL basic__var_get
+    LDM 0x82C4
+    STR 4
+    LDM 0x82C5
+    STR 5
+    LDM 0x82C6
+    STR 6
+    LDM 0x82C7
+    STR 7
+    CLL float32_cmp
+    STR 0
+    LDI 254         // 2 -> the variable has passed the limit
+    ADD 0
+    JA0 basic__x_next__pop
+    LDM 0x82C8
+    STM 0x829E
+    LDM 0x82C9
+    STM 0x829F      // the run picks up behind the FOR again
+    RET
+
+basic__x_next__pop:
+    LDM 0x82CC
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x82CC      // the loop is done with
+    RET
+
+basic__x_next__nofor:
+    LDI 63          // '?'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 88          // 'X'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 87          // 'W'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 72          // 'H'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    CLL disp_nl
+    LDI 2           // stop the run without a 'DONE.'
+    STM 0x829C
+    RET
+
+// basic__x_gosub: remembers the line the call came from and jumps
+basic__x_gosub:
+    LDM 0x82CD
+    STR 0
+    LDI 248         // 256 - 8; carry set once the stack is full
+    ADD 0
+    JC1 basic__x_gosub__deep
+    LDM 0x82CD
+    CLL basic__sub_addr
+    LDM 0x829E
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDM 0x829F
+    STR 14
+    CLL mem_poke
+    LDM 0x82CD
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x82CD
+    LDI 3
+    CLL basic__slot_get
+    STM 0x82A0
+    LDI 4
+    CLL basic__slot_get
+    STM 0x82A1
+    LDI 1
+    STM 0x829D
+    RET
+
+basic__x_gosub__deep:
+    LDI 63          // '?'
+    CLL disp_putc
+    LDI 71          // 'G'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 66          // 'B'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 71          // 'G'
+    CLL disp_putc
+    CLL disp_nl
+    LDI 2           // stop the run without a 'DONE.'
+    STM 0x829C
+    RET
+
+// basic__x_return: picks the run up behind the GOSUB that called
+basic__x_return:
+    LDM 0x82CD
+    JA0 basic__x_return__nosub
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x82CD
+    CLL basic__sub_addr
+    CLL mem_peek
+    STM 0x829E
+    CLL basic__ptr_step
+    CLL mem_peek
+    STM 0x829F
+    RET
+
+basic__x_return__nosub:
+    LDI 63          // '?'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 87          // 'W'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 72          // 'H'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 71          // 'G'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 66          // 'B'
+    CLL disp_putc
+    CLL disp_nl
+    LDI 2           // stop the run without a 'DONE.'
+    STM 0x829C
+    RET
+
+// basic__for_addr: the address of the FOR frame with the index in the
+// accumulator. A frame is seven bytes, so the index is taken times four
+// plus times two plus itself; times seven never leaves a byte for the
+// four frames there are
+//     out:      address -> R12, R13
+//     clobbers: R0 - R2
+basic__for_addr:
+    STR 0
+    BSL
+    BSL
+    STR 1           // index * 4
+    LDR 0
+    BSL
+    STR 2           // index * 2
+    LDR 1
+    ADD 2
+    ADD 0
+    STR 12
+    LDI 0xD0
+    ADD 12
+    STR 12
+    LDI 0x82
+    STR 13
+    RET
+
+// basic__sub_addr: the address of the GOSUB frame with the index in the
+// accumulator, two bytes apart
+//     out:      address -> R12, R13
+//     clobbers: -
+basic__sub_addr:
+    BSL
+    STR 12
+    LDI 0xF0
+    ADD 12
+    STR 12
+    LDI 0x82
+    STR 13
+    RET
+
+// basic__ptr_step: moves R12, R13 on to the next byte. Both stacks sit
+// well inside page 0x82, so the low byte never carries
+//     clobbers: -
+basic__ptr_step:
+    LDI 1
+    ADD 12
+    STR 12
     RET
 
 basic__x_goto:
@@ -2070,7 +2967,16 @@ basic__x_let:
     ORR 5
     ORR 6
     JA0 basic__x_let__divzero
+    LDR 15
+    STR 12
+    LDI 255         // 1 -> MOD, which divides as well
+    ADD 12
+    JA0 basic__x_let__mod
     CLL float32_div
+    JMP basic__x_let__moved
+
+basic__x_let__mod:
+    CLL float32_mod
     JMP basic__x_let__moved
 
 basic__x_let__add:
@@ -2269,6 +3175,44 @@ basic__put_term:
     LDM 0x82A9
     CLL basic__slot_get
     JA0 basic__put_term__literal
+    STR 4
+    LDI 254         // 256 - 2 -> ABS
+    ADD 4
+    JA0 basic__put_term__abs
+    LDI 253         // 256 - 3 -> INT
+    ADD 4
+    JA0 basic__put_term__int
+    CLL basic__put_term__letter
+    RET
+
+basic__put_term__abs:
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 66          // 'B'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    JMP basic__put_term__arg
+
+basic__put_term__int:
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+
+basic__put_term__arg:
+    LDI 40          // '('
+    CLL disp_putc
+    CLL basic__put_term__letter
+    LDI 41          // ')'
+    CLL disp_putc
+    RET
+
+// basic__put_term__letter: prints the variable of the term at TERMA
+//     clobbers: R0, R12, R13
+basic__put_term__letter:
     LDM 0x82A9
     STR 0
     LDI 1
@@ -2391,6 +3335,27 @@ basic__list_stmt:
     LDI 251         // END
     ADD 0
     JA0 basic__l_end
+    LDI 250         // REM
+    ADD 0
+    JA0 basic__l_rem
+    LDI 249         // CLS
+    ADD 0
+    JA0 basic__l_cls
+    LDI 248         // INPUT
+    ADD 0
+    JA0 basic__l_input
+    LDI 247         // FOR
+    ADD 0
+    JA0 basic__l_for
+    LDI 246         // NEXT
+    ADD 0
+    JA0 basic__l_next
+    LDI 245         // GOSUB
+    ADD 0
+    JA0 basic__l_gosub
+    LDI 244         // RETURN
+    ADD 0
+    JA0 basic__l_return
     RET
 
 basic__l_end:
@@ -2400,6 +3365,156 @@ basic__l_end:
     CLL disp_putc
     LDI 68          // 'D'
     CLL disp_putc
+    RET
+
+basic__l_rem:
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 77          // 'M'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    CLL basic__put_rem
+    RET
+
+basic__l_cls:
+    LDI 67          // 'C'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    RET
+
+basic__l_input:
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 80          // 'P'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 3
+    CLL basic__slot_get
+    STR 0
+    LDI 65          // the index becomes its letter
+    ADD 0
+    CLL disp_putc
+    RET
+
+basic__l_for:
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 3
+    CLL basic__slot_get
+    STR 0
+    LDI 65          // the index becomes its letter
+    ADD 0
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 61          // '='
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 4
+    CLL basic__put_term
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 10
+    CLL basic__put_term
+    RET
+
+basic__l_next:
+    LDI 78          // 'N'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 88          // 'X'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 3
+    CLL basic__slot_get
+    STR 0
+    LDI 65          // the index becomes its letter
+    ADD 0
+    CLL disp_putc
+    RET
+
+basic__l_gosub:
+    LDI 71          // 'G'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 66          // 'B'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 3
+    CLL basic__put_line
+    RET
+
+basic__l_return:
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 84          // 'T'
+    CLL disp_putc
+    LDI 85          // 'U'
+    CLL disp_putc
+    LDI 82          // 'R'
+    CLL disp_putc
+    LDI 78          // 'N'
+    CLL disp_putc
+    RET
+
+// basic__put_rem: prints the comment of the current slot
+//     clobbers: R0, R12, R13
+basic__put_rem:
+    LDI 0
+    STM 0x8294
+basic__put_rem__char:
+    LDM 0x8294
+    STR 0
+    LDI 3           // the comment starts at byte 3
+    ADD 0
+    CLL basic__slot_get
+    JA0 basic__put_rem__done
+    CLL disp_putc
+    LDM 0x8294
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8294
+    JMP basic__put_rem__char
+basic__put_rem__done:
     RET
 
 basic__l_goto:
@@ -2447,7 +3562,21 @@ basic__l_let:
     CLL disp_putc
     LDI 5
     CLL basic__slot_get
+    STR 4
+    LDI 255         // 1 -> MOD
+    ADD 4
+    JA0 basic__l_let__mod
+    LDR 4
     CLL disp_putc
+    JMP basic__l_let__right
+basic__l_let__mod:
+    LDI 77          // 'M'
+    CLL disp_putc
+    LDI 79          // 'O'
+    CLL disp_putc
+    LDI 68          // 'D'
+    CLL disp_putc
+basic__l_let__right:
     LDI 32          // ' '
     CLL disp_putc
     LDI 12

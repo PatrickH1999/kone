@@ -72,16 +72,49 @@ The assembler is deliberately minimal, which is worth keeping in mind when writi
 ## Examples
 
 ### `basic` 
-A BASIC interpreter with the keyboard as its terminal and the display as its screen, built from klib's `io/disp`, `math` (both groups), `io/int32_write`, `io/float32_write`, `mem` and `str`. It prints `READY.` and a `>` prompt and takes one line at a time: a line that starts with a line number goes into the program, a bare line number deletes that line again, and anything else is carried out at once (`RUN`, `LIST`, `CLEAR`). The statements are `LET`, `PRINT`, `IF ... THEN`, `GOTO` and `END`, the variables are the single letters `A` - `Z`, and the program holds 32 lines of 40 bytes. Every value is a single precision float the way a classic BASIC treats its numbers, so `LET A = 1 / 3` followed by `PRINT A` gives `0.333333` while a value that happens to be whole prints without a decimal point; literals may carry a decimal point and an exponent (`1.5e-7`, `-.5`), and klib's float32 group does the arithmetic. Either side of an operator may be a literal or a variable, so `LET A = A + 1` is a statement like any other, but an expression holds at most one operator: there is no precedence to get right and no bracketing, so `A * B + C` is a syntax error. A line ends with ENTER, which kone hands to the program as ASCII 10 (see [Devices](#devices)). The line is read into a buffer and parsed only once it is complete, so backspace erases the char before the cursor anywhere in it, down to the prompt. Run it with `bin/kone -b bin/basic.bin` and type
+A BASIC interpreter with the keyboard as its terminal and the display as its screen, built from klib's `io/disp`, `math` (both groups), `io/int32_write`, `io/float32_write`, `io/float32_read`, `mem` and `str`. It prints `READY.` and a `>` prompt and takes one line at a time: a line that starts with a line number goes into the program, a bare line number deletes that line again, and anything else is carried out at once (`RUN`, `LIST`, `CLEAR`). The variables are the single letters `A` - `Z` and the program holds 32 lines of 40 bytes. Every value is a single precision float the way a classic BASIC treats its numbers, so `LET A = 1 / 3` followed by `PRINT A` gives `0.333333` while a value that happens to be whole prints without a decimal point; literals may carry a decimal point and an exponent (`1.5e-7`, `-.5`), and klib's float32 group does the arithmetic. A line ends with ENTER, which kone hands to the program as ASCII 10 (see [Devices](#devices)). The line is read into a buffer and parsed only once it is complete, so backspace erases the char before the cursor anywhere in it, down to the prompt.
+
+The three commands, which are typed without a line number and act at once:
+
+| Command | Description |
+| --- | --- |
+| `RUN` | runs the stored program from the lowest line number upward |
+| `LIST` | prints the stored program in line number order, as it was typed |
+| `CLEAR` | drops every stored line and every loop, and prints `READY.` |
+
+The statements, which are stored behind a line number. A `<term>` is a literal, a variable, `ABS(<var>)` (its magnitude) or `INT(<var>)` (its floor, so `INT(-2.5)` is `-3`):
+
+| Statement | Description |
+| --- | --- |
+| `LET <var> = <term> [<op> <term>]` | works out the expression and assigns it; `<op>` is `+`, `-`, `*`, `/` or `MOD` |
+| `PRINT "<text>"` | prints a string literal, at most 29 chars |
+| `PRINT <term>` | prints a value with six significant digits |
+| `PRINT "<text>"; <term>` | prints both on one row |
+| `IF <term> <op> <term> THEN <line>` | jumps when the comparison holds; `<op>` is `=`, `<` or `>` |
+| `GOTO <line>` | jumps to that line |
+| `GOSUB <line>` | calls that line; `RETURN` comes back to the line behind the `GOSUB` |
+| `RETURN` | returns from the innermost `GOSUB` |
+| `FOR <var> = <term> TO <term>` | counts `<var>` up from the first term, in steps of one |
+| `NEXT <var>` | counts that loop on and goes back into it unless it has passed the limit |
+| `INPUT <var>` | prints a `? ` prompt and reads a number from the keyboard into `<var>` |
+| `CLS` | clears the display and puts the cursor back in its top left corner |
+| `REM <text>` | a comment, at most 36 chars; it does nothing when it is run |
+| `END` | stops the run and prints `DONE.` |
+
+`LET` is the only statement that takes an operator: `PRINT`, `IF`, `FOR` and the rest take a bare `<term>`, and anything typed behind one is ignored rather than reported, so `PRINT A * B` prints `A`. Run it with `bin/kone -b bin/basic.bin` and type
 ```
-10 LET A = 7
-20 LET B = 5
-30 LET C = A * B
-40 PRINT "RESULT: "; C
+10 FOR I = 1 TO 5
+20 LET S = I * I
+30 PRINT "SQUARE: "; S
+40 NEXT I
 50 END
 RUN
 ```
-which prints `RESULT: 35` and `DONE.`. The program lives in 32 fixed width slots and every indexed access into it goes through klib's `mem_peek` and `mem_poke`, since the kone ISA has no register indirect addressing; `examples/basic.kasm` maps the whole layout at the top. Numbers are printed with klib's `float32_puts` but read by the interpreter itself: klib's readers poll the keyboard, which a line that has already been typed and edited cannot be fed back into, so the digits are folded into an integer and scaled by a power of ten the way `float32_read` does it.
+which prints the five squares and `DONE.`. Errors are reported as `?SYNTAX ERROR`, `?UNDEF'D LINE`, `?DIVISION BY ZERO`, `?PROGRAM FULL`, `?NEXT WITHOUT FOR`, `?RETURN WITHOUT GOSUB`, `?FOR NESTING` and `?GOSUB NESTING`.
+
+What this BASIC deliberately leaves out, because the kone architecture cannot carry it or because it does not fit the fixed width slots: __string variables__ (`A$`) and everything that follows from them (`LEFT$`, `MID$`, `CHR$`, string comparison), since a string variable needs a heap and garbage collection where this interpreter has 26 fixed four byte cells; __`DIM` and arrays__, for the same reason; __`INPUT` of more than one variable__ and __`INPUT "prompt"; var__, as the record holds one variable; __multi-statement lines with `:`__, since a slot holds exactly one statement and the run loop steps line by line; __`ON ... GOTO`__, __`DEF FN`__, __`READ`/`DATA`/`RESTORE`__, __`STEP`__ on a `FOR`, and __`AND`/`OR`/`NOT` in expressions__, since an expression is one operator wide with no precedence and no bracketing; and __`TAB()`__ and __`SPC()`__, which are feasible in themselves (klib tracks the display column at `0x8000`) but need `PRINT` to take an ordered list of items, where the record holds one string and one term. Recursion through `GOSUB` works only eight frames deep and `FOR` only four, both bounded by the fixed stacks they use. `ABS()` and `INT()` are the two functions there are, and both take a variable rather than a general expression.
+
+The program lives in 32 fixed width slots and every indexed access into it goes through klib's `mem_peek` and `mem_poke`, since the kone ISA has no register indirect addressing; `examples/basic.kasm` maps the whole layout at the top. Numbers are printed with klib's `float32_puts` and read out of a stored line by the interpreter itself, since klib's readers poll the keyboard, which a line that has already been typed and edited cannot be fed back into; `INPUT` is the one statement that does reach the keyboard, and it calls klib's `float32_read` directly. `CLS` goes through klib's `disp_cls`, which has to pad the whole grid with spaces because the kone display clears itself only when a char lands on its last cell, so a clear takes a visible moment.
 
 ### `calculator_float32`
 An interactive 32 bit floating point calculator, the same program as `calculator_int32` below but on IEEE 754 single precision values, built from klib's `io/disp`, `math/int32`, `math/float32`, `io/float32_read`, and `io/float32_write`. Magnitudes run from about 1.2e-38 to 3.4e38 and six significant digits are printed, so `1` followed by `/3` comes out as `0.333333`. A number may carry a decimal point and an exponent (`1.5e-7`) as well as a leading `-`, and a line that starts with a digit or a `.` replaces the accumulator. Dividing by zero would give an infinity, which klib does not carry through its arithmetic, so it prints `ERR` and keeps the accumulator just like the integer version does. Backspace walks back through the number being typed and then through the operator, so a line can always be taken back to the bare prompt. Run it with `bin/kone -b bin/calculator_float32.bin` and type, e.g., `1.5`, then `*2.0`, then `+0.25`.
@@ -190,7 +223,7 @@ The __kone__ decoder first evaluates opcode flags, which tell the decoder what k
 
 The routines that talk to the two devices. `disp` is the one every other file here needs, and the readers and writers sit on the `math` groups as well, so `klib/io.kasm` only ever works together with `klib/math.kasm`.
 
-- `disp`: the display helpers `disp_putc`, `disp_bs` and `disp_nl` that every other `io` routine prints through. The kone display has no cursor a program could read back, so `disp_putc` keeps the column of the next cell at `0x8000`. This file also documents the whole klib scratch memory map.
+- `disp`: the display helpers `disp_putc`, `disp_bs`, `disp_nl` and `disp_cls` that every other `io` routine prints through. The kone display has no cursor a program could read back, so `disp_putc` keeps the column of the next cell at `0x8000` and its row at `0x8022`; `disp_cls` needs that row, since the display clears itself only once a char lands on its last cell, so clearing means padding the rest of the grid with spaces and stopping exactly there. This file also documents the whole klib scratch memory map.
 - `int32_read`: reads a decimal number from the keyboard into `R0`-`R3` and echoes it, taking a leading `-`, thousands separators and backspace; the char that ended the number is left in `R14`.
 - `int32_write`: prints the 32 bit signed integer in `R0`-`R3` as a decimal number, prefixed with `=` and followed by a newline. `int32_puts`, which prints the bare digits without either of them, lives here as well and is what a program that prints a number of its own wants.
 - `float32_read`: reads `[-] digits [ . digits ] [ (e|E) [+|-] digits ]` from the keyboard into `R0`-`R3` as a single precision value; backspace undoes any typed char, the decimal point and the `e` included.
@@ -207,6 +240,7 @@ Two independent groups, `math/int32.kasm` and `math/float32.kasm`, which `klib/m
 - `float32_add`, `float32_sub`: IEEE 754 single precision addition and subtraction, with a guard byte below both mantissas so that subtracting two close values stays within one unit in the last place. This file also holds `float32_unpack` and `float32_pack`, which every other float32 routine uses.
 - `float32_mul`, `float32_div`: single precision multiplication and division. Neither can build on the integer routines: the mantissa product is 48 bit wide and only its top half is wanted, while `int32_mul` keeps the low 32 bit, and `int32_div` would need 16 million rounds for a 24 bit quotient, so the quotient is built one bit per round by restoring division.
 - `float32_from_int32`, `float32_to_int32`: the conversions in both directions. A value that needs more than 24 bit loses its low bits, and a magnitude that does not fit into a signed 32 bit integer saturates rather than wrapping.
+- `float32_mod`: the remainder of a division, `A - B * trunc(A / B)`, which truncates towards zero and so keeps the sign of `A`: `-7 MOD 3` is `-1`. It sits on `float32_div`, `float32_mul`, `float32_sub` and the two conversions, so it needs the whole group.
 - `float32_cmp`: compares two single precision values and says which is the larger one. It compares the bit patterns rather than the values, which needs no arithmetic: the magnitude bits grow with the value, so two of the same sign are ordered by them and two of different signs by the sign alone. Both zeros count as equal.
 - `float32_pow10`: 10 raised to a power of 0 to 38, built from the six constants 10, 1e2, 1e4, 1e8, 1e16 and 1e32, one per bit of the exponent. This is what `float32_read` and `float32_write` scale with.
 
