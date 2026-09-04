@@ -33,14 +33,16 @@ static void feed_stdin_empty() {
 int main() {
     stdin_backup = dup(STDIN_FILENO);
 
-    TEST_MODULE_BEGIN("keyboard_functions", 6);
+    TEST_MODULE_BEGIN("keyboard_functions", 8);
     RUN_TEST(test_keyboard_get_char_reads_available_byte);
     RUN_TEST(test_keyboard_get_char_returns_neg1_when_no_input);
     RUN_TEST(test_keyboard_push_cpu_sets_char_in_range);
     RUN_TEST(test_keyboard_push_cpu_replaces_out_of_range_char);
     RUN_TEST(test_keyboard_push_cpu_passes_backspace_through);
+    RUN_TEST(test_keyboard_push_cpu_passes_enter_through);
+    RUN_TEST(test_keyboard_push_cpu_normalizes_cr_to_enter);
     RUN_TEST(test_keyboard_push_cpu_no_input_leaves_registers_unset);
-    TEST_MODULE_END("keyboard_functions", 6);
+    TEST_MODULE_END("keyboard_functions", 8);
 
     dup2(stdin_backup, STDIN_FILENO);
     close(stdin_backup);
@@ -78,6 +80,22 @@ void test_keyboard_push_cpu_passes_backspace_through() {
     feed_stdin_byte(KEYBOARD_ASCII_BS); // below KEYBOARD_ASCII_LO, but kept
     keyboard_push_cpu(&cpu);
     assert(cpu.R[REG_ID_KEYBOARD_CHAR] == KEYBOARD_ASCII_BS);
+    assert(cpu.R[REG_ID_KEYBOARD_SET] == 1);
+}
+
+void test_keyboard_push_cpu_passes_enter_through() {
+    setup();
+    feed_stdin_byte(KEYBOARD_ASCII_ENTER); // below KEYBOARD_ASCII_LO, but kept
+    keyboard_push_cpu(&cpu);
+    assert(cpu.R[REG_ID_KEYBOARD_CHAR] == KEYBOARD_ASCII_ENTER);
+    assert(cpu.R[REG_ID_KEYBOARD_SET] == 1);
+}
+
+void test_keyboard_push_cpu_normalizes_cr_to_enter() {
+    setup();
+    feed_stdin_byte(13); // CR terminals send instead of LF
+    keyboard_push_cpu(&cpu);
+    assert(cpu.R[REG_ID_KEYBOARD_CHAR] == KEYBOARD_ASCII_ENTER);
     assert(cpu.R[REG_ID_KEYBOARD_SET] == 1);
 }
 

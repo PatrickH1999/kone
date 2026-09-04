@@ -9,6 +9,7 @@
 #define KEYBOARD_ASCII_LO 32
 #define KEYBOARD_ASCII_HI 255
 #define KEYBOARD_ASCII_BS 8     // Backspace; terminals send either this or DEL
+#define KEYBOARD_ASCII_ENTER 10 // Enter; CR (13) is normalized to this
 #define REG_ID_KEYBOARD_CHAR 17 // CPU register ID for receive char
 #define REG_ID_KEYBOARD_SET 16  // CPU register ID for receive set bit
 

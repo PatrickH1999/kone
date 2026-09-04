@@ -1,0 +1,21 @@
+// mem_peek: reads the byte at an address held in registers, which is what the
+// kone ISA has no addressing mode for: 'LDM' takes an absolute address and
+// there is no way to point it at a computed one
+//     in:       address -> R12 (low byte), R13 (high byte)
+//     out:      byte -> accumulator
+//     clobbers: -
+//
+// The address is patched into an 'LDM' that this routine writes into the
+// scratch memory at 0x8030 and then calls; the 'RET' behind it comes back to
+// the 'CLL' below. See klib/io/disp.kasm for the whole klib scratch map.
+mem_peek:
+    LDI 0x20        // LDM
+    STM 0x8030
+    LDR 12
+    STM 0x8031      // address low byte
+    LDR 13
+    STM 0x8032      // address high byte
+    LDI 0x0A        // RET
+    STM 0x8033
+    CLL 0x8030
+    RET

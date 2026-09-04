@@ -28,8 +28,11 @@ int keyboard_get_char() {
 void keyboard_push_cpu(CPU *cpu) {
     int char_ = keyboard_get_char();
     if (char_ != -1) {
+        if (char_ == 13) {
+            char_ = KEYBOARD_ASCII_ENTER; // normalize CR to LF
+        }
         if ((KEYBOARD_ASCII_LO <= char_ && char_ <= KEYBOARD_ASCII_HI) ||
-            char_ == KEYBOARD_ASCII_BS) {
+            char_ == KEYBOARD_ASCII_BS || char_ == KEYBOARD_ASCII_ENTER) {
             cpu->R[REG_ID_KEYBOARD_CHAR] = char_;
         } else {
             cpu->R[REG_ID_KEYBOARD_CHAR] = ' ';

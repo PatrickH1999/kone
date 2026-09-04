@@ -1,0 +1,21 @@
+// mem_poke: writes a byte to an address held in registers, the counterpart of
+// 'mem_peek' in klib/mem/mem_peek.kasm
+//     in:       address -> R12 (low byte), R13 (high byte), byte -> R14
+//     out:      -
+//     clobbers: -
+//
+// The address is patched into an 'STM' that this routine writes into the
+// scratch memory at 0x8034 and then calls; the byte is in the accumulator by
+// then, since the 'CLL' does not touch it.
+mem_poke:
+    LDI 0x21        // STM
+    STM 0x8034
+    LDR 12
+    STM 0x8035      // address low byte
+    LDR 13
+    STM 0x8036      // address high byte
+    LDI 0x0A        // RET
+    STM 0x8037
+    LDR 14
+    CLL 0x8034
+    RET

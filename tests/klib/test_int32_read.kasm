@@ -1,8 +1,5 @@
-
 // test_int32_read: checks klib's int32_read against the keystrokes in
-// tests/klib/test_int32_read.in, which the harness pipes into the vm; every
-// case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// tests/klib/test_int32_read.in, which the harness pipes into the vm:
 //     '12345 '      -> 12345
 //     '-42 '        -> -42
 //     '1.234.567 '  -> 1234567, the separators dropped

@@ -1,0 +1,57 @@
+// str_eq: compares two null terminated strings
+//     in:       a -> R0 (low byte), R1 (high byte),
+//               b -> R2 (low byte), R3 (high byte)
+//     out:      R0 -> 1 if the two are equal, 0 if they are not
+//     clobbers: R0 - R5, R12 - R14
+//
+// Both addresses are read through 'mem_peek' from klib/mem/mem_peek.kasm,
+// which this file needs alongside it.
+str_eq:
+    LDR 0
+    STR 12
+    LDR 1
+    STR 13
+    CLL mem_peek
+    STR 4           // char of a
+
+    LDR 2
+    STR 12
+    LDR 3
+    STR 13
+    CLL mem_peek
+    STR 5           // char of b
+
+    LDR 4
+    XOR 5
+    JA1 str_eq__differ
+
+    LDR 4
+    JA0 str_eq__equal
+
+    LDI 1
+    ADD 0
+    STR 0
+    JC0 str_eq__b
+    LDI 1
+    ADD 1
+    STR 1
+
+str_eq__b:
+    LDI 1
+    ADD 2
+    STR 2
+    JC0 str_eq
+    LDI 1
+    ADD 3
+    STR 3
+    JMP str_eq
+
+str_eq__differ:
+    LDI 0
+    STR 0
+    RET
+
+str_eq__equal:
+    LDI 1
+    STR 0
+    RET

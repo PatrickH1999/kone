@@ -1,0 +1,49 @@
+// mem_copy: copies a block of bytes from one address to another, through
+// 'mem_peek' and 'mem_poke'
+//     in:       source -> R0 (low byte), R1 (high byte),
+//               target -> R2 (low byte), R3 (high byte), count -> R4
+//     out:      -
+//     clobbers: R0 - R4, R12 - R14
+//
+// The two blocks must not overlap. A count of 0 copies nothing.
+mem_copy:
+    LDR 4
+    JA0 mem_copy__done
+
+    LDR 0
+    STR 12
+    LDR 1
+    STR 13
+    CLL mem_peek
+    STR 14
+    LDR 2
+    STR 12
+    LDR 3
+    STR 13
+    CLL mem_poke
+
+    LDI 1
+    ADD 0
+    STR 0
+    JC0 mem_copy__target
+    LDI 1
+    ADD 1
+    STR 1
+
+mem_copy__target:
+    LDI 1
+    ADD 2
+    STR 2
+    JC0 mem_copy__count
+    LDI 1
+    ADD 3
+    STR 3
+
+mem_copy__count:
+    LDI 255         // -1
+    ADD 4
+    STR 4
+    JMP mem_copy
+
+mem_copy__done:
+    RET

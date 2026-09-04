@@ -1,13 +1,10 @@
-// Archimedes' polygon: the regular hexagon inscribed in the unit circle has
-// the side s = 1, and doubling the corner count of a polygon with the side s
-// gives the side
+// Archimedes' polygon, see README.md. Doubling the corner count of a polygon
+// with the side s gives
 //     s' = s / sqrt(2 + 2 * sqrt(1 - (s/2)^2))
-// which is Pythagoras on the two right triangles over half an edge, written
-// so that no two nearly equal values are subtracted. Half the perimeter,
-// h * s for a polygon of 2h corners, approaches pi and is printed after
-// every doubling, from the 12-gon up to the 6144-gon.
+// written so that no two nearly equal values are subtracted; half the
+// perimeter is h * s for a polygon of 2h corners.
 //
-// The scratch memory used here, klib's own map being in klib/io/disp.kasm:
+// Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
 //     0x8040 - 0x8043 the side s
 //     0x8044 - 0x8047 h, half the corner count
 //     0x8048 - 0x804B the square root's argument
@@ -110,7 +107,7 @@ pi__loop:
     STR 3
     CLL float32_sub
     CLL pi__c_to_a
-    CLL pi__sqrt    // the centre's distance from the edge
+    CLL pi__sqrt    // the center's distance from the edge
 
     CLL pi__c_to_a
     CLL pi__c_to_b

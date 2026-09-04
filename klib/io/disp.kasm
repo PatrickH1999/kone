@@ -1,13 +1,13 @@
 // disp: the display helpers of klib. The kone display has no cursor that a
 // program could read back, so these keep the column of the next cell at 0x8000
-// and every write to the display goes through them.
+// and its row at 0x8022, and every write to the display goes through them.
 //
 // klib scratch memory, the whole map, so that a new routine can tell what is
 // already taken:
 //     0x8000          display column pointer (0 - 39, see 'disp_putc')
-//     0x8001 - 0x8004 int32_write:    remaining magnitude
-//     0x8005 - 0x8008 int32_write:    remaining magnitude / 10
-//     0x8009          int32_write:    1 if the value is negative
+//     0x8001 - 0x8004 int32_digits:   remaining magnitude
+//     0x8005 - 0x8008 int32_digits:   remaining magnitude / 10
+//     0x8009          int32_digits:   1 if the value is negative
 //     0x800A          int32_read:     digits typed so far
 //     0x800B          int32_read:     1 if a leading '-' was typed
 //     0x800C - 0x800F float32_pow10:  the running product
@@ -21,6 +21,7 @@
 //     0x801F          float32_write:  significant digits after trimming
 //     0x8020          float32_write:  the decimal exponent
 //     0x8021          float32_write:  1 for the 'd.dddddemdd' layout
+//     0x8022          display row pointer (0 - 23, see 'disp_putc')
 //     0x8023 - 0x8026 float32_read:   the mantissa typed so far
 //     0x8027          float32_read:   the decimal exponent
 //     0x8028          float32_read:   the state flags
@@ -28,9 +29,19 @@
 //     0x802A          float32_read:   the exponent typed so far
 //     0x802B          float32_read:   undo entries on the stack
 //     0x802C          float32_read:   the char that ended the number
+//     0x8030 - 0x8033 mem_peek:       the patched 'LDM' and its 'RET'
+//     0x8034 - 0x8037 mem_poke:       the patched 'STM' and its 'RET'
+//     0x8038 - 0x803B float32_mod:    A
+//     0x803C - 0x803F float32_mod:    B
+//
+// The klib tests keep their own state at 0x8040 and above, so a new routine
+// that needs scratch takes one of the free bytes above rather than growing
+// this region past 0x803F.
 
 // disp_putc: pushes the ASCII char in the accumulator to the display and
-// advances the display column pointer at 0x8000
+// advances the display column pointer at 0x8000 and, once a row is full, the
+// row pointer at 0x8022. The display starts over on a cleared grid after the
+// last cell of the last row, so the row pointer wraps with it
 //     in:       char -> accumulator
 //     clobbers: R13
 disp_putc:
@@ -50,7 +61,21 @@ disp_putc__wait:
     ADD 13
     JC0 disp_putc__store
     LDI 0
+    STM 0x8000      // the row is full -> back to its first cell
+    LDM 0x8022
     STR 13
+    LDI 1
+    ADD 13
+    STR 13
+    LDI 232         // 256 - 24; carry set only once the row wrapped
+    ADD 13
+    JC0 disp_putc__row
+    LDI 0
+    STR 13          // the last row was full -> the display started over
+disp_putc__row:
+    LDR 13
+    STM 0x8022
+    RET
 disp_putc__store:
     LDR 13
     STM 0x8000
@@ -86,4 +111,22 @@ disp_nl:
     CLL disp_putc
     JMP disp_nl
 disp_nl__done:
+    RET
+
+// disp_cls: clears the display and leaves the cursor on its first cell
+//     clobbers: R13
+//
+// The kone display has no clear command. It clears the whole grid on its own
+// once a char lands on the last cell of the last row, so this pads the rest of
+// the grid with spaces and stops exactly on that cell, which is also where the
+// column and the row pointer are both back at 0. A full sweep is up to 960
+// chars and every one of them waits out the display handshake, so a clear
+// takes a noticeable moment.
+disp_cls:
+    LDI 32          // ' '
+    CLL disp_putc
+    LDM 0x8000
+    JA1 disp_cls
+    LDM 0x8022
+    JA1 disp_cls
     RET

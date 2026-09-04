@@ -1,0 +1,118 @@
+// float32_cmp: compares two IEEE 754 single precision values, byte order
+// LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      accumulator -> 0 if A = B, 1 if A < B, 2 if A > B
+//     clobbers: R8 - R12
+//
+// The bit patterns are compared rather than the values, which needs no
+// arithmetic: the magnitude bits of a single precision value grow with the
+// value, so two values of the same sign are ordered by them and two of
+// different signs by the sign alone. Both zeros count as equal, so -0 is
+// neither above nor below +0, and an exponent of 255 is ordered like any
+// other value.
+float32_cmp:
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    STR 8           // A without its sign bit
+    LDR 7
+    AND 12
+    STR 9           // B without its sign bit
+
+    LDR 0
+    ORR 1
+    ORR 2
+    ORR 8
+    STR 10
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 9
+    ORR 10
+    JA0 float32_cmp__equal  // both are zero
+
+    LDI 0x80
+    STR 12
+    LDR 3
+    XOR 7
+    AND 12
+    JA0 float32_cmp__same
+
+    LDR 3
+    AND 12
+    JA0 float32_cmp__greater    // A is the positive one
+    JMP float32_cmp__less
+
+float32_cmp__same:
+    LDR 8
+    XOR 9
+    JA1 float32_cmp__byte3
+    LDR 2
+    XOR 6
+    JA1 float32_cmp__byte2
+    LDR 1
+    XOR 5
+    JA1 float32_cmp__byte1
+    LDR 0
+    XOR 4
+    JA0 float32_cmp__equal
+
+    LDR 4
+    NOT
+    STR 12
+    LDR 0
+    ADD 12
+    JMP float32_cmp__order
+
+float32_cmp__byte1:
+    LDR 5
+    NOT
+    STR 12
+    LDR 1
+    ADD 12
+    JMP float32_cmp__order
+
+float32_cmp__byte2:
+    LDR 6
+    NOT
+    STR 12
+    LDR 2
+    ADD 12
+    JMP float32_cmp__order
+
+float32_cmp__byte3:
+    LDR 9
+    NOT
+    STR 12
+    LDR 8
+    ADD 12
+
+float32_cmp__order:
+    JC1 float32_cmp__bigger // carry set only when the magnitude of A is larger
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA0 float32_cmp__less   // both are positive
+    JMP float32_cmp__greater
+
+float32_cmp__bigger:
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA0 float32_cmp__greater
+    JMP float32_cmp__less
+
+float32_cmp__less:
+    LDI 1
+    RET
+
+float32_cmp__greater:
+    LDI 2
+    RET
+
+float32_cmp__equal:
+    LDI 0
+    RET

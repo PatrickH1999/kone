@@ -5,26 +5,22 @@
 //               R14 -> the char that ended the number
 //     clobbers: R0 - R15
 //
-// The accepted shape is '[-] digits [ . digits ] [ (e|E) [+|-] digits ]', and a
-// ',' is dropped as a thousands separator. The mantissa is built up as an
-// integer, at most nine digits of it, and everything beyond that only counts
-// towards the decimal exponent; 'float32_from_int32' turns it into a float and
-// 'float32_pow10' scales it, in chunks of at most 22, so a typed exponent
-// beyond the range of the format ends up as infinity or zero. Reading stops at
-// the first char that does not fit the shape above, which is echoed as well and
-// left in R14 for the caller to inspect (kone maps ENTER to a space).
+// The accepted shape is '[-] digits [ . digits ] [ (e|E) [+|-] digits ]'; a
+// ',' is dropped as a thousands separator. The mantissa is built as an integer,
+// nine digits at most, and everything beyond that only counts towards the
+// decimal exponent; 'float32_from_int32' turns it into a float and
+// 'float32_pow10' scales it in chunks of at most 22, so an exponent beyond the
+// range of the format ends up as infinity or zero. Reading stops at the first
+// char that does not fit, which is echoed and left in R14.
 //
-// A backspace (8 or 127, see README) undoes the last char, whatever it was: the
-// kind of every accepted char is pushed onto the stack, so erasing is a matter
-// of popping the last one and reversing what it did. A backspace with nothing
-// left to erase ends the number like any char that does not fit, except that it
-// is not echoed: it lands in R14 like every other terminator, so a caller that
-// printed something before the call can take that back itself (see
-// examples/calculator_float32.kasm).
+// A backspace undoes the last char, whatever it was: the kind of every accepted
+// char is pushed onto the stack, so erasing is a matter of popping the last one
+// and reversing what it did. A backspace with nothing left to erase ends the
+// number as well but is not echoed, which lets a caller take its own prompt
+// back (see examples/calculator_float32.kasm).
 //
-// Besides klib/io/disp.kasm this file needs klib/math/float32.kasm for the
-// conversion and the scaling and klib/math/int32.kasm to grow and shrink the
-// mantissa; klib/io/disp.kasm also documents the scratch memory it uses.
+// Besides klib/io/disp.kasm this needs klib/math/float32.kasm for the
+// conversion and the scaling and klib/math/int32.kasm for the mantissa.
 float32_read:
     LDI 0
     STM 0x8023

@@ -1,11 +1,9 @@
-
 // test_int32_write: checks that klib's int32_write leaves its operand and the
-// display alone as documented; every case prints 'PASS:<case>' or
-// 'FAIL:<case>' on its own display row, followed by a summary row ('ALL PASS'
-// or '<n> FAILED'). What it prints cannot be read back from inside the vm, so
+// display alone as documented. What it prints cannot be read back from inside the vm, so
 // the rows themselves are checked by the harness against
 // tests/klib/test_int32_write.expect:
-//     0, 12345, -12345 and 999999
+//     0, 12345, -12345 and 999999, and the bare digits that
+//     int32_puts prints for 35 and -7
 //
 // The values are kept small on purpose: int32_write recovers every digit with
 // int32_div, which subtracts the divisor over and over, so printing a nine
@@ -187,6 +185,29 @@ main__int32_write_ends_row_name:
     CLL disp_putc
     LDI 119         // 'w'
     CLL disp_putc
+    CLL disp_nl
+
+    // the same digits without the '=' and the newline around them;
+    // tests/klib/test_int32_write.expect holds these rows as well
+    LDI 0x23
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x00
+    STR 2
+    LDI 0x00
+    STR 3
+    CLL int32_puts
+    CLL disp_nl
+    LDI 0xF9
+    STR 0
+    LDI 0xFF
+    STR 1
+    LDI 0xFF
+    STR 2
+    LDI 0xFF
+    STR 3
+    CLL int32_puts
     CLL disp_nl
 
 main__summary:

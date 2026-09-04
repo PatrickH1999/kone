@@ -1,12 +1,7 @@
-// io: all display and keyboard routines of klib, the display helpers and the
-// decimal readers and writers in one include. Include this when a program
-// needs more than one of them, and see the individual files in klib/io/ for
-// their calling conventions.
-//
-// The readers and writers call into the arithmetic routines, so this file
-// needs klib/math.kasm alongside it. It does not pull that in itself: an
-// include is not idempotent, and a program that ends up including the same
-// file along two paths gets every label in it twice.
+// io: every display and keyboard routine of klib in one include; see the files
+// in klib/io/ for their calling conventions. The readers and writers need
+// klib/math.kasm alongside this file, which it does not pull in itself because
+// includes are not idempotent (see README.md).
 
 .include "io/disp.kasm"
 .include "io/int32_write.kasm"

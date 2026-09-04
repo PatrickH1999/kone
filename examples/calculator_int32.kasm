@@ -1,20 +1,5 @@
-// An interactive 32 bit signed integer decimal calculator, built from klib's
-// int32_read and int32_write. A line that starts with an operator ('+', '-',
-// '*' or '/') applies that operator and a number to the accumulator, a line
-// that starts with a digit is a bare number that replaces the accumulator and
-// so starts a new calculation:
-//     >1000
-//     =1000
-//     >-1500
-//     =-500
-//     >/-2
-//     =250
-// Values run from -2147483648 to 2147483647. A number may be typed with a
-// leading '-' ('+-5' adds -5, '*-1' flips the sign), and backspace erases
-// the last digit of the number being typed. A line starting with '-' is
-// always subtraction, so a negative accumulator is entered as '0' followed
-// by '-5'. Unknown operators leave the accumulator alone, dividing by zero
-// prints 'ERR' and keeps it. The program never exits.
+// An interactive 32 bit signed integer calculator on klib's int32_read and
+// int32_write; README.md documents how a line is read.
 
     JMP main
 

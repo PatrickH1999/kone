@@ -1,0 +1,85 @@
+// float32_mod: C = A - B * trunc(A / B), IEEE 754 single precision, byte order
+// LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R15
+//
+// The quotient is truncated by the round trip through 'float32_to_int32' and
+// 'float32_from_int32', which saturates: a B far smaller than A yields garbage
+// rather than a remainder, and a B of zero yields A. It needs the whole float32
+// group, and keeps A and B at 0x8038 - 0x803F because every call it makes
+// clobbers R0 - R7.
+float32_mod:
+    LDR 0
+    STM 0x8038
+    LDR 1
+    STM 0x8039
+    LDR 2
+    STM 0x803A
+    LDR 3
+    STM 0x803B      // A
+    LDR 4
+    STM 0x803C
+    LDR 5
+    STM 0x803D
+    LDR 6
+    STM 0x803E
+    LDR 7
+    STM 0x803F      // B
+
+    CLL float32_div // R8 - R11 = A / B
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_to_int32
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_from_int32  // R8 - R11 = trunc(A / B)
+
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x803C
+    STR 0
+    LDM 0x803D
+    STR 1
+    LDM 0x803E
+    STR 2
+    LDM 0x803F
+    STR 3
+    CLL float32_mul // R8 - R11 = B * trunc(A / B)
+
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x8038
+    STR 0
+    LDM 0x8039
+    STR 1
+    LDM 0x803A
+    STR 2
+    LDM 0x803B
+    STR 3
+    CLL float32_sub
+    RET

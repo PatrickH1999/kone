@@ -1,12 +1,9 @@
-// test_float32_pow10: checks klib's float32_pow10 against known results; every
-// case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// test_float32_pow10: checks klib's float32_pow10 against known results:
 //     10 ** 0  = 3F800000 (1.0)
 //     10 ** 3  = 447A0000 (1000.0)
 //     10 ** 10 = 501502F9 (10000000000.0)
 //     10 ** 38 = 7E967699 (9.999999680285692e+37)
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 // The failure count lives at 0x8040, as the routine under test clobbers R0 -
 // R15.
 

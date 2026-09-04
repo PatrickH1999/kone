@@ -1,12 +1,9 @@
-// test_float32_add: checks klib's float32_add against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED'):
+// test_float32_add: checks klib's float32_add against known results:
 //     3F800000 + 40000000 = 40400000    (1 + 2 = 3)
 //     3F800000 + 3F000000 = 3FC00000    (1 + 0.5 = 1.5)
 //     40A00000 + C0400000 = 40000000    (5 + -3 = 2)
 //     00000000 + 40E80000 = 40E80000    (0 + 7.25 = 7.25)
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 // The failure count lives at 0x8040, as float32_add clobbers R0 - R15.
 
     JMP main

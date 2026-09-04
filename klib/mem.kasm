@@ -1,0 +1,6 @@
+// mem: byte access through a computed address and the block copy built on it;
+// see the files in klib/mem/ for their calling conventions.
+
+.include "mem/mem_peek.kasm"
+.include "mem/mem_poke.kasm"
+.include "mem/mem_copy.kasm"
