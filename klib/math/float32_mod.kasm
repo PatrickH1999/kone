@@ -1,22 +1,14 @@
-// float32_mod: C = A - B * trunc(A / B), the remainder of A / B with the sign
-// of A, IEEE 754 single precision, byte order LSB -> MSB
+// float32_mod: C = A - B * trunc(A / B), IEEE 754 single precision, byte order
+// LSB -> MSB
 //     in:       A -> R0 - R3, B -> R4 - R7
 //     out:      C -> R8 - R11
 //     clobbers: R0 - R15
 //
-// The quotient is truncated towards zero by the round trip through
-// 'float32_to_int32' and 'float32_from_int32', so this is the remainder C
-// keeps and not the one that follows the sign of B: 7 MOD 3 is 1 and
-// -7 MOD 3 is -1. A quotient whose magnitude does not fit into a signed 32 bit
-// integer saturates there, so a B far smaller than A yields garbage rather
-// than a remainder; a B of zero yields A, as the quotient it divides by
-// saturates and comes back multiplied by zero.
-//
-// It needs 'float32_div', 'float32_mul', 'float32_sub', 'float32_to_int32' and
-// 'float32_from_int32' alongside it, so include klib/math/float32.kasm rather
-// than this file on its own. A and B are kept at 0x8038 - 0x803F, since every
-// one of those calls clobbers R0 - R7; see klib/io/disp.kasm for the whole
-// klib scratch map.
+// The quotient is truncated by the round trip through 'float32_to_int32' and
+// 'float32_from_int32', which saturates: a B far smaller than A yields garbage
+// rather than a remainder, and a B of zero yields A. It needs the whole float32
+// group, and keeps A and B at 0x8038 - 0x803F because every call it makes
+// clobbers R0 - R7.
 float32_mod:
     LDR 0
     STM 0x8038

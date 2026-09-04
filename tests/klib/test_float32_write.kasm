@@ -1,4 +1,3 @@
-
 // test_float32_write: checks the layout klib's float32_write prints, which
 // 'float32_digits' (see tests/klib/test_float32_digits.kasm) does not cover.
 // What it prints cannot be read back from inside the vm, so the rows are
@@ -6,8 +5,6 @@
 //     0, 0.5 and -0.1 positionally, 1e10 in the exponent layout and an
 //     exponent of 255 as 'inf', plus the bare rows that float32_puts prints
 //     for 0.5 and -12.25
-// The one case checked here prints 'PASS:<case>' or 'FAIL:<case>' followed by
-// a summary row ('ALL PASS' or '<n> FAILED').
 //
 // The failure count lives at 0x8040, as float32_write clobbers R0 - R15.
 

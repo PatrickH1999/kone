@@ -1,13 +1,10 @@
-// test_float32_mod: checks klib's float32_mod against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED'):
+// test_float32_mod: checks klib's float32_mod against known results:
 //     40E00000 % 40400000 = 3F800000    (7 % 3 = 1)
 //     C0E00000 % 40400000 = BF800000    (-7 % 3 = -1)
 //     40F00000 % 40000000 = 3FC00000    (7.5 % 2 = 1.5)
 //     40C00000 % 40400000 = 00000000    (6 % 3 = 0)
 //     40000000 % 40A00000 = 40000000    (2 % 5 = 2)
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 // The failure count lives at 0x8040, as float32_mod clobbers R0 - R15.
 
     JMP main

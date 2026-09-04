@@ -1,8 +1,5 @@
-
 // test_float32_read: checks klib's float32_read against the keystrokes in
-// tests/klib/test_float32_read.in, which the harness pipes into the vm; every
-// case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed
-// by a summary row ('ALL PASS' or '<n> FAILED'):
+// tests/klib/test_float32_read.in, which the harness pipes into the vm:
 //     '1.5 '   -> 3FC00000
 //     '-2.5 '  -> C0200000
 //     '1.5e2 ' -> 43160000 (150)

@@ -1,6 +1,5 @@
 // test_float32_digits: checks the numeric core of klib's float32_write against
-// known results; every case prints 'PASS:<case>' or 'FAIL:<case>' on its own
-// display row, followed by a summary row ('ALL PASS' or '<n> FAILED'):
+// known results:
 //     3F800000 (1.0          ) -> 100000, exponent 0
 //     3DCCCCCD (0.1          ) -> 100000, exponent -1
 //     66FF0C2C (6.02214e+23  ) -> 602214, exponent 23

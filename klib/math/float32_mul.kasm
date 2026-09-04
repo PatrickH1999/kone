@@ -15,12 +15,8 @@
 // product instead of shifting the partial products left. What is left is the
 // top 25 bit of the product in R8 - R11 plus 8 guard bits in R13.
 //
-// The guard byte is dropped without rounding, i.e., the result is truncated
-// towards zero. A zero operand yields a signed zero, an exponent that drops
-// below 1 is flushed to a signed zero (subnormals are not produced) and one
-// that reaches 255 becomes a signed infinity. Operands with exponent 255
-// (infinity, NaN) are treated as ordinary numbers, so they produce garbage
-// rather than an infinity or a NaN.
+// A zero operand yields a signed zero; the rest follows the group rules
+// (see README.md).
 float32_mul:
     CLL float32_unpack
 

@@ -1,6 +1,4 @@
-// test_mem: checks klib's memory routines against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED').
+// test_mem: checks klib's memory routines against known results.
 //
 // The addresses are in the scratch memory above klib's own map, which
 // klib/io/disp.kasm documents.

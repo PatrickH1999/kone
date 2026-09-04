@@ -1,11 +1,8 @@
-// test_int32_sub: checks klib's int32_sub against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED'):
+// test_int32_sub: checks klib's int32_sub against known results:
 //     12345678 - 00009ABC = 1233BBBC
 //     00000000 - 00000001 = FFFFFFFF
 //     FFFFFFFF - FFFFFFFF = 00000000
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 
     JMP main
 

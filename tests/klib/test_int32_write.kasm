@@ -1,8 +1,5 @@
-
 // test_int32_write: checks that klib's int32_write leaves its operand and the
-// display alone as documented; every case prints 'PASS:<case>' or
-// 'FAIL:<case>' on its own display row, followed by a summary row ('ALL PASS'
-// or '<n> FAILED'). What it prints cannot be read back from inside the vm, so
+// display alone as documented. What it prints cannot be read back from inside the vm, so
 // the rows themselves are checked by the harness against
 // tests/klib/test_int32_write.expect:
 //     0, 12345, -12345 and 999999, and the bare digits that

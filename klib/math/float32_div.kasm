@@ -15,13 +15,8 @@
 // borrowed, and shift'. The remainder lives in R0 - R3, the quotient in
 // R8 - R11.
 //
-// The bits below the 24 bit quotient are dropped without rounding, i.e., the
-// result is truncated towards zero. Dividing zero by a non-zero value yields a
-// signed zero, dividing by zero yields a signed infinity (including 0 / 0,
-// which should be a NaN), an exponent that drops below 1 is flushed to a signed
-// zero (subnormals are not produced) and one that reaches 255 becomes a signed
-// infinity. Operands with exponent 255 (infinity, NaN) are treated as ordinary
-// numbers, so they produce garbage rather than an infinity or a NaN.
+// Dividing by zero yields a signed infinity, 0 / 0 included where a NaN
+// belongs; the rest follows the group rules (see README.md).
 float32_div:
     CLL float32_unpack
 

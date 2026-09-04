@@ -1,27 +1,10 @@
-// An interactive 32 bit floating point calculator, built from klib's
-// float32_read and float32_write. A line that starts with an operator ('+',
-// '-', '*' or '/') applies that operator and a number to the accumulator, a
-// line that starts with a digit or a '.' is a bare number that replaces the
-// accumulator and so starts a new calculation:
-//     >1.5
-//     =1.5
-//     >*2.0
-//     =3
-//     >+0.25
-//     =3.25
-// Values are IEEE 754 single precision, so magnitudes run from about 1.2e-38
-// to 3.4e38 and six significant digits are printed. A number may carry a
-// decimal point and an exponent ('1.5e-7') as well as a leading '-' ('+-5'
-// adds -5, '*-1' flips the sign), and backspace erases the last char of the
-// number being typed. A line starting with '-' is always subtraction, so a
-// negative accumulator is entered as '0' followed by '-5'. Unknown operators
-// leave the accumulator alone. Dividing by zero would yield an infinity, which
-// klib does not carry through its arithmetic, so it prints 'ERR' and keeps the
-// accumulator instead, just like examples/calculator_int32.kasm does.
+// examples/calculator_int32.kasm on IEEE 754 single precision values, built
+// from klib's float32_read and float32_write; README.md documents how a line
+// is read.
 //
-// Scratch memory, above the 0x8000 - 0x802C that klib uses (klib/io/disp.kasm):
-//     0x8030          the operator of the line being read
-//     0x8031 - 0x8034 the accumulator
+// Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
+//     0x8040          the operator of the line being read
+//     0x8041 - 0x8044 the accumulator
 
     JMP main
 
@@ -70,18 +53,18 @@ calculator_float32__number:
     JA1 calculator_float32__key     // erased back past the first char
     CLL disp_nl
     LDR 0
-    STM 0x8031
+    STM 0x8041
     LDR 1
-    STM 0x8032
+    STM 0x8042
     LDR 2
-    STM 0x8033
+    STM 0x8043
     LDR 3
-    STM 0x8034
+    STM 0x8044
     JMP calculator_float32__print
 
 calculator_float32__operator:
     LDR 13
-    STM 0x8030      // float32_read clobbers every register, so park it here
+    STM 0x8040      // float32_read clobbers every register, so park it here
     CLL disp_putc
 
     CLL float32_read    // R0 - R3 = operand
@@ -97,16 +80,16 @@ calculator_float32__operator:
     STR 6
     LDR 3
     STR 7           // R4 - R7 = operand
-    LDM 0x8031
+    LDM 0x8041
     STR 0
-    LDM 0x8032
+    LDM 0x8042
     STR 1
-    LDM 0x8033
+    LDM 0x8043
     STR 2
-    LDM 0x8034
+    LDM 0x8044
     STR 3           // R0 - R3 = accumulator
 
-    LDM 0x8030
+    LDM 0x8040
     STR 13
     LDI 213         // 256 - 43 -> '+'
     ADD 13
@@ -163,22 +146,22 @@ calculator_float32__div_zero:
 
 calculator_float32__store:
     LDR 8
-    STM 0x8031
+    STM 0x8041
     LDR 9
-    STM 0x8032
+    STM 0x8042
     LDR 10
-    STM 0x8033
+    STM 0x8043
     LDR 11
-    STM 0x8034
+    STM 0x8044
 
 calculator_float32__print:
-    LDM 0x8031
+    LDM 0x8041
     STR 0
-    LDM 0x8032
+    LDM 0x8042
     STR 1
-    LDM 0x8033
+    LDM 0x8043
     STR 2
-    LDM 0x8034
+    LDM 0x8044
     STR 3
     CLL float32_write
     JMP main

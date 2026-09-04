@@ -1,6 +1,4 @@
-// test_int32_cmp: checks klib's int32_cmp against known results; every case
-// prints 'PASS:<case>' or 'FAIL:<case>' on its own display row, followed by a
-// summary row ('ALL PASS' or '<n> FAILED').
+// test_int32_cmp: checks klib's int32_cmp against known results.
 
     JMP main
 

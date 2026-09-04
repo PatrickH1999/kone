@@ -12,12 +12,9 @@
 // renormalization shifts back in, so that a subtraction of two close values
 // stays within one unit in the last place.
 //
-// The guard byte is dropped without rounding, i.e., the result is truncated
-// towards zero. A zero operand is returned as the other operand unchanged, an
-// exact cancellation yields +0, an exponent that drops below 1 is flushed to a
-// signed zero (subnormals are not produced) and one that reaches 255 becomes a
-// signed infinity. Operands with exponent 255 (infinity, NaN) are treated as
-// ordinary numbers, so they produce garbage rather than an infinity or a NaN.
+// A zero operand comes back as the other operand unchanged and an exact
+// cancellation yields +0; rounding, overflow and exponent 255 follow the rules
+// the whole float32 group shares (see README.md).
 //
 // This file also holds 'float32_unpack' and 'float32_pack' (see below), which
 // every other float32 routine in klib/math/ uses as well.

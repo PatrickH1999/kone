@@ -1,12 +1,10 @@
 // test_float32_from_int32: checks klib's float32_from_int32 against known
-// results; every case prints 'PASS:<case>' or 'FAIL:<case>' on its own display
-// row, followed by a summary row ('ALL PASS' or '<n> FAILED'):
+// results:
 //               0 -> 00000000
 //           12345 -> 4640E400
 //     -2147483648 -> CF000000
 //      1234567890 -> 4E932C05
 //
-// The display helpers 'disp_putc' and 'disp_nl' come from klib/io/disp.kasm.
 // The failure count lives at 0x8040, as the routine under test clobbers R0 -
 // R15.
 

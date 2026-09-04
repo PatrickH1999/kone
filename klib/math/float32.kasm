@@ -1,6 +1,5 @@
-// float32: all IEEE 754 single precision operations of klib, see the individual
-// files for their calling conventions. Include this rather than the single
-// files when a program needs more than one of them; none of them depends on
+// float32: every IEEE 754 single precision operation of klib; see the
+// individual files for their calling conventions. None depends on
 // klib/math/int32.kasm.
 
 .include "float32_add.kasm"

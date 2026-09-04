@@ -4,8 +4,7 @@
 //     out:      -
 //     clobbers: R0 - R15
 //
-// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm, which
-// also documents the scratch memory this file uses.
+// Printing goes through 'disp_putc' and 'disp_nl' from klib/io/disp.kasm.
 float32_write:
     LDI 61          // '='
     CLL disp_putc

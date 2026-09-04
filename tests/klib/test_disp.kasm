@@ -1,8 +1,5 @@
-
 // test_disp: checks klib's display helpers against the column pointer they
-// keep at 0x8000, which is the only display state a program can read back;
-// every case prints 'PASS:<case>' or 'FAIL:<case>' on its own display row,
-// followed by a summary row ('ALL PASS' or '<n> FAILED'):
+// keep at 0x8000, which is the only display state a program can read back:
 //     three chars      -> column 3
 //     a backspace      -> column 2
 //     a newline        -> column 0

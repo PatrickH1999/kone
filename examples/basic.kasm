@@ -1,80 +1,24 @@
 // basic: a BASIC interpreter with the kone keyboard as its terminal and the
 // kone display as its screen, in the shape of the classic home computer
-// BASICs. It prints 'READY.' and a '>' prompt, takes a line, and either
-// stores it as a numbered program line or carries it out at once:
-//     >10 LET A = 7
-//     >20 LET B = 5
-//     >30 LET C = A * B
-//     >40 PRINT "RESULT: "; C
-//     >50 END
-//     >RUN
-//     RESULT: 35
-//     DONE.
-//
-// Every value is an IEEE 754 single precision float, the way a classic BASIC
-// treats its numbers: '10 LET A = 1 / 3' followed by 'PRINT A' gives
-// 0.333333. Literals may carry a decimal point and an exponent ('1.5e-7',
-// '-.5'), klib's float32 group does the arithmetic and klib's float32_puts
-// prints six significant digits in the layout of printf's '%g', so a value
-// that happens to be whole prints without a decimal point. Only line numbers
-// are integers.
-//
-// A line ends with ENTER, which kone hands to the program as ASCII 10 (see
-// 'Devices' in README.md). The line is read into a buffer and only parsed
-// once it is complete, so backspace erases the char before the cursor
-// anywhere in it, down to the prompt.
-// Lower case is folded to upper case outside of string literals, so 'run'
-// and 'RUN' are the same.
-//
-// The commands that act at once:
-//     RUN     runs the stored program from the lowest line number upward
-//     LIST    prints the stored program in line number order
-//     CLEAR   drops every stored line and prints 'READY.'
-// A line that is just a line number deletes that line. The statements that
-// can be stored, where <term> is a literal, a variable, 'ABS(<var>)' or
-// 'INT(<var>)':
-//     LET <var> = <term> [ <op> <term> ]      <op> is + - * / or MOD
-//     PRINT "<text>"                          a string literal
-//     PRINT <term>                            a value
-//     PRINT "<text>"; <term>                  both, on one row
-//     IF <term> <op> <term> THEN <line>       <op> is one of = < >
-//     GOTO <line>
-//     GOSUB <line>                            calls, RETURN comes back
-//     RETURN                                  back behind the last GOSUB
-//     FOR <var> = <term> TO <term>            counts up in steps of one
-//     NEXT <var>                              closes the loop of that var
-//     INPUT <var>                             prompts '? ' and reads a value
-//     CLS                                     clears the display
-//     REM <text>                              a comment, does nothing
-//     END                                     stops the run, prints 'DONE.'
-// An expression holds at most one operator: there is no precedence to get
-// right and no bracketing, so 'A * B + C' is a syntax error. Variables are
-// the single letters A - Z, and a name of more than one letter only parses
-// as ABS, INT or MOD, so 'AB' is an error rather than A with a stray B behind
-// it. ABS drops the sign of a variable and INT floors it, so INT(-2.5) is -3
-// the way a classic BASIC has it, not the -2 that truncating would give.
-//
-// FOR loops nest four deep and GOSUB eight deep, both on stacks of their own
-// in fixed memory rather than on the hardware stack, which CLL and RET need
-// for themselves between the two halves of a loop or a call. A FOR always
-// counts up by one and always runs its body once, since NEXT is what tests
-// the limit. MOD truncates towards zero, so it keeps the sign of the left
-// side: -7 MOD 3 is -1.
+// BASICs. README.md documents the language it takes; this header maps the
+// memory behind it.
 //
 // The kone ISA has no register indirect addressing and kasm cannot emit data,
-// so every table below is addressed through klib's 'mem_peek' and 'mem_poke',
-// which patch the address into an 'LDM'/'STM' in scratch memory and call it.
-// The memory this program owns, above the klib scratch that
-// klib/io/disp.kasm maps:
+// so every table below is written at startup and reached through klib's
+// 'mem_peek' and 'mem_poke'. FOR and GOSUB get stacks of their own here rather
+// than the hardware stack, which CLL and RET need for themselves between the
+// two halves of a loop or a call.
+//
+// The memory this program owns, above the klib scratch klib/io/disp.kasm maps:
 //     0x8100 - 0x8150 the line being typed, null terminated
 //     0x8200 - 0x8227 the statement being parsed, one 40 byte record
+//     0x8228 - 0x822B the value INT is flooring
 //     0x8230 - 0x823F the word being read, null terminated
 //     0x8290 - 0x829D the parser and run flags, a byte each
 //     0x829E - 0x82A6 the line numbers a search or a run works with
 //     0x82A7 - 0x82AC the operator, the comparison, and where the parser and
 //                     a listing stand
 //     0x82AD - 0x82BB the number being read out of a line
-//     0x8228 - 0x822B the value INT is flooring
 //     0x82BC - 0x82BE the kind of the term being read, the FOR frame being
 //                     worked on, and the function a term stands for
 //     0x82C0 - 0x82CB a variable on its way to or from the table, and the two
@@ -86,15 +30,14 @@
 //                     came from
 //     0x8300 - 0x8367 the variables A - Z, 4 bytes each, LSB first
 //     0x8400 - 0x88FF the program, 32 slots of 40 bytes
-//     0x8900 - 0x899B the twenty keywords, 8 bytes apart, written at startup
+//     0x8900 - 0x899B the twenty keywords, 8 bytes apart
 //
-// A slot and the record share one layout. Byte 0 and 1 are the line number,
-// LSB first, and a line number of 0 marks the slot as free, which is why
-// program lines start at 1. Byte 2 is the statement (1 LET, 2 PRINT, 3 IF,
-// 4 GOTO, 5 END, 6 REM, 7 CLS, 8 INPUT, 9 FOR, 10 NEXT, 11 GOSUB,
-// 12 RETURN) and the rest depends on it. A <term> takes six bytes: its kind
-// (0 literal, 1 variable, 2 the absolute value of one, 3 its floor), the
-// variable index, and the literal.
+// A slot and the record share one layout. Bytes 0 and 1 are the line number,
+// LSB first; 0 marks the slot free, which is why program lines start at 1.
+// Byte 2 is the statement (1 LET, 2 PRINT, 3 IF, 4 GOTO, 5 END, 6 REM, 7 CLS,
+// 8 INPUT, 9 FOR, 10 NEXT, 11 GOSUB, 12 RETURN) and the rest depends on it. A
+// <term> takes six bytes: its kind (0 literal, 1 variable, 2 its magnitude,
+// 3 its floor), the variable index, and the literal.
 //     LET     3 target variable, 4 1 when an operator follows, 5 operator
 //             ('+', '-', '*', '/', or 1 for MOD, which is no char),
 //             6 - 11 left term, 12 - 17 right term
@@ -111,9 +54,6 @@
 //     CLS     -
 //     REM     3 - 39 the comment, null terminated (36 chars at most)
 //     END     -
-//
-// 32 lines of 40 bytes are the limits: a longer program prints '?PROGRAM
-// FULL', a longer string is cut off at 29 chars and a longer comment at 36.
 
     JMP main
 
