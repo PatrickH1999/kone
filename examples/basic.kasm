@@ -14,13 +14,18 @@
 //     0x8200 - 0x8227 the statement being parsed, one 40 byte record
 //     0x8228 - 0x822B the value INT is flooring
 //     0x8230 - 0x823F the word being read, null terminated
+//     0x8240 - 0x8253 the values a LET expression is reduced in, five of
+//                     four bytes
+//     0x8254 - 0x8257 the operators between them
+//     0x8258 - 0x825C the term count and the indices the two passes walk
 //     0x8290 - 0x829D the parser and run flags, a byte each
 //     0x829E - 0x82A6 the line numbers a search or a run works with
 //     0x82A7 - 0x82AC the operator, the comparison, and where the parser and
 //                     a listing stand
 //     0x82AD - 0x82BB the number being read out of a line
-//     0x82BC - 0x82BE the kind of the term being read, the FOR frame being
-//                     worked on, and the function a term stands for
+//     0x82BC - 0x82BF the kind of the term being read, the FOR frame being
+//                     worked on, the function a term stands for, and the
+//                     terms a LET has taken so far
 //     0x82C0 - 0x82CB a variable on its way to or from the table, and the two
 //                     operands of an expression
 //     0x82CC - 0x82CD the depth of the FOR and of the GOSUB stack
@@ -38,9 +43,9 @@
 // 8 INPUT, 9 FOR, 10 NEXT, 11 GOSUB, 12 RETURN) and the rest depends on it. A
 // <term> takes six bytes: its kind (0 literal, 1 variable, 2 its magnitude,
 // 3 its floor), the variable index, and the literal.
-//     LET     3 target variable, 4 1 when an operator follows, 5 operator
-//             ('+', '-', '*', '/', or 1 for MOD, which is no char),
-//             6 - 11 left term, 12 - 17 right term
+//     LET     3 target variable, 4 how many terms (1 - 5), 5 - 8 the
+//             operators between them ('+', '-', '*', '/', or 1 for MOD,
+//             which is no char), 9 - 38 the terms, six bytes apart
 //     PRINT   3 flags (bit 0 string, bit 1 term), 4 - 9 term,
 //             10 - 39 the string, null terminated (29 chars at most)
 //     IF      3 operator, 4 - 9 left term, 10 - 15 right term,
@@ -1506,7 +1511,7 @@ basic__p_goto:
     STM 0x8204
     RET
 
-// basic__p_let: LET <var> = <term> [ <op> <term> ]
+// basic__p_let: LET <var> = <term> [ <op> <term> ]*, up to five terms
 basic__p_let:
     LDI 1
     STM 0x8202
@@ -1519,8 +1524,12 @@ basic__p_let:
     ADD 0
     JA1 basic__fail
     CLL basic__next
-    LDI 6
+    LDI 9
     CLL basic__term_at
+    LDI 1
+    STM 0x82BF      // terms read so far
+
+basic__p_let__more:
     CLL basic__skip
     LDM 0x8290
     STR 0
@@ -1539,10 +1548,10 @@ basic__p_let:
     CLL basic__upper
     LDI 191
     ADD 0
-    JC0 basic__p_let__none
+    JC0 basic__p_let__done
     LDI 165
     ADD 0
-    JC1 basic__p_let__none
+    JC1 basic__p_let__done
     CLL basic__word
     LDI 0x90
     STR 2
@@ -1551,26 +1560,65 @@ basic__p_let:
     CLL basic__match
     JA0 basic__fail     // a word behind a term can only be 'MOD'
     LDI 1               // the code MOD is held as, since it is no char
-    STM 0x8205
-    LDI 1
-    STM 0x8204
-    LDI 12
-    CLL basic__term_at
-    RET
-
-basic__p_let__none:
-    LDI 0           // one term, no operator behind it
-    STM 0x8204
-    RET
+    STM 0x825B
+    JMP basic__p_let__term
 
 basic__p_let__op:
     LDM 0x8290
-    STM 0x8205
-    LDI 1
-    STM 0x8204
+    STM 0x825B
     CLL basic__next
-    LDI 12
+
+basic__p_let__term:
+    LDM 0x82BF
+    STR 0
+    LDI 251         // 256 - 5; carry set once the record is full
+    ADD 0
+    JC1 basic__p_let__toolong
+    LDM 0x82BF
+    STR 0
+    LDI 4           // the operator before term n sits at 5 + n - 1
+    ADD 0
+    STR 12
+    LDI 0x82
+    STR 13
+    LDM 0x825B
+    STR 14
+    CLL mem_poke
+    LDM 0x82BF
+    CLL basic__term_off
     CLL basic__term_at
+    LDM 0x82BF
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x82BF
+    JMP basic__p_let__more
+
+basic__p_let__done:
+    LDM 0x82BF
+    STM 0x8204      // how many terms the expression holds
+    RET
+
+basic__p_let__toolong:
+    CLL basic__fail
+    RET
+
+// basic__term_off: the record offset of the term with the index n, the terms
+// sitting six bytes apart from byte 9 on
+//     in:       n -> accumulator
+//     out:      offset -> accumulator
+//     clobbers: R0, R1
+basic__term_off:
+    STR 0
+    BSL
+    BSL
+    STR 1           // n * 4
+    LDR 0
+    BSL
+    ADD 1
+    STR 1           // n * 6
+    LDI 9
+    ADD 1
     RET
 
 // basic__p_print: PRINT "<text>" | <term> | "<text>"; <term>
@@ -2839,18 +2887,119 @@ basic__x_goto:
     STM 0x829D
     RET
 
-// basic__x_let: works out the expression and stores it in the variable
+// basic__x_let: works out the expression and stores it in the variable. The
+// terms are read into the value sequence at 0x8240 and the operators into the
+// one at 0x8254, and the two are then reduced in place: pass one works out
+// every '*', '/' and MOD left to right and copies the rest of the sequence
+// down behind it, pass two works out the '+' and '-' that are left, again
+// left to right. The write index never runs ahead of the read index, so both
+// passes can rewrite the sequence they are reading.
 basic__x_let:
     LDI 3
     CLL basic__slot_get
     STM 0x8295      // the target variable
     LDI 4
     CLL basic__slot_get
-    STM 0x82A8      // 1 when an operator follows
-    LDI 6
+    STM 0x8258      // how many terms the expression holds
+
+    LDI 0
+    STM 0x8259
+basic__x_let__load:
+    LDM 0x8259
+    STR 0
+    LDM 0x8258
+    XOR 0
+    JA0 basic__x_let__ops
+    LDM 0x8259
+    CLL basic__term_off
     CLL basic__term_get
-    LDM 0x82A8
-    JA0 basic__x_let__store
+    LDM 0x8259
+    CLL basic__val_put
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8259
+    JMP basic__x_let__load
+
+basic__x_let__ops:
+    LDM 0x8258
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x825C      // one operator less than there are terms
+    LDI 0
+    STM 0x8259
+basic__x_let__opcopy:
+    LDM 0x8259
+    STR 0
+    LDM 0x825C
+    XOR 0
+    JA0 basic__x_let__p1
+    LDM 0x8259
+    STR 0
+    LDI 5
+    ADD 0
+    CLL basic__slot_get
+    STR 14
+    LDM 0x8259
+    CLL basic__op_addr
+    CLL mem_poke
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8259
+    JMP basic__x_let__opcopy
+
+// pass one: '*', '/' and MOD, left to right
+basic__x_let__p1:
+    LDI 0
+    STM 0x8259      // the operator being read
+    STM 0x825A      // where the reduced sequence is being written
+basic__x_let__p1_loop:
+    LDM 0x8259
+    STR 0
+    LDM 0x825C
+    XOR 0
+    JA0 basic__x_let__p1_done
+    LDM 0x8259
+    CLL basic__op_addr
+    CLL mem_peek
+    STM 0x825B
+    STR 0
+    LDI 214         // 256 - 42 -> '*'
+    ADD 0
+    JA0 basic__x_let__p1_apply
+    LDI 209         // 256 - 47 -> '/'
+    ADD 0
+    JA0 basic__x_let__p1_apply
+    LDI 255         // 1 -> MOD, which binds like a division
+    ADD 0
+    JA0 basic__x_let__p1_apply
+
+    LDM 0x825A      // an additive operator is carried over untouched
+    CLL basic__op_addr
+    LDM 0x825B
+    STR 14
+    CLL mem_poke
+    LDM 0x825A
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x825A
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    CLL basic__val_get
+    LDM 0x825A
+    CLL basic__val_put
+    JMP basic__x_let__p1_next
+
+basic__x_let__p1_apply:
+    LDM 0x825A
+    CLL basic__val_get
     LDR 0
     STM 0x82C4
     LDR 1
@@ -2858,20 +3007,20 @@ basic__x_let:
     LDR 2
     STM 0x82C6
     LDR 3
-    STM 0x82C7      // the left operand
-    LDI 5
-    CLL basic__slot_get
-    STM 0x82A7
-    LDI 12
-    CLL basic__term_get
+    STM 0x82C7
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    CLL basic__val_get
     LDR 0
-    STM 0x82C8
+    STR 4
     LDR 1
-    STM 0x82C9
+    STR 5
     LDR 2
-    STM 0x82CA
+    STR 6
     LDR 3
-    STM 0x82CB      // the right operand
+    STR 7
     LDM 0x82C4
     STR 0
     LDM 0x82C5
@@ -2880,56 +3029,9 @@ basic__x_let:
     STR 2
     LDM 0x82C7
     STR 3
-    LDM 0x82C8
-    STR 4
-    LDM 0x82C9
-    STR 5
-    LDM 0x82CA
-    STR 6
-    LDM 0x82CB
-    STR 7           // both of them into place
-    LDM 0x82A7
-    STR 15          // R0 - R7 hold the operands by now
-    LDI 213         // '+'
-    ADD 15
-    JA0 basic__x_let__add
-    LDI 211         // '-'
-    ADD 15
-    JA0 basic__x_let__sub
-    LDI 214         // '*'
-    ADD 15
-    JA0 basic__x_let__mul
-    LDI 0x7F
-    STR 12
-    LDR 7
-    AND 12
-    ORR 4
-    ORR 5
-    ORR 6
-    JA0 basic__x_let__divzero
-    LDR 15
-    STR 12
-    LDI 255         // 1 -> MOD, which divides as well
-    ADD 12
-    JA0 basic__x_let__mod
-    CLL float32_div
-    JMP basic__x_let__moved
-
-basic__x_let__mod:
-    CLL float32_mod
-    JMP basic__x_let__moved
-
-basic__x_let__add:
-    CLL float32_add
-    JMP basic__x_let__moved
-
-basic__x_let__sub:
-    CLL float32_sub
-    JMP basic__x_let__moved
-
-basic__x_let__mul:
-    CLL float32_mul
-basic__x_let__moved:
+    CLL basic__apply
+    LDM 0x829C
+    JA1 basic__x_let__stopped
     LDR 8
     STR 0
     LDR 9
@@ -2938,11 +3040,144 @@ basic__x_let__moved:
     STR 2
     LDR 11
     STR 3
+    LDM 0x825A
+    CLL basic__val_put
+
+basic__x_let__p1_next:
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8259
+    JMP basic__x_let__p1_loop
+
+basic__x_let__p1_done:
+    LDM 0x825A
+    STM 0x825C      // the operators pass one left behind
+
+// pass two: '+' and '-', left to right, onto the running value in slot 0
+basic__x_let__p2:
+    LDI 0
+    STM 0x8259
+basic__x_let__p2_loop:
+    LDM 0x8259
+    STR 0
+    LDM 0x825C
+    XOR 0
+    JA0 basic__x_let__store
+    LDM 0x8259
+    CLL basic__op_addr
+    CLL mem_peek
+    STM 0x825B
+    LDI 0
+    CLL basic__val_get
+    LDR 0
+    STM 0x82C4
+    LDR 1
+    STM 0x82C5
+    LDR 2
+    STM 0x82C6
+    LDR 3
+    STM 0x82C7
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    CLL basic__val_get
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7
+    LDM 0x82C4
+    STR 0
+    LDM 0x82C5
+    STR 1
+    LDM 0x82C6
+    STR 2
+    LDM 0x82C7
+    STR 3
+    CLL basic__apply
+    LDM 0x829C
+    JA1 basic__x_let__stopped
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0
+    CLL basic__val_put
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8259
+    JMP basic__x_let__p2_loop
+
 basic__x_let__store:
+    LDI 0
+    CLL basic__val_get
     CLL basic__var_put
+basic__x_let__stopped:
     RET
 
-basic__x_let__divzero:
+// basic__apply: C = A <op> B for the operator in OPC (0x825B). A zero divisor
+// prints '?DIVISION BY ZERO' and stops the run instead, which the caller sees
+// in RUNS (0x829C)
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R15
+basic__apply:
+    LDM 0x825B
+    STR 15
+    LDI 213         // '+'
+    ADD 15
+    JA0 basic__apply__add
+    LDI 211         // '-'
+    ADD 15
+    JA0 basic__apply__sub
+    LDI 214         // '*'
+    ADD 15
+    JA0 basic__apply__mul
+    LDI 0x7F
+    STR 12
+    LDR 7
+    AND 12
+    ORR 4
+    ORR 5
+    ORR 6
+    JA0 basic__apply__divzero
+    LDR 15
+    STR 12
+    LDI 255         // 1 -> MOD, which divides as well
+    ADD 12
+    JA0 basic__apply__mod
+    CLL float32_div
+    RET
+
+basic__apply__mod:
+    CLL float32_mod
+    RET
+
+basic__apply__add:
+    CLL float32_add
+    RET
+
+basic__apply__sub:
+    CLL float32_sub
+    RET
+
+basic__apply__mul:
+    CLL float32_mul
+    RET
+
+basic__apply__divzero:
     LDI 63          // '?'
     CLL disp_putc
     LDI 68          // 'D'
@@ -2980,6 +3215,74 @@ basic__x_let__divzero:
     CLL disp_nl
     LDI 2           // stop the run without a 'DONE.'
     STM 0x829C
+    RET
+
+// basic__val_addr: the address of the value with the index in the accumulator,
+// the sequence at 0x8240 holding five of them four bytes apart
+//     out:      address -> R12, R13
+//     clobbers: -
+basic__val_addr:
+    BSL
+    BSL
+    STR 12
+    LDI 0x40
+    ADD 12
+    STR 12
+    LDI 0x82
+    STR 13
+    RET
+
+// basic__op_addr: the address of the operator with the index in the
+// accumulator, the sequence at 0x8254 holding four of them
+//     out:      address -> R12, R13
+//     clobbers: -
+basic__op_addr:
+    STR 12
+    LDI 0x54
+    ADD 12
+    STR 12
+    LDI 0x82
+    STR 13
+    RET
+
+// basic__val_get: reads the value with the index in the accumulator
+//     out:      value -> R0 - R3
+//     clobbers: R12, R13
+basic__val_get:
+    CLL basic__val_addr
+    CLL mem_peek
+    STR 0
+    CLL basic__ptr_step
+    CLL mem_peek
+    STR 1
+    CLL basic__ptr_step
+    CLL mem_peek
+    STR 2
+    CLL basic__ptr_step
+    CLL mem_peek
+    STR 3
+    RET
+
+// basic__val_put: writes R0 - R3 to the value with the index in the
+// accumulator
+//     clobbers: R12 - R14
+basic__val_put:
+    CLL basic__val_addr
+    LDR 0
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDR 1
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDR 2
+    STR 14
+    CLL mem_poke
+    CLL basic__ptr_step
+    LDR 3
+    STR 14
+    CLL mem_poke
     RET
 
 // basic__x_print: prints the string, the value, or both
@@ -3493,14 +3796,28 @@ basic__l_let:
     CLL disp_putc
     LDI 32          // ' '
     CLL disp_putc
-    LDI 6
+    LDI 0
+    CLL basic__term_off
     CLL basic__put_term
+    LDI 0
+    STM 0x8259
+
+basic__l_let__more:
     LDI 4
     CLL basic__slot_get
+    STR 0
+    LDI 255
+    ADD 0
+    STR 0           // one operator less than there are terms
+    LDM 0x8259
+    XOR 0
     JA0 basic__l_let__done
     LDI 32          // ' '
     CLL disp_putc
+    LDM 0x8259
+    STR 0
     LDI 5
+    ADD 0
     CLL basic__slot_get
     STR 4
     LDI 255         // 1 -> MOD
@@ -3509,6 +3826,7 @@ basic__l_let:
     LDR 4
     CLL disp_putc
     JMP basic__l_let__right
+
 basic__l_let__mod:
     LDI 77          // 'M'
     CLL disp_putc
@@ -3516,11 +3834,23 @@ basic__l_let__mod:
     CLL disp_putc
     LDI 68          // 'D'
     CLL disp_putc
+
 basic__l_let__right:
     LDI 32          // ' '
     CLL disp_putc
-    LDI 12
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    CLL basic__term_off
     CLL basic__put_term
+    LDM 0x8259
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8259
+    JMP basic__l_let__more
+
 basic__l_let__done:
     RET
 

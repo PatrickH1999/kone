@@ -89,7 +89,7 @@ The statements, which are stored behind a line number. A `<term>` is a literal, 
 
 | Statement | Description |
 | --- | --- |
-| `LET <var> = <term> [<op> <term>]` | works out the expression and assigns it; `<op>` is `+`, `-`, `*`, `/` or `MOD` |
+| `LET <var> = <term> [<op> <term>]...` | works out the expression and assigns it; `<op>` is `+`, `-`, `*`, `/` or `MOD` |
 | `PRINT "<text>"` | prints a string literal, at most 29 chars |
 | `PRINT <term>` | prints a value with six significant digits |
 | `PRINT "<text>"; <term>` | prints both on one row |
@@ -104,7 +104,7 @@ The statements, which are stored behind a line number. A `<term>` is a literal, 
 | `REM <text>` | a comment, at most 36 chars; it does nothing when it is run |
 | `END` | stops the run and prints `DONE.` |
 
-`LET` is the only statement that takes an operator; the rest take a bare `<term>`, and anything behind one is ignored rather than reported, so `PRINT A * B` prints `A`. Type
+A `LET` expression chains up to five terms: `*`, `/` and `MOD` are worked out first, left to right, then `+` and `-`, also left to right, so `2 + 3 * 4` is `14` and `10 - 2 * 3` is `4`. There is no bracketing, and five terms is what the 40 byte line record holds; a sixth is a syntax error. `LET` is also the only statement that takes an operator at all: the rest take a bare `<term>`, and anything behind one is ignored rather than reported, so `PRINT A * B` prints `A`. Type
 ```
 10 FOR I = 1 TO 5
 20 LET S = I * I
@@ -123,7 +123,7 @@ What it deliberately leaves out, and why:
 | `DIM` and arrays | the same |
 | `INPUT` of several variables, `INPUT "prompt"; var` | the record holds one variable |
 | multi-statement lines with `:` | a slot holds one statement and the run loop steps line by line |
-| `ON ... GOTO`, `DEF FN`, `READ`/`DATA`/`RESTORE`, `STEP`, `AND`/`OR`/`NOT` | an expression is one operator wide, with no precedence and no bracketing |
+| `ON ... GOTO`, `DEF FN`, `READ`/`DATA`/`RESTORE`, `STEP`, `AND`/`OR`/`NOT` | only `LET` takes an expression, and it has no bracketing |
 | `TAB()`, `SPC()` | feasible in themselves, but `PRINT` would need an ordered item list where the record holds one string and one term |
 
 `GOSUB` nests eight deep and `FOR` four, bounded by their fixed stacks. `ABS()` and `INT()` are the only functions, and both take a variable rather than an expression.
