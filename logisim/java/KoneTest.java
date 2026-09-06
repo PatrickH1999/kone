@@ -30,7 +30,7 @@ public class KoneTest {
         new Case("bin/test_klib_mem.bin", 300000, "", "ALL PASS"),
     };
 
-    /** Loader errors reach the user through a Swing dialog, which is fatal here. */
+    /** Loader prompts reach the user through a Swing dialog, which is fatal here. */
     static class QuietLoader extends Loader {
         final List<String> errors = new ArrayList<>();
 
@@ -41,6 +41,19 @@ public class KoneTest {
         @Override
         public void showError(String description) {
             errors.add(description);
+        }
+
+        /**
+         * Logisim leaves a .circ.autosave behind when the file is open in its
+         * GUI and asks what to do with it. Answer "discard": the tests want the
+         * generated file, and the answer costs nothing because the build writes
+         * that file from source anyway.
+         */
+        @Override
+        public int showOptions(String content, String title, String[] options,
+                               int fallback) {
+            System.out.println("[ NOTE ] ignoring a stale autosave file");
+            return options.length - 1;
         }
     }
 
@@ -74,36 +87,52 @@ public class KoneTest {
     static String run(Case c) throws Exception {
         final var state = CircuitState.createRootState(project, circuit,
                                                        Thread.currentThread());
-        state.getPropagator().propagate();   // a memory has no state before this
+        state.getPropagator().propagate();   // no block has state before this
         Component tty = null;
         Component keyboard = null;
-        for (final Component comp : circuit.getNonWires()) {
+        CircuitState ttyState = null;
+        CircuitState keyboardState = null;
+        for (final var found : walk(state)) {
+            final var comp = (Component) found[0];
+            final var owner = (CircuitState) found[1];
             final var name = comp.getFactory().getName();
             final var label = comp.getAttributeSet().getValue(StdAttr.LABEL);
             if ("ROM".equals(name) && "prog".equals(label)) {
-                load(contents(state, comp), Files.readAllBytes(new File(c.program()).toPath()));
+                load(contents(owner, comp), Files.readAllBytes(new File(c.program()).toPath()));
             } else if ("TTY".equals(name)) {
                 tty = comp;
+                ttyState = owner;
             } else if ("Keyboard".equals(name)) {
                 keyboard = comp;
+                keyboardState = owner;
             }
-            state.markComponentAsDirty(comp);
+            owner.markComponentAsDirty(comp);
         }
         state.getPropagator().propagate();
 
         var shown = "";
         for (var i = 0; i < c.cycles(); i++) {
-            if (i == 200 && !c.keys().isEmpty()) type(state, keyboard, c.keys());
+            if (i == 200 && !c.keys().isEmpty()) type(keyboardState, keyboard, c.keys());
             state.getPropagator().toggleClocks();
             state.getPropagator().propagate();
             state.getPropagator().toggleClocks();
             state.getPropagator().propagate();
             if (i % 250 == 0) {
-                shown = screen(state, tty);
+                shown = screen(ttyState, tty);
                 if (shown.contains(c.expect())) return shown;
             }
         }
-        return screen(state, tty);
+        return screen(ttyState, tty);
+    }
+
+    /** Every component of the circuit and of its blocks, with the state it lives in. */
+    static List<Object[]> walk(CircuitState state) {
+        final var found = new ArrayList<Object[]>();
+        for (final Component comp : state.getCircuit().getNonWires()) {
+            found.add(new Object[] {comp, state});
+        }
+        for (final CircuitState sub : state.getSubstates()) found.addAll(walk(sub));
+        return found;
     }
 
     static MemContents contents(CircuitState state, Component memory) throws Exception {

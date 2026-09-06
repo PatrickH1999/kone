@@ -21,7 +21,7 @@ dependencies. Requires Python 3.9+.
 | `logisim/java/` | headless checks that run a generated file in Logisim |
 | `logisim/*.circ` | the generated files |
 
-`make circ` runs every `build_*.py`. A build script imports the library from its
+`make logisim_circ` runs every `build_*.py`. A build script imports the library from its
 own directory, so `python3 logisim/python/build_regfile.py` works from anywhere.
 
 ## Writing a build script
@@ -129,7 +129,7 @@ maximum value. Build one from a `Register` and an `Adder`.
 `build_regfile.py` generates a 32 x 8-bit register file out of 74xx parts: a
 74377 per register, a 74245 putting it on the bus, and a two-level 74138 tree
 decoding `ADDR` into 32 active-low selects that 7432 gates combine with `RD` and
-`WR`. `make regfile` builds it; `make circ` does too.
+`WR`. `make logisim_regfile` builds it; `make logisim_circ` does too.
 
 The 32 slices come first on the canvas, in an 8 x 4 grid whose rows are the
 decoder groups, so the chips are in view when the file opens; the pins, the
@@ -160,18 +160,43 @@ the opcode byte itself, `OUT`, `C`, `Z` and `CWR` the results.
 in the ISA only `ADD` writes carry. For an opcode that is not one of the nine,
 `OUT` is undefined -- the CPU does not latch `A` from the ALU then.
 
-`make alu` builds it; `make circ` does too.
+`make logisim_alu` builds it; `make logisim_circ` does too.
 
 ## kone.circ
 
 `build_kone.py` puts `regfile.circ` and `alu.circ` under a microcoded control
-unit and adds memory, a display and a keyboard: the whole CPU. `make cpu` builds
-it, `PROG=bin/<name>.bin` picks the program in its ROM, and `make test-logisim`
-boots `display`, `hello`, `keyboard` and `tests/klib/test_mem.kasm` on it
-headlessly (`logisim/java/KoneTest.java`), stopping each case as soon as the TTY
-says what the vm prints. The klib case runs `mem_poke`/`mem_peek`, which patch
-an `LDM`/`STM` into scratch and call it, so it is also the test that the machine
-executes from RAM.
+unit and adds memory, a display and a keyboard: the whole CPU. The top level is
+a block diagram of six subcircuits and nothing else:
+
+| Block | Ports | Contents |
+| --- | --- | --- |
+| `regfile` | `BUS_IN ADDR RD WR CLK` -> `BUS_OUT` | unchanged |
+| `alu` | `L R OP` -> `OUT C Z CWR` | unchanged |
+| `sequencer` | `CLK BUS CY` -> `UADDR LIT AOP WE SEL RSRC RW` | microprogram counter, nine ROMs, next-address and condition muxes |
+| `datapath` | `CLK REGO MEMO ALUO ALUC LIT WE SEL RSRC` -> `BUS ADDR TQ ALUR CY` | bus and operand muxes, `T`/`T2`/`AL`/`CY` latches, address mux |
+| `memory` | `CLK BUS WE` -> `MEMO MAR` | `MAR`, program ROM, RAM, the `MA15` split |
+| `io` | `CLK BUS RFO ADDR RW KBAV KBD` -> `REGO TTYD DISPNZ KBSET` | `R16`-`R19` and their decode |
+
+The TTY and the keyboard are in `kone` itself rather than in `io`: a display
+inside a subcircuit only shows what a program prints once you descend into it.
+
+Tunnels are private to a block, so a net that crosses a boundary is a pin. The
+microcode's control bytes cross whole -- `WE` (the write enables) and `SEL`
+(register address, `ASEL`, bus source) -- and each block splits out the lines it
+uses, which is why adding a control line means touching only its consumer.
+
+`make logisim_cpu` builds the file and `LOGISIM_PROG=bin/<name>.bin` picks the
+program in its ROM. `make logisim_test` boots `display`, `hello`, `keyboard` and
+`tests/klib/test_mem.kasm` on it headlessly (`logisim/java/KoneTest.java`),
+stopping each case as soon as the TTY says what the vm prints. The klib case
+runs `mem_poke`/`mem_peek`, which patch an `LDM`/`STM` into scratch and call it,
+so it is also the test that the machine executes from RAM.
+
+A case is one row of the `CASES` table in `KoneTest.java` -- program, cycle
+budget, keystrokes, expected display text. The harness writes the program into
+the `prog` ROM itself, so a new case needs no new `.circ`, and it loads a copy
+of the circuit from `bin/logisim_test/`: Logisim's loader stops with a dialog on
+the `.circ.autosave` it leaves beside a file that is open in its GUI.
 
 The microprogram is `kone_microcode.py`, one dict per step, assembled into seven
 256-byte ROMs plus two that map an opcode to its entry point:
