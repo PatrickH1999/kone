@@ -16,10 +16,12 @@ dependencies. Requires Python 3.9+.
 | --- | --- |
 | `logisim/python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
 | `logisim/python/logisim/components.py` | the concrete components and their port geometry |
+| `logisim/python/logisim/kicad.py` | the KiCad backend: the same circuits as boards |
 | `logisim/python/build_*.py` | one build script per generated circuit |
 | `logisim/python/kone_microcode.py` | the microprogram `kone.circ` runs |
 | `logisim/java/` | headless checks that run a generated file in Logisim |
 | `logisim/*.circ` | the generated files |
+| `logisim/kicad/<board>/` | the generated KiCad projects |
 
 `make logisim_circ` runs every `build_*.py`. A build script imports the library from its
 own directory, so `python3 logisim/python/build_regfile.py` works from anywhere.
@@ -227,3 +229,42 @@ the simulator reports. All 1419 combinations agree for v4.1.0. If a future
 Logisim moves a pin, that comparison is the thing to re-run — the probe is four
 short Java files against
 `/usr/share/java/logisim-evolution/logisim-evolution.jar`.
+
+## KiCad boards
+
+`kicad.py` is a second backend on the same `Circuit` objects, so a board is
+generated from the logic rather than drawn, and a change to a `build_*.py`
+reaches both outputs:
+
+```python
+from logisim.kicad import Board, write
+write(Board("regfile", regfile(), columns=8), "logisim/kicad/regfile")
+```
+
+`Netlist` resolves what Logisim uses for wiring into real nets -- a tunnel is a
+net name, a splitter ties a bus to its bits, `Ground`/`Power`/`Constant` are the
+two rails -- and `Board` adds what a board needs and Logisim does not model: the
+VCC and GND pins of each package, a 100nF per IC, the power header and the 2x20
+backplane, whose pinout is the same on every board (`BACKPLANE` in `kicad.py`,
+written out as `logisim/kicad/BACKPLANE.md`).
+
+`write()` emits a project with its own symbol and footprint library, a schematic
+in which every pin is stubbed to a net label, and a board whose footprints are
+placed on the grid the chips were created in -- a row of registers stays a row.
+Each IC carries its designation and reference on the silkscreen (`74377 R7`,
+`U12`), so a board can be populated without the schematic. `make logisim_kicad`
+runs `kicad-cli` ERC and DRC over the result and fails on an error; routing is
+not part of it, so unconnected nets stay warnings.
+
+`dsn()` writes the board as a Specctra design and `parse_ses()` reads back what
+Freerouting made of it, so `make logisim_route` is a round trip that ends in the
+same `.kicad_pcb`. Both ends are here because KiCad 10's CLI dropped Specctra.
+Two things to know: every dimension in a `.dsn` is in the same units as its
+coordinates, pad and via shapes included, and the session comes back at a
+different scale than it went out, which is why `parse_ses()` calibrates on the
+placements rather than on the resolution the file declares.
+
+`build_kicad.py` lists the boards. Only `regfile` exists so far; the other
+blocks need their Logisim-only parts replaced first -- a crystal oscillator for
+the clock, a 28C256 and a 62256 for the memory, headers for keyboard and
+display.

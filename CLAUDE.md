@@ -24,6 +24,9 @@ make logisim_circ   # every logisim/python/build_*.py -> logisim/*.circ
 make logisim_cpu    # only kone.circ; LOGISIM_PROG=bin/<name>.bin is its program
 make logisim_test   # boot four programs on kone.circ in Logisim, headless (~90 s)
 make logisim_clean  # only the generated .circ files and the compiled harness
+make logisim_kicad  # KiCad projects under logisim/kicad/, then kicad-cli ERC + DRC
+make logisim_route  # autoroute with Freerouting, then DRC (FREEROUTING_JAR)
+make logisim_gerbers  # gerbers and drill files per board, JLCPCB defaults
 bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
@@ -340,3 +343,42 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 - Logisim leaves a `.<name>.circ.autosave` beside a file it has open, and its loader stops on
   one with a dialog — fatal headless, and not routed through `Loader.showError`. `logisim_test`
   therefore runs on a copy in `bin/logisim_test/`, so a GUI session cannot break it.
+
+
+## KiCad
+
+`logisim/python/logisim/kicad.py` is a second backend on the same `Circuit` objects the
+`.circ` writer uses: `Netlist` resolves the tunnels and splitters into real nets, `Board`
+adds what Logisim does not model (VCC/GND pins, a 100nF per IC, headers) and `write()` emits
+a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, and nothing
+parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
+and writes `logisim/kicad/BACKPLANE.md`, the 2x20 pinout every board carries.
+
+Only the **regfile board** exists so far: 86 ICs, 86 decoupling caps, backplane and power
+header, 392 nets, 247 x 349 mm, unrouted. What costs time here:
+
+- KiCad's own symbol and footprint libraries are a **separate package** (`kicad-library`)
+  and are not installed on this machine, so the backend generates a project-local library.
+  A DIP symbol is a rectangle with numbered pins, which is what a 74xx symbol is anyway.
+- In a schematic's `lib_symbols` the symbol name has to be the **full lib_id**
+  (`kone:74377`), while its `_0_1`/`_1_1` children keep the bare name. Get it wrong and the
+  instance has no pins: every label dangles and ERC reports thousands of violations.
+- Every pin, wire end and label has to sit on the **1.27 mm connection grid**, so the sheet
+  origin and cell pitch are multiples of it. Off-grid ends still connect, but ERC warns once
+  per pin.
+- Logisim's TTL model has no VCC and GND, `dip()` adds them back from the package size, and
+  their nets are `+5V` and `GND`. Naming them after the pin instead leaves a "VCC" net that
+  nothing drives -- which is what ERC's `power_pin_not_driven` is for.
+- The gate is `--severity-error --exit-code-violations` on both tools. Unrouted nets are
+  warnings by project setting.
+- Routing runs through Freerouting, which is not packaged: put its jar where
+  `FREEROUTING_JAR` points (`~/.cache/freerouting/freerouting.jar`) and `make logisim_route`
+  writes the `.dsn`, runs it and reads the `.ses` back into the board. KiCad 10's CLI has
+  neither Specctra export nor import, so both ends live in `kicad.py`.
+- **Every dimension in a `.dsn` uses the same scale** as its coordinates (`resolution um 10`
+  is 0.1 um per unit): pad and via shapes, track width, clearance. Getting the pads wrong by
+  a factor of ten lets the router pull tracks straight through them, and the board comes back
+  with hundreds of shorts that are not the router's fault.
+- Freerouting writes its session at a **different scale than the design it was given**, so
+  `parse_ses()` calibrates on the placements it echoes rather than trusting the resolution it
+  declares.
