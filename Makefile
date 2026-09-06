@@ -59,12 +59,24 @@ TEST_SUMMARY = if [ $$failed -gt 0 ]; then \
         "$$group" "$$passed" "$$((passed + failed))"; \
     fi
 
+LOGISIM_SCRIPTS := $(wildcard logisim/python/build_*.py)
+
+# What the generator writes: build_<name>.py -> logisim/<name>.circ. Hand-drawn
+# circuits in logisim/ are not in this list and survive logisim_clean.
+LOGISIM_CIRCS := $(patsubst logisim/python/build_%.py,logisim/%.circ, \
+                            $(LOGISIM_SCRIPTS))
+
+# Logisim's own simulator, which logisim_test runs kone.circ in. Not a build
+# dependency, which is why that test is not one of the TEST_GROUPS.
+LOGISIM_JAR ?= /usr/share/java/logisim-evolution/logisim-evolution.jar
+
 PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all check clean debug examples format install kasm kone test \
-        $(TEST_GROUPS)
+.PHONY: all check clean debug examples format install kasm kone logisim_alu \
+        logisim_circ logisim_clean logisim_cpu logisim_regfile logisim_test \
+        test $(TEST_GROUPS)
 
 # Main targets.
 
@@ -72,10 +84,31 @@ all: $(TARGET) $(KASM) $(EXAMPLE_TARGETS)
 
 check: format all
 
-clean:
+# Logisim circuits: every logisim/python/build_*.py writes its own .circ.
+# kone.circ bakes an example into its program ROM, so the examples come first.
+logisim_circ: examples
+	@for s in $(LOGISIM_SCRIPTS); do python3 $$s || exit 1; done
+
+logisim_alu:
+	@python3 logisim/python/build_alu.py
+
+# LOGISIM_PROG picks the program baked into kone.circ's ROM.
+LOGISIM_PROG ?= bin/display.bin
+
+logisim_cpu: $(LOGISIM_PROG)
+	@python3 logisim/python/build_kone.py $(LOGISIM_PROG)
+
+logisim_regfile:
+	@python3 logisim/python/build_regfile.py
+
+clean: logisim_clean
 	$(MAKE) -C $(KASM_DIR) clean
 	rm -rf bin/ obj/
 	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
+
+logisim_clean:
+	rm -f $(LOGISIM_CIRCS)
+	rm -rf bin/logisim_test logisim/python/__pycache__
 
 debug: CFLAGS += -g -O0 -DDEBUG
 debug: clean all
@@ -206,6 +239,26 @@ test-klib: $(KLIB_TEST_BINS) $(TARGET)
 	done; \
 	printf "\n"; \
 	group=klib; \
+	$(TEST_SUMMARY)
+
+# kone.circ booted headlessly in Logisim; needs a JDK and $(LOGISIM_JAR). One of
+# its cases boots a klib test, which the examples target does not build. The run
+# uses a copy: Logisim's loader stops on a .circ.autosave beside the file, which
+# it leaves there while the same file is open in its GUI.
+logisim_test: logisim_circ $(KLIB_TEST_BINS)
+	@$(TEST_COLORS); \
+	passed=0; failed=0; \
+	printf "\n"; \
+	if javac -cp $(LOGISIM_JAR) -d bin/logisim_test logisim/java/KoneTest.java \
+		&& cp logisim/kone.circ bin/logisim_test/kone.circ \
+		&& java -Djava.awt.headless=true -cp $(LOGISIM_JAR):bin/logisim_test \
+			KoneTest bin/logisim_test/kone.circ; then \
+		passed=1; \
+	else \
+		failed=1; \
+	fi; \
+	printf "\n"; \
+	group=logisim; \
 	$(TEST_SUMMARY)
 
 test-kone: $(TEST_BINS)
