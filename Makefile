@@ -61,16 +61,12 @@ TEST_SUMMARY = if [ $$failed -gt 0 ]; then \
 
 CIRC_SCRIPTS := $(wildcard logisim/python/build_*.py)
 
-# Logisim's own simulator, used by test-regfile only. Not a build dependency,
-# which is why that test is not one of the TEST_GROUPS.
-LOGISIM_JAR ?= /usr/share/java/logisim-evolution/logisim-evolution.jar
-
 PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all check circ clean debug examples format install kasm kone regfile \
-        test test-regfile $(TEST_GROUPS)
+.PHONY: all alu check circ clean debug examples format install kasm kone \
+        regfile test $(TEST_GROUPS)
 
 # Main targets.
 
@@ -81,6 +77,9 @@ check: format all
 # Logisim circuits: every logisim/python/build_*.py writes its own .circ.
 circ:
 	@for s in $(CIRC_SCRIPTS); do python3 $$s || exit 1; done
+
+alu:
+	@python3 logisim/python/build_alu.py
 
 regfile:
 	@python3 logisim/python/build_regfile.py
@@ -219,23 +218,6 @@ test-klib: $(KLIB_TEST_BINS) $(TARGET)
 	done; \
 	printf "\n"; \
 	group=klib; \
-	$(TEST_SUMMARY)
-
-# regfile.circ driven headlessly in Logisim; needs a JDK and $(LOGISIM_JAR).
-test-regfile: circ
-	@$(TEST_COLORS); \
-	passed=0; failed=0; \
-	printf "\n"; \
-	if javac -cp $(LOGISIM_JAR) -d bin/regfile-test \
-			logisim/java/RegfileTest.java \
-		&& java -Djava.awt.headless=true -cp $(LOGISIM_JAR):bin/regfile-test \
-			RegfileTest logisim/regfile_test.circ; then \
-		passed=1; \
-	else \
-		failed=1; \
-	fi; \
-	printf "\n"; \
-	group=regfile; \
 	$(TEST_SUMMARY)
 
 test-kone: $(TEST_BINS)

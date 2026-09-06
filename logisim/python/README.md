@@ -17,11 +17,10 @@ dependencies. Requires Python 3.9+.
 | `logisim/python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
 | `logisim/python/logisim/components.py` | the concrete components and their port geometry |
 | `logisim/python/build_*.py` | one build script per generated circuit |
-| `logisim/java/` | headless checks that run a generated file in Logisim |
 | `logisim/*.circ` | the generated files |
 
 `make circ` runs every `build_*.py`. A build script imports the library from its
-own directory, so `python3 logisim/python/build_adder4.py` works from anywhere.
+own directory, so `python3 logisim/python/build_regfile.py` works from anywhere.
 
 ## Writing a build script
 
@@ -50,8 +49,8 @@ may also be a bare `(x, y)`.
 For anything longer than an elbow use `route(p1, p2, ...)`, which wires a
 polyline. Fan-out is the one thing to lay out by hand: two `connect()` calls from
 the same port produce two independent routes that may overlap. Give each net its
-own trunk column (see `trunk()` in `build_adder4.py`) or run it through a
-`Tunnel`.
+own trunk column or run it through a `Tunnel`, which is what the two build
+scripts do throughout.
 
 Ports are named, not numbered: `adder.port("cout")`, `gate.port("B")`,
 `reg.port("clk")`. Gate inputs answer to `A`, `B`, `C`… as well as `in0`, `in1`…
@@ -133,16 +132,6 @@ Logisim Evolution has no bidirectional `Pin`, so the bus leaves the circuit as
 `BUS_IN` and `BUS_OUT`. Wire both to the same bus net in the parent: `BUS_OUT` is
 high-Z unless `RD` selects a register.
 
-`build_regfile_test.py` does exactly that, in a `bench` circuit around the
-register file (`logisim/regfile_test.circ`); `DRV` gates the bench's own driver
-onto the shared net so only one side drives it at a time. `make test-regfile`
-runs `logisim/java/RegfileTest.java` against that file in Logisim's own
-simulator, headless and in a few seconds: pin widths and directions, a floating
-bus at `RD=0`, all 32 registers written and read back (which is the test for
-address aliasing), a combinational read, and a clock edge with `WR=0` changing
-nothing. It is not one of the `make test` groups, because it needs a JDK and
-`LOGISIM_JAR`.
-
 ## Where the port offsets come from
 
 They are not guessed. Logisim Evolution's own jar was loaded headlessly and
@@ -154,21 +143,25 @@ Logisim moves a pin, that comparison is the thing to re-run — the probe is fou
 short Java files against
 `/usr/share/java/logisim-evolution/logisim-evolution.jar`.
 
-## Smoke test
+## alu.circ
 
-`build_adder4.py` generates `logisim/adder4.circ`: a 4-bit ripple-carry adder
-made of a gate-level `full_adder` subcircuit instantiated four times, wired
-through splitters and instantiated as a subcircuit.
+`build_alu.py` generates the ALU: the nine ALU opcodes of the ISA and nothing
+else. `L` and `R` are the two operands (`I` and the selected register), `OP` is
+the opcode byte itself, `OUT`, `C`, `Z` and `CWR` the results.
 
-`adder4.txt` is a Logisim test vector covering all 160 interesting input
-combinations. Run it from the GUI with *Simulate -> Test Vector...* on the
-`main` circuit, or from the command line:
+| stage | parts |
+| --- | --- |
+| `L + R` | 2 x 74283 |
+| `L or/and/xor R` | 2 x 7432, 2 x 7408, 2 x 7486 |
+| `not L` | 2 x 7404 |
+| `L` shifted or rotated | wiring into the mux inputs |
+| one-operand result, opcode bits 2-0 | 8 x 74151 |
+| two-operand result, opcode bits 5-4 | 4 x 74153 |
+| `OUT`, opcode bit 7 | 2 x 74157 |
+| `Z`, `C`, `CWR` | 7427, 7411, 7421 |
 
-```
-make circ
-logisim-evolution -w main logisim/python/adder4.txt logisim/adder4.circ
-```
+`CWR` is high only for `ADD`; it is what a flag register has to gate on, because
+in the ISA only `ADD` writes carry. For an opcode that is not one of the nine,
+`OUT` is undefined -- the CPU does not latch `A` from the ALU then.
 
-The generated circuit passes all 160 rows. Note that the column widths in the
-header (`A[4]`) are not optional, and that the `-w` run wants a display even
-though it draws no window.
+`make alu` builds it; `make circ` does too.

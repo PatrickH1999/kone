@@ -833,11 +833,44 @@ class Ttl7404(_TtlChip):
             "Y4", "A4", "Y5", "A5", "Y6", "A6", None)
 
 
-class Ttl7432(_TtlChip):
-    NAME = "7432"
+class Ttl7408(_TtlChip):
+    NAME = "7408"
     INPUTS = tuple(f"{p}{i}" for i in range(1, 5) for p in "AB")
     PINS = ("A1", "B1", "Y1", "A2", "B2", "Y2", None,
+            "Y3", "A3", "B3", "Y4", "A4", "B4", None)
+
+
+class Ttl7411(_TtlChip):
+    NAME = "7411"
+    INPUTS = tuple(f"{p}{i}" for i in range(1, 4) for p in "ABC")
+    PINS = ("A1", "B1", "A2", "B2", "C2", "Y2", None,
+            "Y3", "A3", "B3", "C3", "Y1", "C1", None)
+
+
+class Ttl7421(_TtlChip):
+    NAME = "7421"
+    INPUTS = tuple(f"{p}{i}" for i in range(1, 3) for p in "ABCD")
+    PINS = ("A1", "B1", None, "C1", "D1", "Y1", None,
+            "Y2", "D2", "C2", None, "B2", "A2", None)
+
+
+class Ttl7427(_TtlChip):
+    NAME = "7427"
+    INPUTS = Ttl7411.INPUTS
+    PINS = Ttl7411.PINS
+
+
+class Ttl7432(_TtlChip):
+    NAME = "7432"
+    INPUTS = Ttl7408.INPUTS
+    PINS = ("A1", "B1", "Y1", "A2", "B2", "Y2", None,
             "Y3", "B3", "A3", "Y4", "B4", "A4", None)
+
+
+class Ttl7486(_TtlChip):
+    NAME = "7486"
+    INPUTS = Ttl7408.INPUTS
+    PINS = Ttl7408.PINS
 
 
 class Ttl74138(_TtlChip):
@@ -847,16 +880,48 @@ class Ttl74138(_TtlChip):
             "nY6", "nY5", "nY4", "nY3", "nY2", "nY1", "nY0", None)
 
 
+class Ttl74151(_TtlChip):
+    NAME = "74151"
+    INPUTS = tuple(f"D{i}" for i in range(8)) + ("A", "B", "C", "nG")
+    PINS = ("D3", "D2", "D1", "D0", "Y", "W", "nG", None,
+            "C", "B", "A", "D7", "D6", "D5", "D4", None)
+
+
+class Ttl74153(_TtlChip):
+    NAME = "74153"
+    BOTTOM = 50
+    INPUTS = ("S0", "S1", "n1E", "n2E") + tuple(
+        f"{half}D{i}" for half in (1, 2) for i in range(4))
+    PINS = ("n1E", "S1", "1D3", "1D2", "1D1", "1D0", "1Y", None,
+            "2Y", "2D0", "2D1", "2D2", "2D3", "S0", "n2E", None)
+
+
+class Ttl74157(_TtlChip):
+    NAME = "74157"
+    INPUTS = ("SELECT", "nSTROBE") + tuple(
+        f"{i}{p}" for i in range(1, 5) for p in "AB")
+    PINS = ("SELECT", "1A", "1B", "1Y", "2A", "2B", "2Y", None,
+            "3Y", "3B", "3A", "4Y", "4B", "4A", "nSTROBE", None)
+
+
 class Ttl74245(_TtlChip):
     NAME = "74245"
+    # A and B follow DIR, so which side is an input is not fixed.
     INPUTS = ("DIR", "nOE")
     PINS = ("DIR", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", None,
             "B8", "B7", "B6", "B5", "B4", "B3", "B2", "B1", "nOE", None)
 
 
+class Ttl74283(_TtlChip):
+    NAME = "74283"
+    INPUTS = ("CIN",) + tuple(f"{p}{i}" for i in range(1, 5) for p in "AB")
+    PINS = ("S2", "B2", "A2", "S1", "A1", "B1", "CIN", None,
+            "C4", "S4", "B4", "A4", "S3", "A3", "B3", None)
+
+
 class Ttl74377(_TtlChip):
     NAME = "74377"
-    INPUTS = ("nCLKen", "CLK") + tuple(f"D{i}" for i in range(1, 9))
     BOTTOM = 50
+    INPUTS = ("nCLKen", "CLK") + tuple(f"D{i}" for i in range(1, 9))
     PINS = ("nCLKen", "Q1", "D1", "D2", "Q2", "Q3", "D3", "D4", "Q4", None,
             "CLK", "Q5", "D5", "D6", "Q6", "Q7", "D7", "D8", "Q8", None)

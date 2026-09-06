@@ -248,3 +248,32 @@ so a new test file states its cases and nothing else. An example's own scratch g
 - A BASIC program line is a fixed 40-byte record, which is what bounds expression length
   (five terms) and string literals (29 chars). Extending either means widening the slot and
   moving the program area, not touching the parser.
+
+## Logisim
+
+`logisim/python/` generates the `.circ` files that build kone out of 74xx chips: `core.py`
+is the document model (`Component`, `Wire`, `Circuit`, `Project`, grid and net checks),
+`components.py` the concrete parts and their port geometry, one `build_*.py` per circuit.
+`make circ` runs them all, `make regfile` and `make alu` one each. Reference is
+`logisim/python/README.md`; what costs time:
+
+- Port offsets are read out of Logisim's own jar, never guessed. A new part needs the same
+  treatment — for a TTL chip, `AbstractTtlGate.portNames` and `outputPorts` give the pinout
+  (DIP order, GND and VCC skipped) and `getOffsetBounds` the row spacing.
+- Fan-out is the one thing to route by hand: two `connect()` calls from one port lay two
+  wires that overlap into one silent short. Give each net its own column or a `Tunnel`.
+- `Project.save()` refuses a floating TTL input, two tunnel labels on one net and duplicate
+  pin labels, so that class of bug fails the build instead of showing up as `E` in the
+  simulator.
+- Put the chips first on the canvas. Logisim opens at the top left, and a pin block there
+  hides a grid of chips 5000px further down.
+
+`regfile.circ` — 32 x 8 bit from 32 74377 and 32 74245, selected by a two-level 74138 tree;
+`BUS_IN`, `BUS_OUT`, `ADDR`, `RD`, `WR`, `CLK`. Logisim has no bidirectional pin, so the
+parent ties `BUS_IN` and `BUS_OUT` to one net; `BUS_OUT` is high-Z unless `RD` selects.
+
+`alu.circ` — the nine ALU opcodes and nothing else: `L`, `R` and `OP` in, `OUT`, `C`, `Z`
+and `CWR` out. `OP` is the opcode byte itself, so the ALU reads the same bits the decoder
+does: bit 7 picks two-operand over one-operand, bits 5-4 ORR/AND/XOR/ADD, bits 2-0
+NOT/BSL/BSR/BRL/BRR. Any other opcode leaves `OUT` undefined — nothing latches `A` then.
+`CWR` is high only for ADD, which is how "only ADD writes carry" is wired.
