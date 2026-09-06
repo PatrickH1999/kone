@@ -30,35 +30,6 @@ X0 = 200
 SEL_BINARY, SEL_OP, SEL_UNARY = "P7", ("P4", "P5"), ("P0", "P1", "P2")
 
 
-def stub(c, port, to, label, facing, width=1):
-    """Tunnel at `to`, wired back to `port`."""
-    c.route(port, to)
-    return c.add(Tunnel(to[0], to[1], label, width=width, facing=facing))
-
-
-def wire(c, chip, nets):
-    """Stub every pin of a DIP to a tunnel or a rail; None leaves it open.
-
-    Bottom-row pins go down, top-row pins up, each one deeper than the last so
-    the labels do not sit on top of each other.
-    """
-    half = len(chip.PINS) // 2
-    for i, pin in enumerate(chip.PINS):
-        if pin is None or nets[pin] is None:
-            continue
-        below = i < half
-        depth = 70 + 40 * (i if below else len(chip.PINS) - 1 - i)
-        px, py = chip.port(pin)
-        to = (px, chip.y + (depth if below else -depth))
-        net = nets[pin]
-        if isinstance(net, str):
-            stub(c, (px, py), to, net, "north" if below else "south")
-        else:
-            c.route((px, py), to)
-            c.add(net(*to, facing="south" if below else "north"))
-    return chip
-
-
 def gate_bank(c, cls, x, y, label, a, b, out, bits):
     """Four two-input gates, one per bit: out<k> = a<k> op b<k>."""
     nets = {}
@@ -66,7 +37,7 @@ def gate_bank(c, cls, x, y, label, a, b, out, bits):
         nets[f"A{g + 1}"] = f"{a}{k}"
         nets[f"B{g + 1}"] = f"{b}{k}"
         nets[f"Y{g + 1}"] = f"{out}{k}"
-    return wire(c, c.add(cls(x, y, label=label)), nets)
+    return wire_dip(c, c.add(cls(x, y, label=label)), nets)
 
 
 def operators(c, y):
@@ -78,7 +49,7 @@ def operators(c, y):
             nets[f"A{g + 1}"] = f"L{k}"
             nets[f"B{g + 1}"] = f"R{k}"
             nets[f"S{g + 1}"] = f"SUM{k}"
-        wire(c, c.add(Ttl74283(x, y, label=f"add{half}")), nets)
+        wire_dip(c, c.add(Ttl74283(x, y, label=f"add{half}")), nets)
 
         for i, (cls, op) in enumerate(((Ttl7432, "ORR"), (Ttl7408, "AND"),
                                        (Ttl7486, "XOR"))):
@@ -90,13 +61,13 @@ def operators(c, y):
         for g in range(6):
             nets[f"A{g + 1}"] = f"L{bits[g]}" if g < 4 else Ground
             nets[f"Y{g + 1}"] = f"NOT{bits[g]}" if g < 4 else None
-        wire(c, c.add(Ttl7404(X0 + COL * (8 + half), y, label=f"not{half}")), nets)
+        wire_dip(c, c.add(Ttl7404(X0 + COL * (8 + half), y, label=f"not{half}")), nets)
 
 
 def unary_mux(c, k, x, y):
     """Bit k of the one-operand result, selected by opcode bits 2-0."""
     lo, hi = f"L{(k - 1) % 8}", f"L{(k + 1) % 8}"
-    wire(c, c.add(Ttl74151(x, y, label=f"un{k}")), {
+    wire_dip(c, c.add(Ttl74151(x, y, label=f"un{k}")), {
         "D0": f"L{k}",                          # 0x00 NOP: A is unchanged
         "D1": f"NOT{k}",                        # 0x01 NOT
         "D2": Ground, "D3": Ground,             # 0x02, 0x03: no such opcode
@@ -119,7 +90,7 @@ def binary_mux(c, pair, x, y):
         nets[f"{half}D2"] = f"XOR{k}"           # 0xE0 XOR
         nets[f"{half}D3"] = f"SUM{k}"           # 0xF0 ADD
         nets[f"{half}Y"] = f"BIN{k}"
-    wire(c, c.add(Ttl74153(x, y, label=f"bin{lo}-{hi}")), nets)
+    wire_dip(c, c.add(Ttl74153(x, y, label=f"bin{lo}-{hi}")), nets)
 
 
 def result_mux(c, half, x, y):
@@ -130,24 +101,24 @@ def result_mux(c, half, x, y):
         nets[f"{g + 1}A"] = f"UN{k}"
         nets[f"{g + 1}B"] = f"BIN{k}"
         nets[f"{g + 1}Y"] = f"OUT{k}"
-    wire(c, c.add(Ttl74157(x, y, label=f"out{4 * half}-{4 * half + 3}")), nets)
+    wire_dip(c, c.add(Ttl74157(x, y, label=f"out{4 * half}-{4 * half + 3}")), nets)
 
 
 def flags(c, x, y):
     """Z = OUT is zero; C = the adder's carry, but only while ADD is selected."""
-    wire(c, c.add(Ttl7427(x, y, label="zero")), {
+    wire_dip(c, c.add(Ttl7427(x, y, label="zero")), {
         "A1": "OUT0", "B1": "OUT1", "C1": "OUT2", "Y1": "NZ0",
         "A2": "OUT3", "B2": "OUT4", "C2": "OUT5", "Y2": "NZ1",
         "A3": "OUT6", "B3": "OUT7", "C3": Ground, "Y3": "NZ2",
     })
-    wire(c, c.add(Ttl7411(x + COL, y, label="zero")), {
+    wire_dip(c, c.add(Ttl7411(x + COL, y, label="zero")), {
         "A1": "NZ0", "B1": "NZ1", "C1": "NZ2", "Y1": "Z",
         "A2": Ground, "B2": Ground, "C2": Ground, "Y2": None,
         "A3": Ground, "B3": Ground, "C3": Ground, "Y3": None,
     })
     # CWR is what keeps the other eight operations from touching the flag:
     # only ADD (1111 0000) writes carry.
-    wire(c, c.add(Ttl7421(x + 2 * COL, y, label="carry")), {
+    wire_dip(c, c.add(Ttl7421(x + 2 * COL, y, label="carry")), {
         "A1": "P7", "B1": "P6", "C1": "P5", "D1": "P4", "Y1": "CWR",
         "A2": "COUT", "B2": "CWR", "C2": Power, "D2": Power, "Y2": "C",
     })

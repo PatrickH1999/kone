@@ -44,6 +44,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
     - [`math`](#math)
     - [`mem`](#mem)
     - [`str`](#str)
+- [Logisim circuits](#logisim-circuits)
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
@@ -53,6 +54,9 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make test-klib`: run only the `klib` tests, i.e. one kasm program per routine, run on the vm
  - `make debug`: build with debugging symbols and no optimization
  - `make kasm`: build only the assembler
+ - `make circ`: generate the Logisim circuits in `logisim/` (see below)
+ - `make cpu`: generate only `logisim/kone.circ`, with `PROG=bin/<name>.bin` baked into its ROM
+ - `make test-logisim`: boot three examples and a `klib` test on that circuit in Logisim and check the display
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
 A C test is `tests/test_<module>.c` and is picked up by the wildcard, no makefile edit needed. A `klib` test is a kasm program in `tests/klib/` that prints one `PASS:<case>` or `FAIL:<case>` row per case and then a summary row, `ALL PASS` or `<n> FAILED`, and halts; the harness runs it on the vm, waits up to 20 s for that summary and reads the last complete display frame. A `test_<name>.in` beside it is piped in as keystrokes, and a `test_<name>.expect` lists display rows that have to match exactly, which is how output that cannot be read back from inside the vm is checked.
@@ -277,3 +281,29 @@ The kone ISA has no register indirect addressing: `LDM` and `STM` take an absolu
 ### `str`
 
 - `str_eq`: compares two null terminated strings and returns 0 or 1 in `R0`. It reads them through `mem_peek`, so `klib/mem.kasm` has to be included alongside `klib/str.kasm`.
+
+## Logisim circuits
+The machine also exists as hardware: `logisim/python/` generates
+[Logisim Evolution](https://github.com/logisim-evolution/) circuits built from
+74xx-series chips, so the ISA can be checked against something buildable from
+real logic. `make circ` writes them; `logisim/python/README.md` documents the
+generator.
+
+| File | Contents |
+| --- | --- |
+| `logisim/regfile.circ` | the 32 x 8 bit register file, 74377 + 74245 per register, addressed by a 74138 tree |
+| `logisim/alu.circ` | the nine ALU operations, 74283 adder and 74151/74153/74157 result muxes |
+| `logisim/kone.circ` | the whole CPU: both of the above under a microcoded control unit, with memory, display and keyboard |
+
+`kone.circ` is a microcoded machine. Every register the ISA names lives in the
+register file at the index the VM gives it, seven 256-byte ROMs hold the
+microprogram, and two more turn an opcode into its entry point. `R16`-`R19` are
+device registers in the keyboard and display blocks, which drive a Logisim
+keyboard and TTY, and the program sits in a ROM below `0x8000` with RAM above
+it -- the one deviation from the VM, whose memory is writable throughout.
+
+`make cpu PROG=bin/hello.bin` bakes another program into the ROM.
+`make test-logisim` boots `display`, `hello`, `keyboard` and the `mem` klib
+test on the circuit headlessly and compares what the TTY shows against what the
+vm prints. The klib test dominates its runtime; the whole target takes
+about a minute and a half.

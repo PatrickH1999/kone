@@ -17,6 +17,8 @@ dependencies. Requires Python 3.9+.
 | `logisim/python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
 | `logisim/python/logisim/components.py` | the concrete components and their port geometry |
 | `logisim/python/build_*.py` | one build script per generated circuit |
+| `logisim/python/kone_microcode.py` | the microprogram `kone.circ` runs |
+| `logisim/java/` | headless checks that run a generated file in Logisim |
 | `logisim/*.circ` | the generated files |
 
 `make circ` runs every `build_*.py`. A build script imports the library from its
@@ -51,6 +53,11 @@ polyline. Fan-out is the one thing to lay out by hand: two `connect()` calls fro
 the same port produce two independent routes that may overlap. Give each net its
 own trunk column or run it through a `Tunnel`, which is what the two build
 scripts do throughout.
+
+`stub(circuit, port, to, label, facing)` drops a tunnel at `to` and wires it back
+to `port`; `wire_dip(circuit, chip, nets)` does that for every pin of a DIP at
+once, taking a tunnel label, `Ground`/`Power` or `None` per pin. Both build
+scripts wire chips exclusively that way, so a net is a name rather than a route.
 
 Ports are named, not numbered: `adder.port("cout")`, `gate.port("B")`,
 `reg.port("clk")`. Gate inputs answer to `A`, `B`, `C`… as well as `in0`, `in1`…
@@ -132,17 +139,6 @@ Logisim Evolution has no bidirectional `Pin`, so the bus leaves the circuit as
 `BUS_IN` and `BUS_OUT`. Wire both to the same bus net in the parent: `BUS_OUT` is
 high-Z unless `RD` selects a register.
 
-## Where the port offsets come from
-
-They are not guessed. Logisim Evolution's own jar was loaded headlessly and
-asked, for every component and attribute combination, where it puts its pins
-(`InstanceFactory.getPorts()`), and the generated file was then read back with
-`LogisimFile.load` to compare the offsets the library computes against the ones
-the simulator reports. All 1419 combinations agree for v4.1.0. If a future
-Logisim moves a pin, that comparison is the thing to re-run — the probe is four
-short Java files against
-`/usr/share/java/logisim-evolution/logisim-evolution.jar`.
-
 ## alu.circ
 
 `build_alu.py` generates the ALU: the nine ALU opcodes of the ISA and nothing
@@ -165,3 +161,44 @@ in the ISA only `ADD` writes carry. For an opcode that is not one of the nine,
 `OUT` is undefined -- the CPU does not latch `A` from the ALU then.
 
 `make alu` builds it; `make circ` does too.
+
+## kone.circ
+
+`build_kone.py` puts `regfile.circ` and `alu.circ` under a microcoded control
+unit and adds memory, a display and a keyboard: the whole CPU. `make cpu` builds
+it, `PROG=bin/<name>.bin` picks the program in its ROM, and `make test-logisim`
+boots `display`, `hello`, `keyboard` and `tests/klib/test_mem.kasm` on it
+headlessly (`logisim/java/KoneTest.java`), stopping each case as soon as the TTY
+says what the vm prints. The klib case runs `mem_poke`/`mem_peek`, which patch
+an `LDM`/`STM` into scratch and call it, so it is also the test that the machine
+executes from RAM.
+
+The microprogram is `kone_microcode.py`, one dict per step, assembled into seven
+256-byte ROMs plus two that map an opcode to its entry point:
+
+| ROM | Field |
+| --- | --- |
+| `uLIT` | 8-bit literal, a bus source and the ALU's right input |
+| `uAOP` | ALU opcode, straight from the ISA |
+| `uNEXT`, `uALT` | next microaddress, and the one taken while the condition holds |
+| `uWE` | the eight write enables: `RW TW T2W ALW MLW MHW MEMW CYW` |
+| `uRA` | register address, `ASEL` (use the `AL` latch instead), bus source |
+| `uMISC` | ALU right-hand source, branch condition, dispatch |
+| `dispA`, `dispB` | opcode -> operand fetch, opcode -> execute |
+
+Conditions are read off the main bus, so a step that branches puts the register
+it tests on the bus in the same step. `python3 logisim/python/kone_microcode.py`
+prints the assembled listing with its addresses, which is the first thing to
+look at when the CPU goes somewhere unexpected -- the `UADDR` output pin says
+which microstep it is in, and `BUS` and `MAR` say what it is doing.
+
+## Where the port offsets come from
+
+They are not guessed. Logisim Evolution's own jar was loaded headlessly and
+asked, for every component and attribute combination, where it puts its pins
+(`InstanceFactory.getPorts()`), and the generated file was then read back with
+`LogisimFile.load` to compare the offsets the library computes against the ones
+the simulator reports. All 1419 combinations agree for v4.1.0. If a future
+Logisim moves a pin, that comparison is the thing to re-run — the probe is four
+short Java files against
+`/usr/share/java/logisim-evolution/logisim-evolution.jar`.

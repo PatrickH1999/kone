@@ -925,3 +925,39 @@ class Ttl74377(_TtlChip):
     INPUTS = ("nCLKen", "CLK") + tuple(f"D{i}" for i in range(1, 9))
     PINS = ("nCLKen", "Q1", "D1", "D2", "Q2", "Q3", "D3", "D4", "Q4", None,
             "CLK", "Q5", "D5", "D6", "Q6", "Q7", "D7", "D8", "Q8", None)
+
+
+# --------------------------------------------------------------------------
+# Wiring helpers
+#
+# Both build scripts wire chips the same way: every pin gets a short stub to a
+# named tunnel, so a net is a name rather than a route.
+# --------------------------------------------------------------------------
+
+def stub(circuit, port, to, label, facing="north", width=1):
+    """Tunnel at `to`, wired back to `port`."""
+    circuit.route(port, to)
+    return circuit.add(Tunnel(to[0], to[1], label, width=width, facing=facing))
+
+
+def wire_dip(circuit, chip, nets):
+    """Stub every pin of a DIP to a tunnel or a rail; None leaves it open.
+
+    Bottom-row pins go down, top-row pins up, each one deeper than the last so
+    the labels do not sit on top of each other.
+    """
+    half = len(chip.PINS) // 2
+    for i, pin in enumerate(chip.PINS):
+        if pin is None or nets[pin] is None:
+            continue
+        below = i < half
+        depth = 70 + 40 * (i if below else len(chip.PINS) - 1 - i)
+        px, py = chip.port(pin)
+        to = (px, chip.y + (depth if below else -depth))
+        net = nets[pin]
+        if isinstance(net, str):
+            stub(circuit, (px, py), to, net, "north" if below else "south")
+        else:
+            circuit.route((px, py), to)
+            circuit.add(net(*to, facing="south" if below else "north"))
+    return chip
