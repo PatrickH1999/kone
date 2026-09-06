@@ -382,3 +382,33 @@ header, 392 nets, 247 x 349 mm, unrouted. What costs time here:
 - Freerouting writes its session at a **different scale than the design it was given**, so
   `parse_ses()` calibrates on the placements it echoes rather than trusting the resolution it
   declares.
+
+## Where this stands
+
+The VM, kasm, klib and the Logisim circuits are done and green: `make test` 3/3,
+`make logisim_test` 5/5 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
+`kone.circ` in Logisim's own simulator.
+
+The KiCad side has **one board of five**, the register file: generated, ERC clean, DRC clean
+and routed by Freerouting (~6800 segments, ~150 vias, some 60 connections still open as
+airwires). Freerouting is not in the repo — v2.4.1 sits at
+`~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR` points. `logisim_clean` and
+`clean` delete `logisim/kicad/`, the `.ses` with it, so routing has to be recomputed rather
+than restored after either.
+
+Next, in this order:
+
+1. **`alu` and `datapath` boards.** Both are TTL only, so they need nothing but an entry in
+   `BOARDS` in `build_kicad.py`.
+2. **`sequencer`, `memory` and `io`.** `Netlist` collects `_TtlChip` and nothing else, so a
+   Logisim ROM, RAM, TTY, Keyboard or Clock is dropped without a word and those boards would
+   come out with holes in the logic. They need a part mapping first: 27C256/28C256 for the
+   microcode and program ROMs, a 62256 for the RAM, an oscillator module for the clock, and
+   headers where the keyboard and the display hang off `io`.
+3. **The ~60 open connections** on the regfile board: a manual pass in pcbnew, a higher
+   `FREEROUTING_PASSES`, or four layers.
+
+One question for the author is still open: KiCad's own symbol and footprint libraries are a
+separate package (`kicad-library`) and are not installed, so the boards carry generated ones.
+Installing it would let them use the official 74xx symbols, at the price of dealing with
+multi-unit gate symbols in a generated schematic.
