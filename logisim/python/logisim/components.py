@@ -784,3 +784,79 @@ class Tty(Component):
 
     def __init__(self, x, y, rows=None, cols=None, trigger=None, **attrs):
         super().__init__(x, y, rows=rows, cols=cols, trigger=trigger, **attrs)
+
+
+# --------------------------------------------------------------------------
+# TTL
+#
+# A DIP package: pins 1..n/2 run left to right along the bottom edge, then
+# n/2+1..n right to left along the top. GND (pin n/2) and VCC (pin n) get no
+# port unless VccGndPorts is set, which is not modelled.
+# --------------------------------------------------------------------------
+
+class _TtlChip(Component):
+    LIB = "TTL"
+    PINS = ()           # DIP pin names, index 0 = pin 1; None on GND and VCC
+    INPUTS = ()         # pins that have to be driven; check() reports the rest
+    BOTTOM = 30         # loc to the bottom pin row; the top row is always -30
+
+    def __init__(self, x, y, facing=None, label=None, **attrs):
+        a = dict(_facing_attrs(facing, "east"))
+        if label is not None:
+            a["label"] = label
+        a.update(attrs)
+        super().__init__(x, y, **a)
+
+    def port_spec(self):
+        if self.get("VccGndPorts"):
+            raise PortError(
+                f"{self.NAME}: port offsets are only modelled without the "
+                f"VccGndPorts pins")
+        facing = self.get("facing", "east")
+        half = len(self.PINS) // 2
+        spec = []
+        for i, name in enumerate(self.PINS):
+            if name is None:
+                continue
+            if i < half:
+                dx, dy = 10 + 20 * i, self.BOTTOM
+            else:
+                dx, dy = 10 + 20 * (len(self.PINS) - 1 - i), -30
+            spec.append((name, *rotate(dx, dy, facing)))
+        return spec
+
+
+class Ttl7404(_TtlChip):
+    NAME = "7404"
+    INPUTS = tuple(f"A{i}" for i in range(1, 7))
+    PINS = ("A1", "Y1", "A2", "Y2", "A3", "Y3", None,
+            "Y4", "A4", "Y5", "A5", "Y6", "A6", None)
+
+
+class Ttl7432(_TtlChip):
+    NAME = "7432"
+    INPUTS = tuple(f"{p}{i}" for i in range(1, 5) for p in "AB")
+    PINS = ("A1", "B1", "Y1", "A2", "B2", "Y2", None,
+            "Y3", "B3", "A3", "Y4", "B4", "A4", None)
+
+
+class Ttl74138(_TtlChip):
+    NAME = "74138"
+    INPUTS = ("A", "B", "C", "nG2A", "nG2B", "G1")
+    PINS = ("A", "B", "C", "nG2A", "nG2B", "G1", "nY7", None,
+            "nY6", "nY5", "nY4", "nY3", "nY2", "nY1", "nY0", None)
+
+
+class Ttl74245(_TtlChip):
+    NAME = "74245"
+    INPUTS = ("DIR", "nOE")
+    PINS = ("DIR", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", None,
+            "B8", "B7", "B6", "B5", "B4", "B3", "B2", "B1", "nOE", None)
+
+
+class Ttl74377(_TtlChip):
+    NAME = "74377"
+    INPUTS = ("nCLKen", "CLK") + tuple(f"D{i}" for i in range(1, 9))
+    BOTTOM = 50
+    PINS = ("nCLKen", "Q1", "D1", "D2", "Q2", "Q3", "D3", "D4", "Q4", None,
+            "CLK", "Q5", "D5", "D6", "Q6", "Q7", "D7", "D8", "Q8", None)

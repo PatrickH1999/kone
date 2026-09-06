@@ -17,6 +17,7 @@ dependencies. Requires Python 3.9+.
 | `logisim/python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
 | `logisim/python/logisim/components.py` | the concrete components and their port geometry |
 | `logisim/python/build_*.py` | one build script per generated circuit |
+| `logisim/java/` | headless checks that run a generated file in Logisim |
 | `logisim/*.circ` | the generated files |
 
 `make circ` runs every `build_*.py`. A build script imports the library from its
@@ -58,8 +59,13 @@ and to their index. `component.ports()` lists them all.
 
 Coordinates must be multiples of 10. Off-grid positions raise `GridError`; set
 `logisim.core.STRICT_GRID = False` to downgrade that to a warning. `Project.save`
-also refuses duplicate circuit names, two identical components in one spot and
-repeated pin labels.
+also refuses duplicate circuit names, two identical components in one spot,
+repeated pin labels, any net carrying two different tunnel labels — which is
+what an accidentally shared trunk column looks like — and a floating TTL input;
+each chip class lists the pins that have to be driven in `INPUTS`. `circuit.nets()` returns the
+same connectivity Logisim computes: wires join at a shared endpoint or where an
+endpoint or port lands inside another wire, so wires that merely cross are two
+nets.
 
 ## Subcircuits
 
@@ -91,7 +97,12 @@ Wiring: `Pin` `Probe` `Tunnel` `Constant` `Power` `Ground` `Clock` `Splitter`
 `BitSelector` — Arithmetic: `Adder` `Subtractor` `Multiplier` `Divider`
 `Negator` `Comparator` `Shifter` — Memory: `Register` `DFlipFlop` `TFlipFlop`
 `JKFlipFlop` `SRFlipFlop` `Ram` `Rom` — I/O: `Led` `Button` `SevenSegment`
-`HexDigit` `DipSwitch` `Keyboard` `Tty`.
+`HexDigit` `DipSwitch` `Keyboard` `Tty` — TTL: `Ttl7404` `Ttl7432` `Ttl74138`
+`Ttl74245` `Ttl74377`.
+
+TTL parts are addressed by their DIP pin name — `chip.port("nCLKen")`,
+`chip.port("nY0")`, `chip.port("B3")` — and rotate with `facing`. GND and VCC
+have no port; setting `VccGndPorts` raises `PortError`.
 
 Constructor keywords map to Logisim attributes and only the ones you pass are
 written to the file. Anything without a keyword can be passed through as
@@ -106,6 +117,31 @@ with attributes the library does not model:
 
 `Counter` is not wrapped at all: its symbol width follows the digit count of its
 maximum value. Build one from a `Register` and an `Adder`.
+
+## regfile.circ
+
+`build_regfile.py` generates a 32 x 8-bit register file out of 74xx parts: a
+74377 per register, a 74245 putting it on the bus, and a two-level 74138 tree
+decoding `ADDR` into 32 active-low selects that 7432 gates combine with `RD` and
+`WR`. `make regfile` builds it; `make circ` does too.
+
+The 32 slices come first on the canvas, in an 8 x 4 grid whose rows are the
+decoder groups, so the chips are in view when the file opens; the pins, the
+74138 tree and the 7432 gates sit below them.
+
+Logisim Evolution has no bidirectional `Pin`, so the bus leaves the circuit as
+`BUS_IN` and `BUS_OUT`. Wire both to the same bus net in the parent: `BUS_OUT` is
+high-Z unless `RD` selects a register.
+
+`build_regfile_test.py` does exactly that, in a `bench` circuit around the
+register file (`logisim/regfile_test.circ`); `DRV` gates the bench's own driver
+onto the shared net so only one side drives it at a time. `make test-regfile`
+runs `logisim/java/RegfileTest.java` against that file in Logisim's own
+simulator, headless and in a few seconds: pin widths and directions, a floating
+bus at `RD=0`, all 32 registers written and read back (which is the test for
+address aliasing), a combinational read, and a clock edge with `WR=0` changing
+nothing. It is not one of the `make test` groups, because it needs a JDK and
+`LOGISIM_JAR`.
 
 ## Where the port offsets come from
 

@@ -245,6 +245,58 @@ class Circuit:
 
     # -- output -----------------------------------------------------------
 
+    def nets(self):
+        """Connected groups of port and wire-end locations.
+
+        Logisim joins wires at a shared endpoint and wherever an endpoint or a
+        port lands inside another wire, so wires that merely cross are two nets.
+        """
+        parent = {}
+
+        def find(p):
+            parent.setdefault(p, p)
+            while parent[p] != p:
+                parent[p] = parent[parent[p]]
+                p = parent[p]
+            return p
+
+        def union(a, b):
+            ra, rb = find(a), find(b)
+            if ra != rb:
+                parent[ra] = rb
+
+        rows, cols = {}, {}
+        for w in self.wires:
+            union(w.a, w.b)
+            if w.a[1] == w.b[1]:
+                rows.setdefault(w.a[1], []).append(w)
+            else:
+                cols.setdefault(w.a[0], []).append(w)
+
+        points = {p for w in self.wires for p in (w.a, w.b)}
+        points.update(p for c in self.components for p in
+                      ((x, y) for _, x, y in c.ports()))
+        for x, y in points:
+            for w in rows.get(y, ()):
+                if min(w.a[0], w.b[0]) < x < max(w.a[0], w.b[0]):
+                    union((x, y), w.a)
+            for w in cols.get(x, ()):
+                if min(w.a[1], w.b[1]) < y < max(w.a[1], w.b[1]):
+                    union((x, y), w.a)
+
+        nets = {}
+        for p in points:
+            nets.setdefault(find(p), []).append(p)
+        return list(nets.values())
+
+    def ports_at(self):
+        """Location -> the components with a port there."""
+        index = {}
+        for comp in self.components:
+            for _, x, y in comp.ports():
+                index.setdefault((x, y), []).append(comp)
+        return index
+
     def check(self):
         problems = []
         seen = {}
@@ -257,6 +309,25 @@ class Circuit:
         for label in set(labels):
             if labels.count(label) > 1:
                 problems.append(f"{self.name}: {labels.count(label)} pins labelled {label!r}")
+        index = self.ports_at()
+        nets = self.nets()
+        for net in nets:
+            tunnels = {c.get("label") for p in net for c in index.get(p, ())
+                       if c.NAME == "Tunnel"}
+            if len(tunnels) > 1:
+                problems.append(
+                    f"{self.name}: tunnels {sorted(tunnels)} share the net at "
+                    f"{min(net)}")
+        net_of = {p: net for net in nets for p in net}
+        for comp in self.components:
+            for name in getattr(comp, "INPUTS", ()):
+                loc = comp.port(name)
+                if not any(other is not comp
+                           for p in net_of.get(loc, [loc])
+                           for other in index.get(p, ())):
+                    problems.append(
+                        f"{self.name}: {comp.NAME} {comp.get('label', '')!r} "
+                        f"input {name} at {loc} is floating")
         return problems
 
     def to_xml(self, indent="  "):
