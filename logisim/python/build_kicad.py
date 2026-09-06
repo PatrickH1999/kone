@@ -8,8 +8,8 @@ One directory per board under logisim/kicad/, each a KiCad project with its own
 symbol and footprint library: KiCad's own libraries are a separate install and
 this way the boards do not depend on which version of them is present.
 
---route reads the .ses Freerouting wrote for a board and regenerates its .kicad_pcb
-with those tracks in it.
+--route insists on the .ses Freerouting wrote for a board; without it, a session
+lying next to the board is used anyway, so regenerating keeps the routing.
 """
 
 import sys
@@ -61,14 +61,16 @@ if __name__ == "__main__":
         build, columns = BOARDS[name]
         board = Board(name, build(), columns=columns)
         tracks, vias = (), ()
-        if route:
-            session = OUT / name / f"{name}.ses"
-            if not session.exists():
-                sys.exit(f"no {session}; run the router first")
+        # A session from an earlier run is kept, so regenerating a board does
+        # not silently throw its routing away.
+        session = OUT / name / f"{name}.ses"
+        if route and not session.exists():
+            sys.exit(f"no {session}; run the router first")
+        if session.exists():
             tracks, vias = parse_ses(session.read_text(), board)
         print(write(board, OUT / name, tracks, vias),
               f"({len(board.parts)} parts, {len(board.nets())} nets"
               + (f", {sum(len(p) - 1 for *_, p in tracks)} segments, "
-                 f"{len(vias)} vias)" if route else ")"))
+                 f"{len(vias)} vias)" if tracks else ")"))
         built[name] = board
     print(pinout(OUT / "BACKPLANE.md", built))
