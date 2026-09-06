@@ -59,11 +59,13 @@ TEST_SUMMARY = if [ $$failed -gt 0 ]; then \
         "$$group" "$$passed" "$$((passed + failed))"; \
     fi
 
+CIRC_SCRIPTS := $(wildcard logisim/python/build_*.py)
+
 PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all check clean debug examples format install kasm kone test \
+.PHONY: all check circ clean debug examples format install kasm kone test \
         $(TEST_GROUPS)
 
 # Main targets.
@@ -71,6 +73,10 @@ $(shell mkdir -p bin obj)
 all: $(TARGET) $(KASM) $(EXAMPLE_TARGETS)
 
 check: format all
+
+# Logisim circuits: every logisim/python/build_*.py writes its own .circ.
+circ:
+	@for s in $(CIRC_SCRIPTS); do python3 $$s || exit 1; done
 
 clean:
 	$(MAKE) -C $(KASM_DIR) clean
