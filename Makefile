@@ -64,7 +64,7 @@ TEST_SUMMARY = if [ $$failed -gt 0 ]; then \
 LOGISIM_SCRIPTS := $(filter-out logisim/python/build_kicad.py, \
                                $(wildcard logisim/python/build_*.py))
 
-LOGISIM_BOARDS := regfile
+LOGISIM_BOARDS := regfile alu datapath sequencer memory io
 
 # Freerouting is not packaged; drop the jar here (or point the variable at it).
 FREEROUTING_JAR ?= $(HOME)/.cache/freerouting/freerouting.jar
@@ -85,7 +85,8 @@ PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all check clean debug examples format install kasm kone logisim_alu \
+.PHONY: all check clean debug examples format hooks install kasm kone \
+        logisim_alu \
         logisim_circ logisim_clean logisim_cpu logisim_gerbers logisim_kicad \
         logisim_regfile logisim_route logisim_test test $(TEST_GROUPS)
 
@@ -126,8 +127,26 @@ debug: clean all
 
 examples: $(EXAMPLE_TARGETS)
 
+# C with clang-format, python with ruff or black -- neither is a build
+# dependency, so a missing formatter is reported rather than fatal.
+PYTHON_SRCS := $(shell find logisim -name '*.py' -not -path '*__pycache__*')
+
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
+	@if command -v ruff > /dev/null 2>&1; then \
+		ruff format --quiet $(PYTHON_SRCS); \
+	elif command -v black > /dev/null 2>&1; then \
+		black --quiet $(PYTHON_SRCS); \
+	else \
+		printf 'format: no ruff or black, python left alone '; \
+		printf '(pacman -S python-ruff)\n'; \
+	fi
+
+# The pre-commit hook lives in tools/hooks and is copied in, since .git is
+# not under version control.
+hooks:
+	install -m755 tools/hooks/pre-commit .git/hooks/pre-commit
+	@echo 'pre-commit hook installed'
 
 install: $(TARGET) $(KASM) examples
 	mkdir -p $(PREFIX)/bin

@@ -17,12 +17,12 @@ from logisim import *
 OUT = Path(__file__).resolve().parents[1] / "regfile.circ"
 
 REGISTERS = 32
-COLUMNS = 8                     # a row of 8 is one stage-2 decoder's group
+COLUMNS = 8  # a row of 8 is one stage-2 decoder's group
 COL_PITCH, ROW_PITCH = 420, 700
-GRID = (200, 400)               # the register slices, first so they open in view
-CTRL = (100, 3300)              # pins and the two bus splitters
-DECODE_Y = 3700                 # the 74138 tree and the strobe inverter
-GLUE = (200, 4700)              # the 7432 enable gates
+GRID = (200, 400)  # the register slices, first so they open in view
+CTRL = (100, 3300)  # pins and the two bus splitters
+DECODE_Y = 3700  # the 74138 tree and the strobe inverter
+GLUE = (200, 4700)  # the 7432 enable gates
 
 D_PIN = tuple(f"D{k + 1}" for k in range(8))
 Q_PIN = tuple(f"Q{k + 1}" for k in range(8))
@@ -44,8 +44,13 @@ def register_slice(c, i, x, y):
     for k in range(8):
         px, py = reg.port(D_PIN[k])
         below = k < 4
-        stub(c, (px, py), (px, py + (20 if below else -20)), f"BI{k}",
-             "north" if below else "south")
+        stub(
+            c,
+            (px, py),
+            (px, py + (20 if below else -20)),
+            f"BI{k}",
+            "north" if below else "south",
+        )
 
     # Q -> A. Bits 4-7 leave on the 74377's top row, so they come back down
     # the left of both chips; every net gets a channel and a column of its own.
@@ -58,11 +63,26 @@ def register_slice(c, i, x, y):
             j = k - 4
             over, side = y - 90 - 20 * j, x - 30 - 20 * j
             band = y + 190 + 20 * j
-            c.route(src, (src[0], over), (side, over), (side, band),
-                    (dst[0], band), dst)
+            c.route(
+                src,
+                (src[0], over),
+                (side, over),
+                (side, band),
+                (dst[0], band),
+                dst,
+            )
 
-    split = c.add(Splitter(x + 150, y + 390, fanout=8, incoming=8,
-                           facing="north", appear="left", spacing=2))
+    split = c.add(
+        Splitter(
+            x + 150,
+            y + 390,
+            fanout=8,
+            incoming=8,
+            facing="north",
+            appear="left",
+            spacing=2,
+        )
+    )
     for k in range(8):
         c.route(drv.port(B_PIN[k]), split.port(str(k)))
     stub(c, split.port("in"), (x + 150, y + 410), "BO", "north", width=8)
@@ -93,8 +113,9 @@ def decoder(c, x, y, label, nets):
                 c.route((px, py), to)
                 c.add((Ground if pin == "nG2B" else Power)(*to, facing="south"))
             elif nets.get(pin):
-                stub(c, (px, py), to, nets[pin],
-                     "north" if row > 0 else "south")
+                stub(
+                    c, (px, py), to, nets[pin], "north" if row > 0 else "south"
+                )
             elif pin in ("C", "nG2A"):
                 c.route((px, py), to)
                 c.add(Ground(*to, facing="south"))
@@ -110,8 +131,13 @@ def or_bank(c, x, y, label, nets):
     for row, order in ((1, OR_BOTTOM), (-1, OR_TOP)):
         for i, pin in enumerate(order):
             px, py = chip.port(pin)
-            stub(c, (px, py), (px, y + row * (70 + 40 * i)), nets[pin],
-                 "north" if row > 0 else "south")
+            stub(
+                c,
+                (px, py),
+                (px, y + row * (70 + 40 * i)),
+                nets[pin],
+                "north" if row > 0 else "south",
+            )
     return chip
 
 
@@ -124,20 +150,37 @@ def control(c):
         pin = c.add(Pin(cx, cy + 500 + 100 * i, name))
         stub(c, pin.port(), (cx + 200, cy + 500 + 100 * i), name, "west")
 
-    for pin, count, y, prefix in ((bus_in, 8, cy, "BI"), (addr, 5, cy + 300, "A")):
-        split = c.add(Splitter(cx + 100, y, fanout=count, incoming=count,
-                               appear="right", spacing=2))
+    for pin, count, y, prefix in (
+        (bus_in, 8, cy, "BI"),
+        (addr, 5, cy + 300, "A"),
+    ):
+        split = c.add(
+            Splitter(
+                cx + 100,
+                y,
+                fanout=count,
+                incoming=count,
+                appear="right",
+                spacing=2,
+            )
+        )
         c.connect(pin, None, split, "in")
         for k in range(count):
-            stub(c, split.port(str(k)), (cx + 300, y + 10 + 20 * k),
-                 f"{prefix}{k}", "west")
+            stub(
+                c,
+                split.port(str(k)),
+                (cx + 300, y + 10 + 20 * k),
+                f"{prefix}{k}",
+                "west",
+            )
 
     out = c.add(Pin(cx + 300, cy + 800, "BUS_OUT", width=8, output=True))
     stub(c, out.port(), (cx + 200, cy + 800), "BO", "east", width=8)
 
     inv = c.add(Ttl7404(2900, DECODE_Y, label="strobes"))
-    for i, (pin, net) in enumerate((("A1", "RD"), ("Y1", "nRD"),
-                                   ("A2", "WR"), ("Y2", "nWR"))):
+    for i, (pin, net) in enumerate(
+        (("A1", "RD"), ("Y1", "nRD"), ("A2", "WR"), ("Y2", "nWR"))
+    ):
         px, py = inv.port(pin)
         stub(c, (px, py), (px, DECODE_Y + 70 + 40 * i), net, "north")
     for pin, dy in (("A3", 70), ("A4", -70), ("A5", -110), ("A6", -150)):
@@ -146,13 +189,27 @@ def control(c):
         c.add(Ground(px, DECODE_Y + dy, facing="south" if dy > 0 else "north"))
 
     # ADDR[3:4] picks a group of eight, ADDR[0:2] the register in it.
-    decoder(c, 700, DECODE_Y, "group",
-            {"A": "A3", "B": "A4",
-             **{f"nY{g}": f"nG{g}" for g in range(4)}})
+    decoder(
+        c,
+        700,
+        DECODE_Y,
+        "group",
+        {"A": "A3", "B": "A4", **{f"nY{g}": f"nG{g}" for g in range(4)}},
+    )
     for g in range(4):
-        decoder(c, 1200 + 400 * g, DECODE_Y, f"sel{g}",
-                {"A": "A0", "B": "A1", "C": "A2", "nG2A": f"nG{g}",
-                 **{f"nY{j}": f"nS{8 * g + j}" for j in range(8)}})
+        decoder(
+            c,
+            1200 + 400 * g,
+            DECODE_Y,
+            f"sel{g}",
+            {
+                "A": "A0",
+                "B": "A1",
+                "C": "A2",
+                "nG2A": f"nG{g}",
+                **{f"nY{j}": f"nS{8 * g + j}" for j in range(8)},
+            },
+        )
 
     # nEN<i> = nSTROBE + nS<i>: low only while the strobe is high and the
     # register is selected.
@@ -161,10 +218,15 @@ def control(c):
             n = bank + (0 if kind == "W" else 8)
             x, y = GLUE[0] + 400 * (n % 8), GLUE[1] + 700 * (n // 8)
             base = 4 * bank
-            or_bank(c, x, y, f"{prefix}{base}-{base + 3}",
-                    {f"A{g + 1}": strobe for g in range(4)}
-                    | {f"B{g + 1}": f"nS{base + g}" for g in range(4)}
-                    | {f"Y{g + 1}": f"{prefix}{base + g}" for g in range(4)})
+            or_bank(
+                c,
+                x,
+                y,
+                f"{prefix}{base}-{base + 3}",
+                {f"A{g + 1}": strobe for g in range(4)}
+                | {f"B{g + 1}": f"nS{base + g}" for g in range(4)}
+                | {f"Y{g + 1}": f"{prefix}{base + g}" for g in range(4)},
+            )
 
 
 def regfile():
@@ -172,7 +234,9 @@ def regfile():
     control(c)
     for i in range(REGISTERS):
         col, row = i % COLUMNS, i // COLUMNS
-        register_slice(c, i, GRID[0] + COL_PITCH * col, GRID[1] + ROW_PITCH * row)
+        register_slice(
+            c, i, GRID[0] + COL_PITCH * col, GRID[1] + ROW_PITCH * row
+        )
     return c
 
 

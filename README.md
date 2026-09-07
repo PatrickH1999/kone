@@ -61,6 +61,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make logisim_kicad`: generate the KiCad boards in `logisim/kicad/` and run ERC and DRC on them
  - `make logisim_route`: autoroute the boards with Freerouting and re-check them
  - `make logisim_gerbers`: export gerbers and drill files for every board
+ - `make hooks`: install the pre-commit hook, which runs `make format` and re-stages what it changed
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
 A C test is `tests/test_<module>.c` and is picked up by the wildcard, no makefile edit needed. A `klib` test is a kasm program in `tests/klib/` that prints one `PASS:<case>` or `FAIL:<case>` row per case and then a summary row, `ALL PASS` or `<n> FAILED`, and halts; the harness runs it on the vm, waits up to 20 s for that summary and reads the last complete display frame. A `test_<name>.in` beside it is piped in as keystrokes, and a `test_<name>.expect` lists display rows that have to match exactly, which is how output that cannot be read back from inside the vm is checked.
@@ -304,4 +305,17 @@ To watch it run, open `logisim/kone.circ`, reset with *Simulate -> Reset* and st
 ### PCBs
 The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `logisim/python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connector. `make logisim_kicad` writes them under `logisim/kicad/` and checks them with `kicad-cli`; `make logisim_gerbers` exports gerbers and Excellon drill files with JLCPCB's defaults.
 
-So far only the register file exists as a board: 86 ICs, 247 x 349 mm, ERC and DRC clean. Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.
+Each of the six blocks of `kone.circ` is a board of its own, generated from the same circuit, ERC clean and DRC clean:
+
+| Board | ICs | Contents |
+| --- | --- | --- |
+| `regfile` | 86 | 32 registers, their bus drivers and the address decoder tree |
+| `alu` | 27 | adder, logic banks and the result muxes |
+| `io` | 23 | `R16`-`R19` and the two device handshakes |
+| `sequencer` | 20 | microprogram counter and the nine 28C256 holding the microcode |
+| `datapath` | 15 | bus and operand muxes, the latches around the ALU |
+| `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
+
+Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
+
+Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.

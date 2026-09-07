@@ -19,11 +19,12 @@ device contract, klib index) — keep it in sync with any change to those.
 ```
 make            # bin/kone, bin/kasm, all examples
 make test       # test-kone + test-kasm + test-klib (a failing group does not stop the others)
-make format     # clang-format, run before finishing
+make format     # clang-format + ruff (or black), run before finishing
+make hooks      # install the pre-commit hook that runs make format
 make logisim_circ   # every logisim/python/build_*.py -> logisim/*.circ
 make logisim_cpu    # only kone.circ; LOGISIM_PROG=bin/<name>.bin is its program
 make logisim_test   # boot four programs on kone.circ in Logisim, headless (~90 s)
-make logisim_clean  # only the generated .circ files and the compiled harness
+make logisim_clean  # the generated .circ files, logisim/kicad/ and the harness
 make logisim_kicad  # KiCad projects under logisim/kicad/, then kicad-cli ERC + DRC
 make logisim_route  # autoroute with Freerouting, then DRC (FREEROUTING_JAR)
 make logisim_gerbers  # gerbers and drill files per board, JLCPCB defaults
@@ -31,8 +32,9 @@ bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
 
-`make clean` also deletes `$(PREFIX)/bin/{kone,kasm}` and the generated `.circ` files
-(`make logisim_clean` for only those, and it leaves a hand-drawn circuit alone); `make debug`
+`make clean` also deletes `$(PREFIX)/bin/{kone,kasm}`, the generated `.circ` files and
+`logisim/kicad/` (`make logisim_clean` for only those, and it leaves a hand-drawn circuit
+alone; the routing goes with them and has to be recomputed); `make debug`
 depends on `clean`, so it uninstalls as a side effect. `make -n clean` is not a dry run
 either — the recursive `$(MAKE) -C src/kasm clean` runs for real and takes `bin/kasm` with
 it. kasm emits no depfiles, so any klib edit rebuilds every
@@ -82,8 +84,9 @@ print('\n'.join(l.rstrip() for l in last.splitlines() if l.strip()))
 | `examples/` | `*.kasm` → `bin/*.bin`, auto-discovered by wildcard |
 | `tests/` | C unit tests, one `test_<module>.{c,h}` per `src/<module>.c` |
 | `tests/klib/` | klib tests as kasm programs, plus optional `.in` / `.expect` |
-| `logisim/python/` | circuit generator: the `logisim/` library, one `build_*.py` per circuit, `kone_microcode.py` |
+| `logisim/python/` | generator: the `logisim/` library, `build_<circuit>.py`, `kone_microcode.py`, and `build_kicad.py`, which writes boards rather than a `.circ` |
 | `logisim/java/` | `KoneTest.java`, which boots `kone.circ` in Logisim's own simulator |
+| `tools/` | `bin2bits.sh` and `hooks/pre-commit`, which `make hooks` installs |
 
 A new klib file must be `.include`d from its group file (`klib/math/int32.kasm`,
 `klib/math/float32.kasm`, `klib/io.kasm`, `klib/mem.kasm`, `klib/str.kasm`) or it is
@@ -97,6 +100,15 @@ Right`, `SortIncludes: false`). Beyond what it decides, follow Google C++ style.
 `module_verb()` function names, `CamelCase` typedef'd structs, `UPPER_SNAKE` macros, own
 header first then system then project includes, `const` on value parameters, trailing
 underscore to dodge keywords (`char_`).
+
+**Python** — `make format` runs `ruff format` (or `black`) over `logisim/**/*.py` with the
+line length in `pyproject.toml`, 80, the same column limit `.clang-format` uses. Neither tool is a
+build dependency: without one, `make format` says so and leaves the files alone.
+
+**Commits** — `make hooks` installs `tools/hooks/pre-commit`, which runs `make format` and
+re-stages what it changed, so formatting never lands in a later commit. It refuses to run
+when a file is both staged and modified in the tree, because formatting would sweep the
+unstaged half into the commit.
 
 **Comments** — explain only what the code does not. Do not restate an instruction, a
 signature, or a name.
@@ -354,9 +366,21 @@ a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, a
 parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
 and writes `logisim/kicad/BACKPLANE.md`, the 2x20 pinout every board carries.
 
-Only the **regfile board** exists so far: 86 ICs, 86 decoupling caps, backplane and power
-header, 392 nets, 247 x 349 mm, unrouted. What costs time here:
+All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
+`datapath` (15) and `memory` (8), each with a 100nF per IC, the backplane connectors it needs
+and a power header. `BACKPLANE.md` is generated from the top level of `kone.circ`, so a
+header pin means the same signal on every board. What costs time here:
 
+- Tunnels with the same label are **one net**, and `Netlist` has to union them: a block's
+  8-bit port reaches its splitter only that way, and without it a connector pin ends up on a
+  net named after the bus (`SEL5`) that no chip is on.
+- A Logisim `ROM` or `RAM` is not a part; `PARTS` maps it onto the 28-pin JEDEC pinout
+  (28C256, 62256). A ROM is tied selected and output-enabled; the SRAM takes `OE#` from the
+  write strobe and `WE#` from the net named `n<STROBE>`, which the circuit has to provide --
+  that is what the extra inverter in `memory()` is for. Logisim's separate `din` and `dout`
+  are one bus on the chip, so the board merges those two nets.
+- The board grid follows the largest package on it, or a 0.6 inch memory overlaps its own
+  decoupling cap.
 - KiCad's own symbol and footprint libraries are a **separate package** (`kicad-library`)
   and are not installed on this machine, so the backend generates a project-local library.
   A DIP symbol is a rectangle with numbered pins, which is what a 74xx symbol is anyway.
@@ -382,6 +406,11 @@ header, 392 nets, 247 x 349 mm, unrouted. What costs time here:
 - Freerouting writes its session at a **different scale than the design it was given**, so
   `parse_ses()` calibrates on the placements it echoes rather than trusting the resolution it
   declares.
+- The `.dsn` boundary is the board outline **inset by 1 mm**, or the router lays tracks along
+  the edge and every one of them is a `copper_edge_clearance` error. For the same reason the
+  clearance it is given (0.25 mm) is wider than the rule KiCad checks (0.2 mm): its rounding
+  has to stay inside. It also emits zero-length track fragments, which DRC reports as
+  clearance violations, so `parse_ses()` drops points closer together than 0.01 mm.
 
 ## Where this stands
 
@@ -389,24 +418,21 @@ The VM, kasm, klib and the Logisim circuits are done and green: `make test` 3/3,
 `make logisim_test` 5/5 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
 `kone.circ` in Logisim's own simulator.
 
-The KiCad side has **one board of five**, the register file: generated, ERC clean, DRC clean
-and routed by Freerouting (~6800 segments, ~150 vias, some 60 connections still open as
-airwires). Freerouting is not in the repo — v2.4.1 sits at
+All six boards are generated, ERC clean, and DRC clean routed: `make logisim_route` gets
+6281 segments onto the regfile and 800 to 1900 onto each of the others, leaving 9 to 68
+connections per board as airwires. Freerouting is not in the repo — v2.4.1 sits at
 `~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR` points. `logisim_clean` and
 `clean` delete `logisim/kicad/`, the `.ses` with it, so routing has to be recomputed rather
 than restored after either.
 
-Next, in this order:
+What is left:
 
-1. **`alu` and `datapath` boards.** Both are TTL only, so they need nothing but an entry in
-   `BOARDS` in `build_kicad.py`.
-2. **`sequencer`, `memory` and `io`.** `Netlist` collects `_TtlChip` and nothing else, so a
-   Logisim ROM, RAM, TTY, Keyboard or Clock is dropped without a word and those boards would
-   come out with holes in the logic. They need a part mapping first: 27C256/28C256 for the
-   microcode and program ROMs, a 62256 for the RAM, an oscillator module for the clock, and
-   headers where the keyboard and the display hang off `io`.
-3. **The ~60 open connections** on the regfile board: a manual pass in pcbnew, a higher
-   `FREEROUTING_PASSES`, or four layers.
+1. **The connections the autorouter leaves open** — some 60 on the regfile board, fewer on
+   the small ones. A manual pass in pcbnew, a higher `FREEROUTING_PASSES`, or four layers.
+2. **The clock and the two devices.** `CLK`, the TTY lines and the keyboard lines are
+   backplane signals, so nothing carries an oscillator module or the display and keyboard
+   connectors yet; they want a small seventh board, or a place on `io`.
+3. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a
 separate package (`kicad-library`) and are not installed, so the boards carry generated ones.

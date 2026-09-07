@@ -27,15 +27,23 @@ def _letters(prefix, n):
 # Wiring
 # --------------------------------------------------------------------------
 
+
 class Pin(Component):
     LIB = "Wiring"
     NAME = "Pin"
     IS_PIN = True
     PORTS = (("pin", 0, 0),)
-    ALIASES = {"in": "pin", "out": "pin", "q": "pin", "d": "pin", "value": "pin"}
+    ALIASES = {
+        "in": "pin",
+        "out": "pin",
+        "q": "pin",
+        "d": "pin",
+        "value": "pin",
+    }
 
-    def __init__(self, x, y, label=None, width=1, output=False, facing=None,
-                 **attrs):
+    def __init__(
+        self, x, y, label=None, width=1, output=False, facing=None, **attrs
+    ):
         a = {}
         if facing is not None:
             a["facing"] = facing
@@ -57,8 +65,14 @@ class Probe(Component):
     PORTS = (("in", 0, 0),)
 
     def __init__(self, x, y, label=None, radix=None, facing=None, **attrs):
-        super().__init__(x, y, label=label, radix=radix,
-                         **_facing_attrs(facing, "east"), **attrs)
+        super().__init__(
+            x,
+            y,
+            label=label,
+            radix=radix,
+            **_facing_attrs(facing, "east"),
+            **attrs,
+        )
 
 
 class Tunnel(Component):
@@ -119,10 +133,18 @@ class Clock(Component):
     NAME = "Clock"
     PORTS = (("out", 0, 0),)
 
-    def __init__(self, x, y, label=None, high=None, low=None, facing=None,
-                 **attrs):
-        super().__init__(x, y, label=label, highDuration=high, lowDuration=low,
-                         **_facing_attrs(facing, "east"), **attrs)
+    def __init__(
+        self, x, y, label=None, high=None, low=None, facing=None, **attrs
+    ):
+        super().__init__(
+            x,
+            y,
+            label=label,
+            highDuration=high,
+            lowDuration=low,
+            **_facing_attrs(facing, "east"),
+            **attrs,
+        )
 
 
 class BitExtender(Component):
@@ -131,8 +153,9 @@ class BitExtender(Component):
     PORTS = (("out", 0, 0), ("in", -40, 0))
 
     def __init__(self, x, y, in_width=8, out_width=16, type="sign", **attrs):
-        super().__init__(x, y, in_width=in_width, out_width=out_width,
-                         type=type, **attrs)
+        super().__init__(
+            x, y, in_width=in_width, out_width=out_width, type=type, **attrs
+        )
 
 
 class Splitter(Component):
@@ -141,8 +164,18 @@ class Splitter(Component):
     LIB = "Wiring"
     NAME = "Splitter"
 
-    def __init__(self, x, y, fanout=2, incoming=2, appear="left", facing=None,
-                 spacing=1, bits=None, **attrs):
+    def __init__(
+        self,
+        x,
+        y,
+        fanout=2,
+        incoming=2,
+        appear="left",
+        facing=None,
+        spacing=1,
+        bits=None,
+        **attrs,
+    ):
         a = {"fanout": fanout, "incoming": incoming, "appear": appear}
         if spacing != 1:
             a["spacing"] = spacing
@@ -161,8 +194,10 @@ class Splitter(Component):
         # "left"/"right" are relative to the facing, so they swap with it; the
         # centred layouts are the same list mirrored on the vertical facings.
         if appear in ("center", "legacy"):
-            offs = [pitch * (k - 1) - pitch * (fanout // 2)
-                    for k in range(1, fanout + 1)]
+            offs = [
+                pitch * (k - 1) - pitch * (fanout // 2)
+                for k in range(1, fanout + 1)
+            ]
             if facing in ("north", "south"):
                 offs = [-o - (pitch if fanout % 2 == 0 else 0) for o in offs]
         else:
@@ -172,8 +207,12 @@ class Splitter(Component):
             offs = far if flip else near
             if facing in ("north", "south"):
                 offs = [-o for o in offs]
-        depth = {"east": (20, 0), "west": (-20, 0),
-                 "north": (0, -20), "south": (0, 20)}[facing]
+        depth = {
+            "east": (20, 0),
+            "west": (-20, 0),
+            "north": (0, -20),
+            "south": (0, 20),
+        }[facing]
         spec = [("in", 0, 0)]
         for i, o in enumerate(offs):
             if facing in ("east", "west"):
@@ -207,18 +246,30 @@ def gate_input_offsets(size, inputs):
         return list(special)
     if inputs % 2:
         return [-5 * (inputs - 1) + 10 * i for i in range(inputs)]
-    return [-5 * inputs + 10 * i + (10 if i >= inputs // 2 else 0)
-            for i in range(inputs)]
+    return [
+        -5 * inputs + 10 * i + (10 if i >= inputs // 2 else 0)
+        for i in range(inputs)
+    ]
 
 
 class _Gate(Component):
     LIB = "Gates"
     DEFAULT_SIZE = 50
-    BONUS = 0            # extra body length before the input pins
-    NEGATED = False      # bubble on the output adds another 10
+    BONUS = 0  # extra body length before the input pins
+    NEGATED = False  # bubble on the output adds another 10
 
-    def __init__(self, x, y, inputs=2, size=None, facing=None, width=None,
-                 label=None, negate=(), **attrs):
+    def __init__(
+        self,
+        x,
+        y,
+        inputs=2,
+        size=None,
+        facing=None,
+        width=None,
+        label=None,
+        negate=(),
+        **attrs,
+    ):
         a = {}
         if inputs != 2:
             a["inputs"] = inputs
@@ -240,8 +291,9 @@ class _Gate(Component):
         facing = self.get("facing", "east")
         body = size + self.BONUS + (10 if self.NEGATED else 0)
         spec = [("out", 0, 0)]
-        for i, (dx, dy) in enumerate(_data_positions(
-                facing, -body, gate_input_offsets(size, inputs))):
+        for i, (dx, dy) in enumerate(
+            _data_positions(facing, -body, gate_input_offsets(size, inputs))
+        ):
             spec.append((f"in{i}", dx, dy))
         return spec
 
@@ -294,8 +346,9 @@ class NotGate(Component):
     NAME = "NOT Gate"
     ALIASES = {"a": "in", "0": "in", "y": "out", "q": "out"}
 
-    def __init__(self, x, y, size=None, facing=None, width=None, label=None,
-                 **attrs):
+    def __init__(
+        self, x, y, size=None, facing=None, width=None, label=None, **attrs
+    ):
         a = {}
         if size is not None and size != 30:
             a["size"] = size
@@ -346,9 +399,11 @@ class ControlledBuffer(Component):
     def port_spec(self):
         facing = self.get("facing", "east")
         side = 10 if self.get("control", "right") == "right" else -10
-        return [("out", 0, 0),
-                ("in",) + rotate(-self.BODY, 0, facing),
-                ("en",) + rotate(-self.BODY + 10, side, facing)]
+        return [
+            ("out", 0, 0),
+            ("in",) + rotate(-self.BODY, 0, facing),
+            ("en",) + rotate(-self.BODY + 10, side, facing),
+        ]
 
 
 class ControlledInverter(ControlledBuffer):
@@ -364,9 +419,14 @@ class ControlledInverter(ControlledBuffer):
 # relative to the facing.
 # --------------------------------------------------------------------------
 
+
 def _along(facing, distance):
-    return {"east": (distance, 0), "west": (-distance, 0),
-            "north": (0, -distance), "south": (0, distance)}[facing]
+    return {
+        "east": (distance, 0),
+        "west": (-distance, 0),
+        "north": (0, -distance),
+        "south": (0, distance),
+    }[facing]
 
 
 def _across(facing, offset):
@@ -390,8 +450,17 @@ def _select_offsets(select):
 class _Plexer(Component):
     LIB = "Plexers"
 
-    def __init__(self, x, y, select=1, width=None, facing=None, enable=False,
-                 selloc=None, **attrs):
+    def __init__(
+        self,
+        x,
+        y,
+        select=1,
+        width=None,
+        facing=None,
+        enable=False,
+        selloc=None,
+        **attrs,
+    ):
         a = {}
         if select != 1:
             a["select"] = select
@@ -424,8 +493,12 @@ class Multiplexer(_Plexer):
     def port_spec(self):
         select, facing, n, side, enable = self._common()
         depth = -(30 if select == 1 else 40)
-        spec = [(f"in{i}", dx, dy) for i, (dx, dy) in
-                enumerate(_data_positions(facing, depth, _select_offsets(select)))]
+        spec = [
+            (f"in{i}", dx, dy)
+            for i, (dx, dy) in enumerate(
+                _data_positions(facing, depth, _select_offsets(select))
+            )
+        ]
         sx, sy = _along(facing, -20)
         ax, ay = _across(facing, side)
         spec.append(("sel", sx + ax, sy + ay))
@@ -449,8 +522,12 @@ class Demultiplexer(_Plexer):
     def port_spec(self):
         select, facing, n, side, enable = self._common()
         depth = 30 if select == 1 else 40
-        spec = [(f"out{i}", dx, dy) for i, (dx, dy) in
-                enumerate(_data_positions(facing, depth, _select_offsets(select)))]
+        spec = [
+            (f"out{i}", dx, dy)
+            for i, (dx, dy) in enumerate(
+                _data_positions(facing, depth, _select_offsets(select))
+            )
+        ]
         sx, sy = _along(facing, 20)
         ax, ay = _across(facing, side)
         spec.append(("sel", sx + ax, sy + ay))
@@ -479,13 +556,20 @@ class Decoder(_Plexer):
         # facing, and swaps for both tr and the vertical facings.
         negative = (selloc == "bl") == (facing in ("east", "west"))
         if select == 1:
-            offsets = [-30 + 20 * i for i in range(2)] if negative \
+            offsets = (
+                [-30 + 20 * i for i in range(2)]
+                if negative
                 else [10 + 20 * i for i in range(2)]
+            )
         else:
             base = -10 * n if negative else 0
             offsets = [base + 10 * i for i in range(n)]
-        spec = [(f"out{i}", dx, dy) for i, (dx, dy) in
-                enumerate(_data_positions(facing, depth, offsets))]
+        spec = [
+            (f"out{i}", dx, dy)
+            for i, (dx, dy) in enumerate(
+                _data_positions(facing, depth, offsets)
+            )
+        ]
         spec.append(("sel", 0, 0))
         if enable:
             spec.append(("en",) + _along(facing, -10))
@@ -503,8 +587,9 @@ class BitSelector(Component):
     NAME = "BitSelector"
     ALIASES = {"s": "sel", "select": "sel"}
 
-    def __init__(self, x, y, width=8, group=1, facing=None, selloc=None,
-                 **attrs):
+    def __init__(
+        self, x, y, width=8, group=1, facing=None, selloc=None, **attrs
+    ):
         a = {"width": width}
         if group != 1:
             a["group"] = group
@@ -513,8 +598,12 @@ class BitSelector(Component):
         a.update(_facing_attrs(facing, "east"))
         super().__init__(x, y, **a, **attrs)
 
-    SEL = {"east": (-10, 10), "west": (10, -10),
-           "north": (-10, 10), "south": (-10, -10)}
+    SEL = {
+        "east": (-10, 10),
+        "west": (10, -10),
+        "north": (-10, 10),
+        "south": (-10, -10),
+    }
 
     def port_spec(self):
         facing = self.get("facing", "east")
@@ -528,6 +617,7 @@ class BitSelector(Component):
 # Arithmetic (no facing attribute)
 # --------------------------------------------------------------------------
 
+
 class _Arith(Component):
     LIB = "Arithmetic"
 
@@ -537,33 +627,70 @@ class _Arith(Component):
 
 class Adder(_Arith):
     NAME = "Adder"
-    PORTS = (("a", -40, -10), ("b", -40, 10), ("out", 0, 0),
-             ("cin", -20, -20), ("cout", -20, 20))
-    ALIASES = {"A": "a", "B": "b", "sum": "out", "s": "out",
-               "carryin": "cin", "carryout": "cout"}
+    PORTS = (
+        ("a", -40, -10),
+        ("b", -40, 10),
+        ("out", 0, 0),
+        ("cin", -20, -20),
+        ("cout", -20, 20),
+    )
+    ALIASES = {
+        "A": "a",
+        "B": "b",
+        "sum": "out",
+        "s": "out",
+        "carryin": "cin",
+        "carryout": "cout",
+    }
 
 
 class Subtractor(_Arith):
     NAME = "Subtractor"
-    PORTS = (("a", -40, -10), ("b", -40, 10), ("out", 0, 0),
-             ("bin", -20, -20), ("bout", -20, 20))
-    ALIASES = {"A": "a", "B": "b", "minuend": "a", "subtrahend": "b",
-               "diff": "out", "borrowin": "bin", "borrowout": "bout"}
+    PORTS = (
+        ("a", -40, -10),
+        ("b", -40, 10),
+        ("out", 0, 0),
+        ("bin", -20, -20),
+        ("bout", -20, 20),
+    )
+    ALIASES = {
+        "A": "a",
+        "B": "b",
+        "minuend": "a",
+        "subtrahend": "b",
+        "diff": "out",
+        "borrowin": "bin",
+        "borrowout": "bout",
+    }
 
 
 class Multiplier(_Arith):
     NAME = "Multiplier"
-    PORTS = (("a", -40, -10), ("b", -40, 10), ("out", 0, 0),
-             ("cin", -20, -20), ("cout", -20, 20))
+    PORTS = (
+        ("a", -40, -10),
+        ("b", -40, 10),
+        ("out", 0, 0),
+        ("cin", -20, -20),
+        ("cout", -20, 20),
+    )
     ALIASES = {"A": "a", "B": "b", "product": "out"}
 
 
 class Divider(_Arith):
     NAME = "Divider"
-    PORTS = (("lower", -40, -10), ("divisor", -40, 10), ("out", 0, 0),
-             ("upper", -20, -20), ("rem", -20, 20))
-    ALIASES = {"a": "lower", "b": "divisor", "quotient": "out",
-               "remainder": "rem"}
+    PORTS = (
+        ("lower", -40, -10),
+        ("divisor", -40, 10),
+        ("out", 0, 0),
+        ("upper", -20, -20),
+        ("rem", -20, 20),
+    )
+    ALIASES = {
+        "a": "lower",
+        "b": "divisor",
+        "quotient": "out",
+        "remainder": "rem",
+    }
 
 
 class Negator(_Arith):
@@ -574,8 +701,13 @@ class Negator(_Arith):
 
 class Comparator(_Arith):
     NAME = "Comparator"
-    PORTS = (("a", -40, -10), ("b", -40, 10),
-             ("gt", 0, -10), ("eq", 0, 0), ("lt", 0, 10))
+    PORTS = (
+        ("a", -40, -10),
+        ("b", -40, 10),
+        ("gt", 0, -10),
+        ("eq", 0, 0),
+        ("lt", 0, 10),
+    )
     ALIASES = {"A": "a", "B": "b", "greater": "gt", "equal": "eq", "less": "lt"}
 
     def __init__(self, x, y, width=8, mode=None, **attrs):
@@ -595,6 +727,7 @@ class Shifter(_Arith):
 # Memory (logisim_evolution appearance; the others size themselves from text)
 # --------------------------------------------------------------------------
 
+
 class _EvolutionShape(Component):
     LIB = "Memory"
     APPEARANCE = "logisim_evolution"
@@ -604,19 +737,32 @@ class _EvolutionShape(Component):
         if appearance != self.APPEARANCE:
             raise PortError(
                 f"{self.NAME}: port offsets are only modelled for "
-                f"appearance={self.APPEARANCE!r}, not {appearance!r}")
+                f"appearance={self.APPEARANCE!r}, not {appearance!r}"
+            )
 
 
 class Register(_EvolutionShape):
     NAME = "Register"
-    PORTS = (("out", 60, 30), ("in", 0, 30), ("clk", 0, 70),
-             ("clr", 30, 90), ("en", 0, 50))
-    ALIASES = {"q": "out", "d": "in", "ck": "clk", "clock": "clk",
-               "reset": "clr", "enable": "en"}
+    PORTS = (
+        ("out", 60, 30),
+        ("in", 0, 30),
+        ("clk", 0, 70),
+        ("clr", 30, 90),
+        ("en", 0, 50),
+    )
+    ALIASES = {
+        "q": "out",
+        "d": "in",
+        "ck": "clk",
+        "clock": "clk",
+        "reset": "clr",
+        "enable": "en",
+    }
 
     def __init__(self, x, y, width=8, trigger=None, label=None, **attrs):
-        super().__init__(x, y, width=width, trigger=trigger, label=label,
-                         **attrs)
+        super().__init__(
+            x, y, width=width, trigger=trigger, label=label, **attrs
+        )
 
     def port_spec(self):
         self._check_appearance()
@@ -633,14 +779,24 @@ class _FlipFlop(_EvolutionShape):
         self._check_appearance()
         spec = [(name, -10, 10 + 20 * i) for i, name in enumerate(self.DATA)]
         spec.append(("clk", -10, 50))
-        spec += [("q", 50, 10), ("qnot", 50, 50),
-                 ("reset", 20, 60), ("preset", 20, 0)]
+        spec += [
+            ("q", 50, 10),
+            ("qnot", 50, 50),
+            ("reset", 20, 60),
+            ("preset", 20, 0),
+        ]
         return spec
 
     @property
     def ALIASES(self):
-        return {"ck": "clk", "clock": "clk", "clr": "reset", "set": "preset",
-                "notq": "qnot", "q_": "qnot"}
+        return {
+            "ck": "clk",
+            "clock": "clk",
+            "clr": "reset",
+            "set": "preset",
+            "notq": "qnot",
+            "q_": "qnot",
+        }
 
 
 class DFlipFlop(_FlipFlop):
@@ -668,10 +824,25 @@ class Rom(_EvolutionShape):
     PORTS = (("addr", 0, 10), ("data", 240, 60))
     ALIASES = {"a": "addr", "d": "data", "out": "data"}
 
-    def __init__(self, x, y, addr_width=8, data_width=8, contents=None,
-                 label=None, **attrs):
-        super().__init__(x, y, addrWidth=addr_width, dataWidth=data_width,
-                         contents=contents, label=label, **attrs)
+    def __init__(
+        self,
+        x,
+        y,
+        addr_width=8,
+        data_width=8,
+        contents=None,
+        label=None,
+        **attrs,
+    ):
+        super().__init__(
+            x,
+            y,
+            addrWidth=addr_width,
+            dataWidth=data_width,
+            contents=contents,
+            label=label,
+            **attrs,
+        )
 
     def port_spec(self):
         self._check_appearance()
@@ -682,14 +853,38 @@ class Ram(_EvolutionShape):
     """Separate data-in / data-out bus (databus="bibus", Logisim's default)."""
 
     NAME = "RAM"
-    ALIASES = {"a": "addr", "d": "din", "in": "din", "out": "dout",
-               "ck": "clk", "clock": "clk"}
+    ALIASES = {
+        "a": "addr",
+        "d": "din",
+        "in": "din",
+        "out": "dout",
+        "ck": "clk",
+        "clock": "clk",
+    }
 
-    def __init__(self, x, y, addr_width=8, data_width=8, enables=None,
-                 clear_pin=None, trigger=None, label=None, **attrs):
-        super().__init__(x, y, addrWidth=addr_width, dataWidth=data_width,
-                         enables=enables, clearpin=clear_pin, trigger=trigger,
-                         label=label, **attrs)
+    def __init__(
+        self,
+        x,
+        y,
+        addr_width=8,
+        data_width=8,
+        enables=None,
+        clear_pin=None,
+        trigger=None,
+        label=None,
+        **attrs,
+    ):
+        super().__init__(
+            x,
+            y,
+            addrWidth=addr_width,
+            dataWidth=data_width,
+            enables=enables,
+            clearpin=clear_pin,
+            trigger=trigger,
+            label=label,
+            **attrs,
+        )
 
     def port_spec(self):
         self._check_appearance()
@@ -697,7 +892,8 @@ class Ram(_EvolutionShape):
         if databus != "bibus":
             raise PortError(
                 f"RAM: only databus='bibus' (separate in and out) is modelled, "
-                f"not {databus!r}")
+                f"not {databus!r}"
+            )
         spec = [("addr", 0, 10), ("dout", 240, 90), ("din", 0, 90)]
         if self.get("enables", "byte") == "byte":
             spec.append(("oe", 0, 60))
@@ -710,6 +906,7 @@ class Ram(_EvolutionShape):
 # --------------------------------------------------------------------------
 # I/O
 # --------------------------------------------------------------------------
+
 
 class Led(Component):
     LIB = "I/O"
@@ -728,15 +925,24 @@ class Button(Component):
     PORTS = (("out", 0, 0),)
 
     def __init__(self, x, y, label=None, facing=None, **attrs):
-        super().__init__(x, y, label=label, **_facing_attrs(facing, "east"),
-                         **attrs)
+        super().__init__(
+            x, y, label=label, **_facing_attrs(facing, "east"), **attrs
+        )
 
 
 class SevenSegment(Component):
     LIB = "I/O"
     NAME = "7-Segment Display"
-    PORTS = (("a", 20, 0), ("b", 30, 0), ("c", 20, 60), ("d", 10, 60),
-             ("e", 0, 60), ("f", 10, 0), ("g", 0, 0), ("dp", 30, 60))
+    PORTS = (
+        ("a", 20, 0),
+        ("b", 30, 0),
+        ("c", 20, 60),
+        ("d", 10, 60),
+        ("e", 0, 60),
+        ("f", 10, 0),
+        ("g", 0, 0),
+        ("dp", 30, 60),
+    )
 
     def __init__(self, x, y, label=None, **attrs):
         super().__init__(x, y, label=label, **attrs)
@@ -761,15 +967,21 @@ class DipSwitch(Component):
         super().__init__(x, y, **a, **attrs)
 
     def port_spec(self):
-        return [(str(i), 10 * (i + 1), 0)
-                for i in range(int(self.get("number", 8)))]
+        return [
+            (str(i), 10 * (i + 1), 0) for i in range(int(self.get("number", 8)))
+        ]
 
 
 class Keyboard(Component):
     LIB = "I/O"
     NAME = "Keyboard"
-    PORTS = (("clr", 20, 10), ("clk", 0, 0), ("re", 10, 10),
-             ("avail", 130, 10), ("data", 140, 10))
+    PORTS = (
+        ("clr", 20, 10),
+        ("clk", 0, 0),
+        ("re", 10, 10),
+        ("avail", 130, 10),
+        ("data", 140, 10),
+    )
     ALIASES = {"ck": "clk", "read": "re", "out": "data"}
 
     def __init__(self, x, y, buflen=None, trigger=None, **attrs):
@@ -794,11 +1006,12 @@ class Tty(Component):
 # port unless VccGndPorts is set, which is not modelled.
 # --------------------------------------------------------------------------
 
+
 class _TtlChip(Component):
     LIB = "TTL"
-    PINS = ()           # DIP pin names, index 0 = pin 1; None on GND and VCC
-    INPUTS = ()         # pins that have to be driven; check() reports the rest
-    BOTTOM = 30         # loc to the bottom pin row; the top row is always -30
+    PINS = ()  # DIP pin names, index 0 = pin 1; None on GND and VCC
+    INPUTS = ()  # pins that have to be driven; check() reports the rest
+    BOTTOM = 30  # loc to the bottom pin row; the top row is always -30
 
     def __init__(self, x, y, facing=None, label=None, **attrs):
         a = dict(_facing_attrs(facing, "east"))
@@ -811,7 +1024,8 @@ class _TtlChip(Component):
         if self.get("VccGndPorts"):
             raise PortError(
                 f"{self.NAME}: port offsets are only modelled without the "
-                f"VccGndPorts pins")
+                f"VccGndPorts pins"
+            )
         facing = self.get("facing", "east")
         half = len(self.PINS) // 2
         spec = []
@@ -829,29 +1043,85 @@ class _TtlChip(Component):
 class Ttl7404(_TtlChip):
     NAME = "7404"
     INPUTS = tuple(f"A{i}" for i in range(1, 7))
-    PINS = ("A1", "Y1", "A2", "Y2", "A3", "Y3", None,
-            "Y4", "A4", "Y5", "A5", "Y6", "A6", None)
+    PINS = (
+        "A1",
+        "Y1",
+        "A2",
+        "Y2",
+        "A3",
+        "Y3",
+        None,
+        "Y4",
+        "A4",
+        "Y5",
+        "A5",
+        "Y6",
+        "A6",
+        None,
+    )
 
 
 class Ttl7408(_TtlChip):
     NAME = "7408"
     INPUTS = tuple(f"{p}{i}" for i in range(1, 5) for p in "AB")
-    PINS = ("A1", "B1", "Y1", "A2", "B2", "Y2", None,
-            "Y3", "A3", "B3", "Y4", "A4", "B4", None)
+    PINS = (
+        "A1",
+        "B1",
+        "Y1",
+        "A2",
+        "B2",
+        "Y2",
+        None,
+        "Y3",
+        "A3",
+        "B3",
+        "Y4",
+        "A4",
+        "B4",
+        None,
+    )
 
 
 class Ttl7411(_TtlChip):
     NAME = "7411"
     INPUTS = tuple(f"{p}{i}" for i in range(1, 4) for p in "ABC")
-    PINS = ("A1", "B1", "A2", "B2", "C2", "Y2", None,
-            "Y3", "A3", "B3", "C3", "Y1", "C1", None)
+    PINS = (
+        "A1",
+        "B1",
+        "A2",
+        "B2",
+        "C2",
+        "Y2",
+        None,
+        "Y3",
+        "A3",
+        "B3",
+        "C3",
+        "Y1",
+        "C1",
+        None,
+    )
 
 
 class Ttl7421(_TtlChip):
     NAME = "7421"
     INPUTS = tuple(f"{p}{i}" for i in range(1, 3) for p in "ABCD")
-    PINS = ("A1", "B1", None, "C1", "D1", "Y1", None,
-            "Y2", "D2", "C2", None, "B2", "A2", None)
+    PINS = (
+        "A1",
+        "B1",
+        None,
+        "C1",
+        "D1",
+        "Y1",
+        None,
+        "Y2",
+        "D2",
+        "C2",
+        None,
+        "B2",
+        "A2",
+        None,
+    )
 
 
 class Ttl7427(_TtlChip):
@@ -863,8 +1133,22 @@ class Ttl7427(_TtlChip):
 class Ttl7432(_TtlChip):
     NAME = "7432"
     INPUTS = Ttl7408.INPUTS
-    PINS = ("A1", "B1", "Y1", "A2", "B2", "Y2", None,
-            "Y3", "B3", "A3", "Y4", "B4", "A4", None)
+    PINS = (
+        "A1",
+        "B1",
+        "Y1",
+        "A2",
+        "B2",
+        "Y2",
+        None,
+        "Y3",
+        "B3",
+        "A3",
+        "Y4",
+        "B4",
+        "A4",
+        None,
+    )
 
 
 class Ttl7486(_TtlChip):
@@ -876,55 +1160,177 @@ class Ttl7486(_TtlChip):
 class Ttl74138(_TtlChip):
     NAME = "74138"
     INPUTS = ("A", "B", "C", "nG2A", "nG2B", "G1")
-    PINS = ("A", "B", "C", "nG2A", "nG2B", "G1", "nY7", None,
-            "nY6", "nY5", "nY4", "nY3", "nY2", "nY1", "nY0", None)
+    PINS = (
+        "A",
+        "B",
+        "C",
+        "nG2A",
+        "nG2B",
+        "G1",
+        "nY7",
+        None,
+        "nY6",
+        "nY5",
+        "nY4",
+        "nY3",
+        "nY2",
+        "nY1",
+        "nY0",
+        None,
+    )
 
 
 class Ttl74151(_TtlChip):
     NAME = "74151"
     INPUTS = tuple(f"D{i}" for i in range(8)) + ("A", "B", "C", "nG")
-    PINS = ("D3", "D2", "D1", "D0", "Y", "W", "nG", None,
-            "C", "B", "A", "D7", "D6", "D5", "D4", None)
+    PINS = (
+        "D3",
+        "D2",
+        "D1",
+        "D0",
+        "Y",
+        "W",
+        "nG",
+        None,
+        "C",
+        "B",
+        "A",
+        "D7",
+        "D6",
+        "D5",
+        "D4",
+        None,
+    )
 
 
 class Ttl74153(_TtlChip):
     NAME = "74153"
     BOTTOM = 50
     INPUTS = ("S0", "S1", "n1E", "n2E") + tuple(
-        f"{half}D{i}" for half in (1, 2) for i in range(4))
-    PINS = ("n1E", "S1", "1D3", "1D2", "1D1", "1D0", "1Y", None,
-            "2Y", "2D0", "2D1", "2D2", "2D3", "S0", "n2E", None)
+        f"{half}D{i}" for half in (1, 2) for i in range(4)
+    )
+    PINS = (
+        "n1E",
+        "S1",
+        "1D3",
+        "1D2",
+        "1D1",
+        "1D0",
+        "1Y",
+        None,
+        "2Y",
+        "2D0",
+        "2D1",
+        "2D2",
+        "2D3",
+        "S0",
+        "n2E",
+        None,
+    )
 
 
 class Ttl74157(_TtlChip):
     NAME = "74157"
     INPUTS = ("SELECT", "nSTROBE") + tuple(
-        f"{i}{p}" for i in range(1, 5) for p in "AB")
-    PINS = ("SELECT", "1A", "1B", "1Y", "2A", "2B", "2Y", None,
-            "3Y", "3B", "3A", "4Y", "4B", "4A", "nSTROBE", None)
+        f"{i}{p}" for i in range(1, 5) for p in "AB"
+    )
+    PINS = (
+        "SELECT",
+        "1A",
+        "1B",
+        "1Y",
+        "2A",
+        "2B",
+        "2Y",
+        None,
+        "3Y",
+        "3B",
+        "3A",
+        "4Y",
+        "4B",
+        "4A",
+        "nSTROBE",
+        None,
+    )
 
 
 class Ttl74245(_TtlChip):
     NAME = "74245"
     # A and B follow DIR, so which side is an input is not fixed.
     INPUTS = ("DIR", "nOE")
-    PINS = ("DIR", "A1", "A2", "A3", "A4", "A5", "A6", "A7", "A8", None,
-            "B8", "B7", "B6", "B5", "B4", "B3", "B2", "B1", "nOE", None)
+    PINS = (
+        "DIR",
+        "A1",
+        "A2",
+        "A3",
+        "A4",
+        "A5",
+        "A6",
+        "A7",
+        "A8",
+        None,
+        "B8",
+        "B7",
+        "B6",
+        "B5",
+        "B4",
+        "B3",
+        "B2",
+        "B1",
+        "nOE",
+        None,
+    )
 
 
 class Ttl74283(_TtlChip):
     NAME = "74283"
     INPUTS = ("CIN",) + tuple(f"{p}{i}" for i in range(1, 5) for p in "AB")
-    PINS = ("S2", "B2", "A2", "S1", "A1", "B1", "CIN", None,
-            "C4", "S4", "B4", "A4", "S3", "A3", "B3", None)
+    PINS = (
+        "S2",
+        "B2",
+        "A2",
+        "S1",
+        "A1",
+        "B1",
+        "CIN",
+        None,
+        "C4",
+        "S4",
+        "B4",
+        "A4",
+        "S3",
+        "A3",
+        "B3",
+        None,
+    )
 
 
 class Ttl74377(_TtlChip):
     NAME = "74377"
     BOTTOM = 50
     INPUTS = ("nCLKen", "CLK") + tuple(f"D{i}" for i in range(1, 9))
-    PINS = ("nCLKen", "Q1", "D1", "D2", "Q2", "Q3", "D3", "D4", "Q4", None,
-            "CLK", "Q5", "D5", "D6", "Q6", "Q7", "D7", "D8", "Q8", None)
+    PINS = (
+        "nCLKen",
+        "Q1",
+        "D1",
+        "D2",
+        "Q2",
+        "Q3",
+        "D3",
+        "D4",
+        "Q4",
+        None,
+        "CLK",
+        "Q5",
+        "D5",
+        "D6",
+        "Q6",
+        "Q7",
+        "D7",
+        "D8",
+        "Q8",
+        None,
+    )
 
 
 # --------------------------------------------------------------------------
@@ -933,6 +1339,7 @@ class Ttl74377(_TtlChip):
 # Both build scripts wire chips the same way: every pin gets a short stub to a
 # named tunnel, so a net is a name rather than a route.
 # --------------------------------------------------------------------------
+
 
 def stub(circuit, port, to, label, facing="north", width=1):
     """Tunnel at `to`, wired back to `port`."""

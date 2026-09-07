@@ -264,7 +264,15 @@ coordinates, pad and via shapes included, and the session comes back at a
 different scale than it went out, which is why `parse_ses()` calibrates on the
 placements rather than on the resolution the file declares.
 
-`build_kicad.py` lists the boards. Only `regfile` exists so far; the other
-blocks need their Logisim-only parts replaced first -- a crystal oscillator for
-the clock, a 28C256 and a 62256 for the memory, headers for keyboard and
-display.
+`build_kicad.py` lists the boards in `BOARDS`, one per block of `kone.circ`, and
+derives the backplane from the top level of that circuit: `system_nets()` reads
+which net a block's port is stubbed to, so `BUS_IN` on the register file and
+`BUS` on the datapath end up on the same header pin. A port the CPU ties to a
+rail is tied on the board instead of brought out.
+
+`PARTS` maps the Logisim parts that are not chips onto real ones: a ROM becomes
+a 28C256 and a RAM a 62256, both on the 28-pin JEDEC pinout. The ROM sits
+permanently selected and output-enabled; the SRAM takes `OE#` from the write
+strobe and `WE#` from the net named `n<STROBE>`, which the circuit provides.
+Logisim's separate `din` and `dout` are one bus on the chip, so those two nets
+are merged on the board.

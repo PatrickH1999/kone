@@ -1,0 +1,7 @@
+# The generator is plain scripts, not a package; this file only holds the
+# formatter settings that `make format` applies.
+[tool.ruff]
+line-length = 80
+
+[tool.black]
+line-length = 80
