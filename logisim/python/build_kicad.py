@@ -121,7 +121,7 @@ def bom(path, boards):
         (v, CHIPS[v][0], CHIPS[v][1],
          next(iter(p.footprint for b in boards.values() for p in b.parts
                    if p.value == v)).split("_")[0])
-        for v in sorted(count, key=lambda v: -sum(count[v].values()))
+        for v in sorted(count, key=lambda v: (-sum(count[v].values()), v))
         if v in CHIPS
     ]
     rest = [
@@ -193,7 +193,7 @@ def pinout(path, signals, boards):
         "| Board | ICs |",
         "| --- | --- |",
     ]
-    for name, count in sorted(ics.items(), key=lambda kv: -kv[1]):
+    for name, count in sorted(ics.items(), key=lambda kv: (-kv[1], kv[0])):
         rows.append(f"| {name} | {count} |")
     rows += [
         f"| **total** | **{sum(ics.values())}** |",

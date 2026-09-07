@@ -359,8 +359,9 @@ in which every pin is stubbed to a net label, and a board whose footprints are
 placed on the grid the chips were created in -- a row of registers stays a row.
 Each IC carries its designation and reference on the silkscreen (`74377 R7`,
 `U12`), so a board can be populated without the schematic. `make logisim_kicad`
-runs `kicad-cli` ERC and DRC over the result and fails on an error; routing is
-not part of it, so unconnected nets stay warnings.
+runs `kicad-cli` ERC and DRC over the result and fails on an error; the board
+has no tracks yet at that point, so open connections are the one class it lets
+through.
 
 `dsn()` writes the board as a Specctra design and `parse_ses()` reads back what
 Freerouting made of it, so `make logisim_route` is a round trip that ends in the
@@ -385,4 +386,42 @@ are merged on the board.
 
 ## Fabrication
 
-Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.
+Every board is four layers: signals on the outside, a solid `GND` plane on
+`In1.Cu` and a solid `+5V` plane on `In2.Cu`. Four layers cost more per board
+than two, and they are what makes the register file routable: the two rails are
+a third of its connections, and taking them off the signal layers is the
+difference between sixty connections left open and none.
+
+A DIP pad is 1.4 mm around a 0.8 mm drill rather than the usual 1.6 mm, because
+2.54 - 1.4 leaves 1.14 mm between two pins -- room for a 0.25 mm track with the
+widest clearance the router is given (0.35 mm) to pass straight through a chip.
+At 1.6 mm that gap is 0.94 mm,
+the router runs out of vertical channels, and a bus bit stays open however long
+it tries. Pins of a header take the plane solid instead of through a thermal
+relief: in a 2.54 mm grid their neighbours leave no room for the two spokes DRC
+asks for.
+
+Tracks come from [Freerouting](https://github.com/freerouting/freerouting):
+`make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads
+the `.ses` back into the board, since KiCad 10's command line can do neither.
+Each board is routed, imported and checked with DRC. Now and then the router
+leaves a connection open or lays two tracks into each other, and re-running it
+unchanged does not help -- with a shuffled item order or another strategy it
+reproduces the same short down to the coordinate. What does help is a different
+clearance, so a board whose DRC fails is routed again with the next value in
+`FREEROUTING_CLEARANCES` (0.3, 0.35, 0.25 mm). The register file wants the
+narrow one, `datapath` the wide one. `FREEROUTING_PASSES` is an upper
+bound rather than a cost: the router stops once a pass no longer improves, which
+the small boards reach after five or six and the register file after twenty. The
+six boards together take about RUNTIME minutes and come out with no unrouted
+connection and no DRC violation, so there is no manual pass in pcbnew. The jar
+is not packaged anywhere -- put it where `FREEROUTING_JAR` points, or pass
+`FREEROUTING_JAR=/path/to/freerouting.jar`.
+
+`make logisim_kicad` checks a board that has no tracks yet, so open connections
+are the one DRC class it lets through; `make logisim_route` and
+`make logisim_gerbers` count them as errors. Gerbers carry both inner layers.
+Every board carries the same 2x20 backplane header, whose pinout
+`logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and
+footprint library, so they do not depend on which version of KiCad's libraries
+is installed.

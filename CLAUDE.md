@@ -369,7 +369,8 @@ and writes `logisim/kicad/BACKPLANE.md`, the pinout every board carries, and
 `logisim/PARTS.md`, what to order.
 
 All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
-`datapath` (15) and `memory` (8), each with a 100nF per IC, a 100uF bulk cap, the backplane
+`datapath` (15) and `memory` (8), each four layers -- signals outside, a GND plane on
+`In1.Cu` and a +5V plane on `In2.Cu` -- with a 100nF per IC, a 100uF bulk cap, the backplane
 connectors it needs and a power header. They are meant to stack, so every board carries the
 **same outline** (the size the largest one needs), four M3 holes 6 mm in from the corners and
 its backplane connectors at the same coordinates. The stack is fed at one point: a screw
@@ -387,7 +388,21 @@ header pin means the same signal on every board. What costs time here:
   that is what the extra inverter in `memory()` is for. Logisim's separate `din` and `dout`
   are one bus on the chip, so the board merges those two nets.
 - The board grid follows the largest package on it, or a 0.6 inch memory overlaps its own
-  decoupling cap.
+  decoupling cap. Since every board carries the largest board's outline, a small one spreads
+  its chips over the whole of it: `sequencer` and `io` were the two the router could not
+  finish while their chips sat crowded in one corner.
+- A DIP pad is **1.4 mm** on a 0.8 mm drill, not the usual 1.6: `2.54 - 1.4` leaves 1.14 mm
+  between two pins, and a 0.25 mm track with the widest clearance the router is given
+  (0.35 mm) needs 0.95 of it. At 1.6 mm the
+  gap is 0.94, vertical channels through a chip run out, and one bus bit stays open no matter
+  how long the router tries. Header pins take the plane solid (`zone_connect 2`); in a
+  2.54 mm grid there is no room for the two thermal spokes DRC wants.
+- The router is far more deterministic than it looks: `-is random` and `-us global` both
+  reproduced the same short down to the coordinate, so retrying a board unchanged is wasted
+  time. The clearance in the `.dsn` is the input that changes its mind, which is why `route`
+  retries with the next `FREEROUTING_CLEARANCES` value (0.3, 0.35, 0.25 mm) — `regfile` only
+  finishes at 0.3, `datapath` only at 0.35. All three are wider than KiCad's 0.2 rule on
+  purpose, so the router's rounding stays inside it.
 - KiCad's own symbol and footprint libraries are a **separate package** (`kicad-library`)
   and are not installed on this machine, so the backend generates a project-local library.
   A DIP symbol is a rectangle with numbered pins, which is what a 74xx symbol is anyway.
@@ -400,8 +415,11 @@ header pin means the same signal on every board. What costs time here:
 - Logisim's TTL model has no VCC and GND, `dip()` adds them back from the package size, and
   their nets are `+5V` and `GND`. Naming them after the pin instead leaves a "VCC" net that
   nothing drives -- which is what ERC's `power_pin_not_driven` is for.
-- The gate is `--severity-error --exit-code-violations` on both tools. Unrouted nets are
-  warnings by project setting.
+- The gate is `--severity-error --exit-code-violations` on both tools, and open connections
+  are **errors**, so a board that is not fully routed cannot pass. `logisim_kicad` checks a
+  board that has no tracks yet, so it is the one step that lets that class through — it fails
+  on anything else. DRC runs with `--refill-zones --save-board`: the planes have to be poured
+  before connectivity means anything, and the poured board is what the gerbers export.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
   circle over each one on both layers. Without it tracks run straight through the M3 holes.
 - Routing runs through Freerouting, which is not packaged: put its jar where
@@ -427,21 +445,21 @@ The VM, kasm, klib and the Logisim circuits are done and green: `make test` 3/3,
 `make logisim_test` 5/5 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
 `kone.circ` in Logisim's own simulator.
 
-All six boards are generated, ERC clean, and DRC clean routed: `make logisim_route` gets
-6281 segments onto the regfile and 800 to 1900 onto each of the others, leaving 9 to 68
-connections per board as airwires. Freerouting is not in the repo — v2.4.1 sits at
-`~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR` points. `logisim_clean` and
-`clean` delete `logisim/kicad/`, the `.ses` with it, so routing has to be recomputed rather
-than restored after either.
+All six boards are generated, ERC clean and fully routed: `make logisim_clean && make
+logisim_route && make logisim_gerbers` ends 6/6 with every board at 0 unrouted connections
+and 0 DRC violations, no manual pass in pcbnew, and the ZIPs in `logisim/kicad/out/`. That
+took **four layers** — `In1.Cu` is a GND plane, `In2.Cu` a +5V plane — which costs more per
+board than two but is what takes the two rails off the signal layers. Freerouting is not in
+the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR`
+points. `logisim_clean` and `clean` delete `logisim/kicad/`, the `.ses` with it, so routing
+has to be recomputed rather than restored after either.
 
 What is left:
 
-1. **The connections the autorouter leaves open** — some 60 on the regfile board, fewer on
-   the small ones. A manual pass in pcbnew, a higher `FREEROUTING_PASSES`, or four layers.
-2. **The clock and the two devices.** `CLK`, the TTY lines and the keyboard lines are
+1. **The clock and the two devices.** `CLK`, the TTY lines and the keyboard lines are
    backplane signals, so nothing carries an oscillator module or the display and keyboard
    connectors yet; they want a small seventh board, or a place on `io`.
-3. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
+2. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a
 separate package (`kicad-library`) and are not installed, so the boards carry generated ones.

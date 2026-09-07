@@ -6,6 +6,8 @@ have no place on a board: a Tunnel is a net name, a Splitter joins a bus to its
 bits, a Pin becomes a header pin, Ground/Power/Constant become the two rails.
 """
 
+import os
+
 from .components import _TtlChip
 
 
@@ -220,6 +222,10 @@ class Netlist:
 # --------------------------------------------------------------------------
 
 PITCH = 2.54  # DIP pin pitch, and the schematic grid
+# A track has to pass between two pins, so the pad is as small as a
+# 0.8 mm drill allows: 2.54 - 1.4 leaves 1.14 mm, and a 0.25 track with
+# its clearance on both sides needs 0.95 of it.
+DIP_PAD = 1.4
 ROW = 7.62  # DIP row spacing, 0.3 inch packages throughout
 
 # One entry per pin: number -> (name, electrical type).
@@ -471,9 +477,12 @@ def _outline(key, box, layers=(("F.SilkS", 0.12), ("F.CrtYd", 0.05))):
     return out
 
 
-def _pad(key, number, shape, x, y, size, drill, nets):
+def _pad(key, number, shape, x, y, size, drill, nets, solid=False):
     net = nets.get(str(number))
     tail = f' (net {net[0]} "{net[1]}")' if net else ""
+    # A pin in a header grid has no room for two thermal spokes; the plane
+    # takes it solid instead, which is what DRC's spoke count asks for.
+    tail += " (zone_connect 2)" if solid else ""
     return (
         f'\t(pad "{number}" thru_hole {shape} (at {x:.2f} {y:.2f}) '
         f'(size {size} {size}) (drill {drill}) (layers "*.Cu" "*.Mask")'
@@ -508,7 +517,7 @@ def pads(footprint):
                 i + 1,
                 (i if i < half else pins - 1 - i) * PITCH,
                 0.0 if i < half else row,
-                1.6,
+                DIP_PAD,
                 0.8,
             )
             for i in range(pins)
@@ -599,6 +608,7 @@ def header_footprint(
                 size,
                 drill,
                 nets,
+                solid=True,
             )
         )
     out += _outline(
@@ -732,27 +742,49 @@ def cap_footprint(key=None, at=None, ref="C**", value="100n", nets=None):
 # --------------------------------------------------------------------------
 
 ORIGIN = 63.5  # the sheet grid; every stub lands on 1.27 mm
-CONN_STRIP = 95.0  # room at the bottom for the connectors
+CONN_STRIP = 60.0  # room at the bottom for the connectors
 CONN_X = 20.0  # the connector row, identical on every board
 CONN_PITCH = 45.0
 HOLE_INSET = 6.0  # M3 holes, one per corner
 HOLE_KEEPOUT = 7.0  # nothing routes inside this, washer room
-CAP_ROOM = 13.0  # room under an IC for its decoupling cap             # board grid per IC, room for its decoupling cap
+CAP_ROOM = 16.0  # under an IC: its cap, and the row's routing channel             # board grid per IC, room for its decoupling cap
 SCH_CELL = (63.5, 50.8)  # schematic grid, room for pin labels
+# KiCad 10 numbering: copper is even, F.Cu 0, B.Cu 2, inner layers from 4.
+# The two inner ones are solid planes, which is what makes 391 nets routable
+# on a board this dense: the router only sees signals.
 LAYERS = (
     (0, "F.Cu", "signal", None),
+    (4, "In1.Cu", "power", None),
+    (6, "In2.Cu", "power", None),
     (2, "B.Cu", "signal", None),
     (9, "F.Adhes", "user", "F.Adhesive"),
-    (11, "F.Paste", "user", None),
-    (13, "F.SilkS", "user", "F.Silkscreen"),
-    (15, "F.Mask", "user", None),
-    (17, "B.Mask", "user", None),
-    (31, "B.SilkS", "user", "B.Silkscreen"),
-    (33, "F.CrtYd", "user", "F.Courtyard"),
+    (13, "F.Paste", "user", None),
+    (5, "F.SilkS", "user", "F.Silkscreen"),
+    (1, "F.Mask", "user", None),
+    (3, "B.Mask", "user", None),
+    (7, "B.SilkS", "user", "B.Silkscreen"),
+    (31, "F.CrtYd", "user", "F.Courtyard"),
     (35, "F.Fab", "user", None),
-    (44, "Edge.Cuts", "user", None),
-    (45, "Margin", "user", None),
+    (25, "Edge.Cuts", "user", None),
+    (27, "Margin", "user", None),
 )
+
+# net -> the plane it lives on; these never reach the router.
+PLANES = (("GND", "In1.Cu"), ("+5V", "In2.Cu"))
+
+
+def _order(comp):
+    """Placement order: chips that share a label end up side by side, so a
+    register sits next to the driver it feeds and a bus stays local."""
+    label = comp.get("label") or ""
+    digits = "".join(c if c.isdigit() else " " for c in label).split()
+    return (
+        "".join(c for c in label if not c.isdigit()),
+        int(digits[0]) if digits else 0,
+        comp.NAME,
+        comp.y,
+        comp.x,
+    )
 
 
 class Board:
@@ -807,7 +839,7 @@ class Board:
     def _packages(self):
         """Every real IC: the TTL chips, then the memories, in layout order."""
         out = []
-        for chip in sorted(self.netlist.chips, key=lambda c: (c.y, c.x)):
+        for chip in sorted(self.netlist.chips, key=_order):
             pins = dip(chip)
             nets = {
                 n: (
@@ -820,7 +852,7 @@ class Board:
             out.append(
                 (chip.NAME, package(chip), pins, nets, chip.get("label"))
             )
-        for mem in sorted(self.netlist.memories, key=lambda c: (c.y, c.x)):
+        for mem in sorted(self.netlist.memories, key=_order):
             value, footprint = PARTS[mem.NAME]
             nets = {
                 n: self.net(v)
@@ -848,6 +880,16 @@ class Board:
         spans = [Part("U", v, f, v, {}, (0, 0)).span() for v, f, *_ in packages]
         body = max(h for _, h in spans)
         self.cell = (max(w for w, _ in spans) + 6, body + CAP_ROOM)
+        rows = (len(packages) + self.columns - 1) // self.columns
+        if self.size:
+            # Every board carries the largest one's outline, so a small board
+            # spreads its chips over the whole of it rather than crowding a
+            # corner: the router needs the channels more than the board needs
+            # to be compact.
+            self.cell = (
+                max(self.cell[0], (self.size[0] - 40) / self.columns),
+                max(self.cell[1], (self.size[1] - CONN_STRIP - 30) / rows),
+            )
         for i, (value, footprint, pins, nets, label) in enumerate(packages):
             col, row = i % self.columns, i // self.columns
             x, y = 20 + col * self.cell[0], 20 + row * self.cell[1]
@@ -879,7 +921,7 @@ class Board:
                     silk="100n",
                 )
             )
-        self.ic_rows = (len(packages) + self.columns - 1) // self.columns
+        self.ic_rows = rows
 
         # The backplane: fixed positions system-wide, wired where this board
         # has the signal. A board only carries the connectors it needs.
@@ -1010,7 +1052,7 @@ class Board:
                         footprint,
                         symbol,
                         pins,
-                        (CONN_X + 4 * CONN_PITCH, conn_y + dy),
+                        (CONN_X + 5 * CONN_PITCH, conn_y + dy - 40),
                         silk=silk,
                     )
                 )
@@ -1225,6 +1267,27 @@ def pcb(board, tracks=(), vias=()):
             f'(uuid "{uid(board.name, "via", i)}"))'
         )
 
+    # GND and +5V are planes, not routed nets: 380 pads reach them straight
+    # through the board, and the two signal layers stay free.
+    pour = [
+        (x0 + EDGE, y0 + EDGE),
+        (x1 - EDGE, y0 + EDGE),
+        (x1 - EDGE, y1 - EDGE),
+        (x0 + EDGE, y1 - EDGE),
+    ]
+    for net, layer in PLANES:
+        out += [
+            f'\t(zone (net {nets[net]}) (net_name "{net}") (layer "{layer}") '
+            f'(uuid "{uid(board.name, "zone", net)}") (hatch edge 0.5)',
+            "\t\t(connect_pads (clearance 0.5))",
+            "\t\t(min_thickness 0.25) (filled_areas_thickness no)",
+            "\t\t(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))",
+            "\t\t(polygon (pts "
+            + " ".join(f"(xy {x:.2f} {y:.2f})" for x, y in pour)
+            + "))",
+            "\t)",
+        ]
+
     box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
     for i, (ax, ay) in enumerate(box):
         bx, by = box[(i + 1) % 4]
@@ -1246,7 +1309,7 @@ PROJECT = {
     "board": {
         "design_settings": {
             "rule_severities": {
-                "unconnected_items": "warning",
+                "unconnected_items": "error",
                 "silk_over_copper": "warning",
                 "silk_overlap": "warning",
                 "lib_footprint_mismatch": "ignore",
@@ -1303,9 +1366,11 @@ VIA = "Via[0-1]_800:400_um"
 VIA_SIZE, VIA_DRILL = 0.8, 0.4  # mm
 TRACK_WIDTH = 0.25  # mm
 EDGE = 1.0  # mm the routing keeps clear of the outline
-# KiCad's rule is 0.2; the router's rounding has to stay well inside it, and
-# at 0.25 it still produced tracks that touched.
-CLEARANCE = 0.3
+# What the router is told to keep, wider than KiCad's 0.2 rule so its rounding
+# stays inside it. Which value comes out clean is a property of the board, not
+# of the run, so `route` retries with another one (KONE_CLEARANCE) rather than
+# running the same board twice.
+CLEARANCE = float(os.environ.get("KONE_CLEARANCE", "0.3"))
 
 
 def _padstack(size, square):
@@ -1333,7 +1398,11 @@ def dsn(board):
             continue
         for number, net in part.pins.items():
             routable.setdefault(net, []).append(f"{part.ref}-{number}")
-    routable = {n: p for n, p in sorted(routable.items()) if len(p) > 1}
+    routable = {
+        n: p
+        for n, p in sorted(routable.items())
+        if len(p) > 1 and n not in {net for net, _ in PLANES}
+    }
 
     out = [
         f'(pcb "{board.name}.dsn"',

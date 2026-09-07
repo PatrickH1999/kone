@@ -16,15 +16,21 @@ CIRCS := $(patsubst python/build_%.py,%.circ,$(SCRIPTS))
 
 BOARDS := regfile alu datapath sequencer memory io
 KICAD_DIR := kicad
-GERBER_LAYERS := F.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts
+GERBER_LAYERS := F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts
 
 # Logisim's own simulator, which `test` runs kone.circ in. Not a build
 # dependency, which is why it is not one of the top-level test groups.
 LOGISIM_JAR ?= /usr/share/java/logisim-evolution/logisim-evolution.jar
 
 # Freerouting is not packaged; drop the jar here (or point the variable at it).
+# It stops once a pass no longer improves, so the pass count is an upper bound:
+# the small boards finish in five or six, the register file needs about twenty.
+# A board that fails DRC is routed again with a different clearance, which is
+# the one input that changes what the router does -- re-running it unchanged,
+# with any strategy or item order, reproduces the same short to the coordinate.
 FREEROUTING_JAR ?= $(HOME)/.cache/freerouting/freerouting.jar
-FREEROUTING_PASSES ?= 3
+FREEROUTING_PASSES ?= 25
+FREEROUTING_CLEARANCES ?= 0.3 0.35 0.25
 
 # The program baked into kone.circ's ROM, named from the repo root.
 LOGISIM_PROG ?= bin/display.bin
@@ -75,7 +81,8 @@ test: circ $(PROGRAMS:%=$(ROOT)/bin/%.bin)
 	$(TEST_SUMMARY)
 
 # The KiCad projects, checked with kicad-cli. ERC and DRC fail the target on an
-# error; unrouted nets are warnings, since routing is left to the fab step.
+# error. An unrouted board has nothing but open connections, so those are the
+# one class this step lets through -- `route` and `gerbers` check them.
 kicad:
 	@$(TEST_COLORS); \
 	python3 python/build_kicad.py; \
@@ -85,8 +92,10 @@ kicad:
 		d=$(KICAD_DIR)/$$b; \
 		if kicad-cli sch erc --severity-error --exit-code-violations \
 				-o $$d/erc.rpt $$d/$$b.kicad_sch > /dev/null 2>&1 \
-			&& kicad-cli pcb drc --severity-error --exit-code-violations \
-				-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1; then \
+			&& kicad-cli pcb drc --refill-zones --save-board \
+				--severity-error \
+				-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1 \
+			&& ! grep '^\[' $$d/drc.rpt | grep -qv unconnected_items; then \
 			printf "$$dgrn[ PASS ] $${rst}$${wht}%s: erc + drc$${rst}\n" "$$b"; \
 			passed=$$((passed + 1)); \
 		else \
@@ -108,18 +117,35 @@ route: kicad
 		printf "        get freerouting.jar from github.com/freerouting/freerouting\n"; \
 		exit 1; \
 	fi; \
+	passed=0; failed=0; \
 	for b in $(BOARDS); do \
-		d=$(KICAD_DIR)/$$b; \
-		printf "routing %s, %s passes ...\n" "$$b" "$(FREEROUTING_PASSES)"; \
-		java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
-			-de $$d/$$b.dsn -do $$d/$$b.ses -mp $(FREEROUTING_PASSES) \
-			> $$d/route.log 2>&1; \
-		python3 python/build_kicad.py --route $$b; \
-		kicad-cli pcb drc --severity-error --exit-code-violations \
-			-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1 \
-			&& printf "$$dgrn[ PASS ] $${rst}$${wht}%s: drc after routing$${rst}\n" "$$b" \
-			|| printf "$$dred[ FAIL ] $${rst}$${wht}%s: see $$d/drc.rpt$${rst}\n" "$$b"; \
-	done
+		d=$(KICAD_DIR)/$$b; ok=0; \
+		for c in $(FREEROUTING_CLEARANCES); do \
+			printf "routing %s, %s mm clearance ...\n" "$$b" "$$c"; \
+			KONE_CLEARANCE=$$c python3 python/build_kicad.py $$b \
+				> /dev/null; \
+			java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
+				-de $$d/$$b.dsn -do $$d/$$b.ses \
+				-mp $(FREEROUTING_PASSES) \
+				> $$d/route.log 2>&1; \
+			KONE_CLEARANCE=$$c python3 python/build_kicad.py --route $$b; \
+			if kicad-cli pcb drc --refill-zones --save-board \
+					--severity-error --exit-code-violations \
+					-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1; then \
+				ok=1; break; \
+			fi; \
+		done; \
+		if [ $$ok = 1 ]; then \
+			printf "$$dgrn[ PASS ] $${rst}$${wht}%s: drc after routing$${rst}\n" "$$b"; \
+			passed=$$((passed + 1)); \
+		else \
+			printf "$$dred[ FAIL ] $${rst}$${wht}%s: see $$d/drc.rpt$${rst}\n" "$$b"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	printf "\n"; \
+	group=route; \
+	$(TEST_SUMMARY)
 
 # Fabrication data per board: DRC first, then gerbers and Excellon drills into
 # kicad/<board>/gerber/, zipped to kicad/out/<board>_gerber.zip for upload.
@@ -129,7 +155,8 @@ gerbers: kicad
 	mkdir -p $(KICAD_DIR)/out; \
 	for b in $(BOARDS); do \
 		d=$(KICAD_DIR)/$$b; \
-		if ! kicad-cli pcb drc --severity-error --exit-code-violations \
+		if ! kicad-cli pcb drc --refill-zones --save-board \
+				--severity-error --exit-code-violations \
 				-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1; then \
 			printf "$${bld}$${red}[ FAIL ] $${dflt}%s: DRC, see %s$${rst}\n" \
 				"$$b" "$$d/drc.rpt"; \
