@@ -439,6 +439,19 @@ header pin means the same signal on every board. What costs time here:
   board that has no tracks yet, so it is the one step that lets that class through — it fails
   on anything else. DRC runs with `--refill-zones --save-board`: the planes have to be poured
   before connectivity means anything, and the poured board is what the gerbers export.
+- Every board carries **every** backplane connector, and a pin whose signal a board has not
+  got is a pass-through: the pad carries the backplane net and nothing else on that board is
+  on it, so it is a one pad net the router ignores. `stacking()` in `build_kicad.py` fails
+  the build unless all six boards agree on the connector count, the connector and M3 hole
+  coordinates and the outline — nothing on a board is rotated, so a position is the whole
+  story. That check is what keeps the stack mechanically honest; do not weaken it.
+- A `.ses` is only valid for the board it was routed against. Applying a stale one puts
+  copper through pads that were not there before — it cost alu 12 DRC errors — so
+  `ses_fits()` compares the session's placements against the board's parts and drops the
+  session instead. The comparison skips `PWR` parts and anything without pins, since the
+  `.dsn` does not place those either.
+- `BACKPLANE.md` and `PARTS.md` are written from all six boards on every run, not from the
+  ones a `--route <board>` invocation happened to touch.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
   circle over each one on both layers. Without it tracks run straight through the M3 holes.
 - Routing runs through Freerouting, which is not packaged: put its jar where
@@ -472,6 +485,26 @@ board than two but is what takes the two rails off the signal layers. Freeroutin
 the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR`
 points. `logisim_clean` and `clean` delete `logisim/kicad/`, the `.ses` with it, so routing
 has to be recomputed rather than restored after either.
+
+**Pick up here (2026-09-08).** The display moved to 20x4 and every board took on all four
+backplane connectors; both are done and documented, but the fabrication chain has **not
+been re-verified since the connectors changed**. The last green `route`/`gerbers` run was
+before it, and the run started that evening was still on `regfile` when work stopped —
+`make logisim_kicad` was 6/6 at that point, which only says the unrouted boards are sound.
+So the first thing tomorrow is:
+
+```
+make -C logisim route && make -C logisim gerbers
+```
+
+and it has to end 6/6 with the ZIPs in `logisim/kicad/out/`. Expect it to take twenty
+minutes or so: every session was thrown away, because the added connectors changed all six
+boards, so nothing is routed at the moment. If a board fails, the retry with the next
+`FREEROUTING_CLEARANCES` value is the first lever and more room the second — never a
+re-run of the same board unchanged. To find out whether the run finished on its own after
+all: six ZIPs in `logisim/kicad/out/` newer than the boards, and
+`kicad-cli pcb drc --refill-zones --save-board --severity-error --exit-code-violations`
+green on each of the six.
 
 What is left:
 

@@ -620,6 +620,18 @@ def header_footprint(
             (-1.5, (rows - 1) * PITCH + 1.5),
         ],
     )
+    # Pin 1, the one mark that says which way round the connector goes: a
+    # square around the pad and a dot beside it, the same on every board.
+    out += _outline(
+        key + "/pin1",
+        [(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)],
+        layers=(("F.SilkS", 0.2),),
+    )
+    out.append(
+        f"\t(fp_circle (center -2.6 0) (end -2.2 0) "
+        '(stroke (width 0.12) (type solid)) (fill solid) (layer "F.SilkS") '
+        f'(uuid "{uid(key, "pin1")}"))'
+    )
     out.append(")")
     return "\n".join(out) + "\n"
 
@@ -923,9 +935,14 @@ class Board:
             )
         self.ic_rows = rows
 
-        # The backplane: fixed positions system-wide, wired where this board
-        # has the signal. A board only carries the connectors it needs.
+        # The backplane: fixed positions system-wide. Every board carries every
+        # connector, so a stack goes together in any order; a pin whose signal
+        # a board has not got is a pass-through, carrying the backplane net
+        # and nothing else on that board.
         used = dict(enumerate(RAILS))
+        for signal, index in self.positions.items():
+            used.setdefault(index, signal)
+        driven = set()
         for pin in self.netlist.circuit.pins():
             label = pin.get("label")
             system, _ = self.ports.get(label, (label, 1))
@@ -936,7 +953,9 @@ class Board:
                 key = f"{system}{bit}" if len(nets) > 1 else system
                 if key in self.positions:
                     used[self.positions[key]] = self.net(net)
+                    driven.add(self.positions[key])
         self.used = used
+        self.driven = driven
         rows = HEADER_PINS // 2
         self._symbol(
             "Conn_2x20",
@@ -1243,9 +1262,14 @@ def pcb(board, tracks=(), vias=()):
         if part.footprint.startswith("C_"):
             continue  # its reference on the silk is enough
         w, _ = part.span()
+        at = (
+            (part.x + PITCH / 2, part.y - 3.4)
+            if part.footprint.startswith("PinHeader_2x")
+            else (part.x + w / 2 - 2, part.y + ROW + 2.4)
+        )
         out.append(
-            f'\t(gr_text "{part.silk}" (at {part.x + w / 2 - 2:.2f} '
-            f'{part.y + ROW + 2.4:.2f}) (layer "F.SilkS") '
+            f'\t(gr_text "{part.silk}" (at {at[0]:.2f} '
+            f'{at[1]:.2f}) (layer "F.SilkS") '
             f'(uuid "{uid(part.ref, "silk")}") '
             "(effects (font (size 1 1) (thickness 0.15))))"
         )
@@ -1535,6 +1559,27 @@ def _ses_scale(tree, board):
                     if part and part.x:
                         return float(place[2]) / part.x
     raise NetlistError("no placement in the session file to calibrate on")
+
+
+def ses_fits(text, board):
+    """Whether a session still describes this board.
+
+    A part added or moved since the router ran invalidates every track in it,
+    and applying it anyway lays copper through the new pads.
+    """
+    tree = _tree(_tokens(text))
+    placed = {
+        place[1]
+        for session in _walk(tree, "session")
+        for placement in _walk(session, "placement")
+        for component in _walk(placement, "component")
+        for place in _walk(component, "place")
+    }
+    return placed == {
+        part.ref
+        for part in board.parts
+        if part.symbol != "PWR" and part.pins
+    }
 
 
 def parse_ses(text, board):

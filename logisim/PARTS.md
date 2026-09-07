@@ -16,8 +16,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC138` | DIP-16 | 3-to-8 decoder | 5 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
 | `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 86 |
+| `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
-| `Backplane` | 2.54mm | board to board | 3 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
 | `pin header 1x02` | - | supply header | 1 |
 
@@ -37,8 +37,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
 | `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 27 |
+| `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
-| `Backplane` | 2.54mm | board to board | 3 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
 | `pin header 1x02` | - | supply header | 1 |
 
@@ -131,8 +131,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
 | `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 179 |
+| `Backplane` | 2.54mm | board to board | 24 |
 | `M3 hole, screw and standoff` | - | stacking | 24 |
-| `Backplane` | 2.54mm | board to board | 22 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 6 |
 | `pin header 1x02` | - | supply header | 6 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
