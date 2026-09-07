@@ -338,6 +338,10 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 - The display is a Logisim TTY. It takes the same handshake (`R19`, then `R18`, cleared once
   the char is taken) and the same backspace, but a full screen scrolls instead of clearing
   the next row and then the whole grid the way `display_push_char()` does.
+- `R18` is cleared by the **device**, over `DISPCLR`, not by io itself: a real display is
+  slower than one clock. In `kone.circ` the line is the strobe buffered through a 7404, so
+  the simulation still has an always-ready device; on the boards it is a backplane pin. The
+  keyboard's other half of that is `KBACK`, the level a controller watches.
 - A Logisim RAM does **not** keep its contents in the `.circ` — only a ROM does, through its
   `contents` attribute (`addr/data: <bits> 8`, then hex with `N*v` runs). That is why the
   program sits in ROM.

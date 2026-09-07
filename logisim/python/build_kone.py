@@ -529,8 +529,22 @@ def io():
             ("KBAV", 1),
             ("KBD", 7),
         ],
-        [("REGO", 8), ("TTYD", 7), ("DISPNZ", 1), ("KBSET", 1)],
+        [
+            ("REGO", 8),
+            ("TTYD", 7),
+            ("DISPNZ", 1),
+            ("KBSET", 1),
+        ],
     )
+
+    # The display clears R18 itself, the way display_fetch() does in the VM:
+    # DISPCLR comes from the device, so the program waits for it rather than
+    # for a fixed number of clocks. KBACK is the other half of that idea, the
+    # level a keyboard controller watches to know its char was taken.
+    pin = c.add(Pin(100, 100 + 100 * 7, "DISPCLR"))
+    stub(c, pin.port(), (300, 100 + 100 * 7), "DISPCLR", "west")
+    pin = c.add(Pin(900, 100 + 100 * 5, "KBACK", output=True))
+    stub(c, pin.port(), (700, 100 + 100 * 5), "R16Q0", "east")
 
     for i, (bus, names) in enumerate(
         (
@@ -659,8 +673,8 @@ def io():
         {
             "A1": "KBSET",
             "Y1": "NKBSET",
-            "A2": Ground,
-            "Y2": None,
+            "A2": "DISPCLR",
+            "Y2": "NDISPCLR",
             "A3": Ground,
             "Y3": None,
             "A4": Ground,
@@ -681,7 +695,7 @@ def io():
                 for i in range(4)
                 for p, v in (
                     ("A", f"BUS{4 * j + i}"),
-                    ("B", "R18Z"),
+                    ("B", "NDISPCLR"),
                     ("Y", f"R18D{4 * j + i}"),
                 )
             },
@@ -801,6 +815,28 @@ def kone(blocks):
     cx, cy = tty.port("clr")
     c.route((cx, cy), (cx, cy + 60))
     c.add(Ground(cx, cy + 60))
+
+    # In simulation the display takes a char the moment it is offered, so its
+    # "char taken" line is the strobe itself, buffered to keep the two nets
+    # apart -- on a board DISPCLR comes from the device instead.
+    wire_dip(
+        c,
+        c.add(Ttl7404(2100, 900, label="devack")),
+        {
+            "A1": "DISPNZ",
+            "Y1": "NDISPNZ",
+            "A2": "NDISPNZ",
+            "Y2": "DISPCLR",
+            "A3": Ground,
+            "Y3": None,
+            "A4": Ground,
+            "Y4": None,
+            "A5": Ground,
+            "Y5": None,
+            "A6": Ground,
+            "Y6": None,
+        },
+    )
 
     kbd = c.add(Keyboard(2800, 700))
     for port, net in (("clk", "CLK"), ("re", "KBSET")):

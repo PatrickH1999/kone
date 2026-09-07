@@ -272,6 +272,59 @@ Logisim moves a pin, that comparison is the thing to re-run — the probe is fou
 short Java files against
 `/usr/share/java/logisim-evolution/logisim-evolution.jar`.
 
+## Display and keyboard
+
+Both devices hang off the backplane as plain 5 V logic; `kicad/BACKPLANE.md`
+lists the pins, this is what the lines mean.
+
+**Display, CPU to device.** `TTYD0`-`TTYD6` carry the character as 7-bit ASCII
+(bits 0-6 of `R19`), `DISPNZ` goes high when the program writes `R18` and stays
+high until the device answers on `DISPCLR`, which clears `R18`. The program's
+poll loop on `R18` therefore ends when the device says so, not after a fixed
+number of clocks -- the display sets the pace, exactly as the display process
+does in the vm. Characters are 32-126 plus 8 for backspace.
+
+**Keyboard, device to CPU.** `KBAV` says a character is waiting on
+`KBD0`-`KBD6`; the CPU takes it and sets `R16`, which raises `KBACK` and holds
+it until the program acknowledges by writing 0 to `R16`. A controller drops
+`KBAV` when it sees `KBACK` and offers the next character when `KBACK` falls.
+`KBSET` is the same event as a single-clock pulse, for a device that wants an
+edge instead of a level. Enter arrives as 10, backspace as 8 or 127, anything
+else as a space.
+
+In `kone.circ` the two are a Logisim TTY and keyboard at the top level, and
+`DISPCLR` is the strobe fed back through a buffer -- a device that is always
+ready. On a board those four wires go to the connector instead.
+
+### What to connect
+
+An **HD44780 character display takes ASCII directly**: its character ROM covers
+0x20-0x7D almost one for one (0x5C is a yen sign, 0x7E and 0x7F are arrows). It
+is not a terminal, though. It has no line wrap, no scrolling, no backspace and
+no notion of a 40x24 grid, it needs an initialisation sequence, and it wants
+RS, R/W and an E pulse rather than one strobe. Between the backplane and the
+display belongs a small controller, and the same one can serve the keyboard:
+
+| Side | Wires | To |
+| --- | --- | --- |
+| display | `TTYD0`-`6`, `DISPNZ` in, `DISPCLR` out | 9 pins on an Arduino, plus 6 to the LCD in 4-bit mode |
+| keyboard | `KBD0`-`6`, `KBAV` out, `KBACK` in | 9 pins, plus 2 for PS/2 |
+
+An **Arduino Nano** (ATmega328, 5 V) needs no level shifting and has the pins
+for one side; two of them, or one Mega, cover both. Its display sketch latches
+the character on `DISPNZ`, writes it to the LCD, keeps the kone semantics --
+wrap at 40 columns, clear the next row, backspace clears the cell before the
+cursor -- and pulses `DISPCLR` when the LCD is done, which is what makes the
+handshake honest. Its keyboard sketch reads PS/2 scancodes (the `PS2Keyboard`
+library), turns them into ASCII and drives `KBD0`-`6` and `KBAV`. A USB
+keyboard needs a host-capable part instead, a 32u4 or an RP2040 with USB host;
+an RP2040 is 3.3 V, so a `74LVC245` belongs in between.
+
+One mismatch to plan around: the vm's display is 40x24, an HD44780 is at most
+40x4. Either the controller shows the last four lines of the grid it keeps in
+its own memory, or the display becomes a graphic one -- an SSD1306 or a small
+VGA generator -- which changes nothing on this side of the connector.
+
 ## KiCad boards
 
 The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connector. `make logisim_kicad` writes them under `kicad/` and checks them with `kicad-cli`.

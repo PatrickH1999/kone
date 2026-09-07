@@ -1303,8 +1303,9 @@ VIA = "Via[0-1]_800:400_um"
 VIA_SIZE, VIA_DRILL = 0.8, 0.4  # mm
 TRACK_WIDTH = 0.25  # mm
 EDGE = 1.0  # mm the routing keeps clear of the outline
-CLEARANCE = 0.25  # mm; KiCad's rule is 0.2, and the
-# router's rounding has to stay inside it
+# KiCad's rule is 0.2; the router's rounding has to stay well inside it, and
+# at 0.25 it still produced tracks that touched.
+CLEARANCE = 0.3
 
 
 def _padstack(size, square):
