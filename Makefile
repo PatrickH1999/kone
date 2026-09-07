@@ -76,9 +76,9 @@ PYTHON_SRCS := $(shell find logisim -name '*.py' -not -path '*__pycache__*')
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
 	@if command -v ruff > /dev/null 2>&1; then \
-		ruff format --quiet $(PYTHON_SRCS); \
+		ruff format $(PYTHON_SRCS); \
 	elif command -v black > /dev/null 2>&1; then \
-		black --quiet $(PYTHON_SRCS); \
+		black $(PYTHON_SRCS); \
 	else \
 		printf 'format: no ruff or black, python left alone '; \
 		printf '(pacman -S python-ruff)\n'; \
