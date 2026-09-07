@@ -8,6 +8,34 @@ and a second backend turns the same circuits into KiCad 10 projects. Nothing
 here is drawn by hand and nothing parses a generated file: a change to a build
 script reaches both outputs.
 
+## Board format
+
+All six boards share one outline, **302.88 x 415.82 mm**, four layers on 1.6 mm
+FR-4, with four M3 holes 6 mm in from the corners and every backplane connector
+at the same place on every board. Nothing on a board is rotated, so the stack
+goes together in any order. `stacking()` in `python/build_kicad.py` fails the
+build if a board disagrees, and the size above is the largest board's, measured
+there -- it warns when the two have drifted apart. The gerbers are what a fab
+goes by; `kicad/BACKPLANE.md` carries the generated pinout.
+
+## Build everything
+
+```
+make -C logisim circ cpu route gerbers test
+```
+
+- `circ` -- `regfile.circ`, `alu.circ` and `kone.circ`
+- `cpu` -- `kone.circ` alone, on another program; `LOGISIM_PROG` defaults to
+  `bin/display.bin`, which is what `circ` bakes in too
+- `route` -- the KiCad projects under `kicad/`, routed and DRC clean; some
+  20 minutes, and it wants `FREEROUTING_JAR`
+- `gerbers` -- DRC again, then a fab ZIP per board in `kicad/out/`
+- `test` -- the four programs booted headlessly on `kone.circ`; about a minute,
+  and it wants a JDK and `LOGISIM_JAR`
+
+Each target has a section of its own below. `route` and `gerbers` both build
+`kicad`, which a single run makes once.
+
 Everything has its own makefile. From the repo root the targets carry a
 `logisim_` prefix, inside this directory they do not:
 
@@ -62,7 +90,6 @@ of the circuit from `logisim/bin/`: Logisim's loader stops with a dialog on the
 | `*.circ` | the generated files |
 | `kicad/<board>/` | the generated KiCad projects, `kicad/out/` their gerber zips |
 | `PARTS.md` | every chip and part the six boards need, generated |
-| `INTERFACE.md` | the Arduino bridge to the keyboard and the display, by hand |
 | `kicad/BACKPLANE.md` | the connector pinout, generated |
 | `Makefile` | the targets above |
 
@@ -287,17 +314,15 @@ does in the vm. Characters are 32-126 plus 8 for backspace.
 
 **Keyboard, device to CPU.** `KBAV` says a character is waiting on
 `KBD0`-`KBD6`; the CPU takes it and sets `R16`, which raises `KBACK` and holds
-it until the program acknowledges by writing 0 to `R16`. A controller drops
-`KBAV` when it sees `KBACK` and offers the next character when `KBACK` falls.
-`KBSET` is the same event as a single-clock pulse, for a device that wants an
-edge instead of a level. Enter arrives as 10, backspace as 8 or 127, anything
-else as a space.
+it until the program acknowledges by writing 0 to `R16`. `KBSET` is the same
+event as a single-clock pulse, for a device that wants an edge instead of a
+level. Enter arrives as 10, backspace as 8 or 127, anything else as a space.
 
 In `kone.circ` the two are a Logisim TTY and keyboard at the top level, and
 `DISPCLR` is the strobe fed back through a buffer -- a device that is always
 ready. On a board those four wires go to the connector instead.
 
-### What to connect
+### The bridge
 
 An **HD44780 character display takes ASCII directly**: its character ROM covers
 0x20-0x7D almost one for one (0x5C is a yen sign, 0x7E and 0x7F are arrows). It
@@ -315,15 +340,83 @@ The display the machine is built for is a **20x4 HD44780 module** (a Freenove
 I2C LCD2004, the controller behind a PCF8574 backpack), and the vm's grid is
 20x4 because of it: what the bridge receives it writes one for one, with no
 window into a larger grid to keep. The keyboard is a **USB keyboard behind a
-USB Host Shield**. Both hang off one **Arduino Mega 2560**: 5 V like the io
-board, so nothing needs level shifting, and enough pins to serve both sides at
-once, which a Nano has not -- its 18 usable GPIO are already gone on the shield
-and the LCD. `INTERFACE.md` holds the pin map and the two protocols the
-bridge implements.
+USB Host Shield** (MAX3421E), on SPI with its `SS` on 53 or the shield's 10 and
+`INT` on 9. Both hang off one **Arduino Mega 2560**: 5 V like the io board, so
+nothing needs level shifting, and enough pins to serve both sides at once,
+which a Nano has not -- its 18 usable GPIO are already gone on the shield and
+the LCD, before any of the io board's 18 lines. The LCD's I2C goes to 20 (SDA)
+and 21 (SCL).
+
+A USB Host Shield is an Uno shield and takes SPI from pins 11, 12 and 13, which
+on a Mega are ordinary GPIO. Use a revision that takes SPI from the **ICSP
+header** -- the USB Host Shield 2.0 boards do, and the header carries the Mega's
+hardware SPI -- or lift the shield's 11/12/13 and jumper them to 51 (MOSI), 50
+(MISO) and 52 (SCK).
+
+Do not feed the stack from the Mega's 5 V pin: the backplane's supply and the
+Mega's USB supply are separate, and only their grounds are tied together.
+
+#### Pin map
+
+The signals are the ones `kicad/BACKPLANE.md` lists for the `io` board;
+direction is the machine's, the mode is the Mega's.
+
+| kone signal | Backplane | Direction | Mega pin | Mega mode |
+| --- | --- | --- | --- | --- |
+| `TTYD0` | BP4.4 | out | 22 | input |
+| `TTYD1` | BP4.5 | out | 23 | input |
+| `TTYD2` | BP4.6 | out | 24 | input |
+| `TTYD3` | BP4.7 | out | 25 | input |
+| `TTYD4` | BP4.8 | out | 26 | input |
+| `TTYD5` | BP4.9 | out | 27 | input |
+| `TTYD6` | BP4.10 | out | 28 | input |
+| `DISPNZ` | BP2.6 | out | 29 | input |
+| `DISPCLR` | BP2.5 | in | 30 | output |
+| `KBD0` | BP2.9 | in | 31 | output |
+| `KBD1` | BP2.10 | in | 32 | output |
+| `KBD2` | BP2.11 | in | 33 | output |
+| `KBD3` | BP2.12 | in | 34 | output |
+| `KBD4` | BP2.13 | in | 35 | output |
+| `KBD5` | BP2.14 | in | 36 | output |
+| `KBD6` | BP2.15 | in | 37 | output |
+| `KBAV` | BP2.8 | in | 38 | output |
+| `KBACK` | BP2.7 | out | 39 | input |
+| `GND` | BP1.2 | - | GND | - |
+
+`KBSET` (BP2.16) stays unconnected: the bridge watches the `KBAV` level rather
+than an edge. The data lines are seven bits wide, so ASCII 0-127 passes and
+nothing above it -- the vm's keyboard takes 32-255, but a real keyboard has no
+way to send the upper half anyway.
+
+#### What the bridge does
+
+Per character out: wait for `DISPNZ`, read the seven `TTYD` lines, write that
+character to the LCD, then raise `DISPCLR` and hold it until `DISPNZ` falls
+before dropping it again.
+
+Per key in: translate the USB HID key to ASCII, normalized as above, put the
+code on `KBD0`-`KBD6`, raise `KBAV`, wait for `KBACK`, drop `KBAV`, and wait
+for `KBACK` to fall again before offering the next character. Dropping `KBAV`
+only after `KBACK` is what keeps `KBSET` (`KBAV AND NOT R16`) from offering one
+character twice. A key struck while the
+program is not polling `R16` is lost rather than buffered, as it is on the vm;
+a ring buffer in the bridge is a deliberate deviation, not a fix.
+
+The grid the bridge owes the program is the vm's, in the root `README.md`,
+down to a full row wrapping onto the next cleared one and a full last row
+clearing the display. klib's `disp_putc` counts on it: it keeps its own column
+and row pointer and never reads the display back. An HD44780's DDRAM rows are
+not contiguous (0x00, 0x40, 0x14, 0x54 for 20x4), so a row start needs its own
+`setCursor` rather than being written on.
+
+The sketch is not in the repo. There is no `arduino-cli` on this machine to
+compile it against, and an unverified sketch is worse than none; the two
+protocols above are complete enough to write it (`USB Host Shield 2.0` for the
+keyboard, `LiquidCrystal_I2C` for the display).
 
 ## KiCad boards
 
-The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connector. `make logisim_kicad` writes them under `kicad/` and checks them with `kicad-cli`.
+The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connectors. `make logisim_kicad` writes them under `kicad/` and checks them with `kicad-cli`.
 
 Each of the six blocks of `kone.circ` is a board of its own, generated from the same circuit, ERC clean and DRC clean:
 
@@ -336,7 +429,7 @@ Each of the six blocks of `kone.circ` is a board of its own, generated from the 
 | `datapath` | 15 | bus and operand muxes, the latches around the ALU |
 | `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
 
-The six boards stack: all of them share one outline, four M3 mounting holes in the corners and the same connector positions, so standoffs and vertical headers line up. One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `logisim/kicad/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
+One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `logisim/kicad/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
 
 ```python
 from logisim.kicad import Board, write
@@ -346,9 +439,9 @@ write(Board("regfile", regfile(), columns=8), "logisim/kicad/regfile")
 `Netlist` resolves what Logisim uses for wiring into real nets -- a tunnel is a
 net name, a splitter ties a bus to its bits, `Ground`/`Power`/`Constant` are the
 two rails -- and `Board` adds what a board needs and Logisim does not model: the
-VCC and GND pins of each package, a 100nF per IC, the power header and the 2x20
-backplane, whose pinout is the same on every board (`BACKPLANE` in `kicad.py`,
-written out as `logisim/kicad/BACKPLANE.md`).
+VCC and GND pins of each package, a 100nF per IC, the power header and the four
+2x20 backplane connectors (`BACKPLANE` in `kicad.py`, written out as
+`logisim/kicad/BACKPLANE.md`).
 
 `write()` emits a project with its own symbol and footprint library, a schematic
 in which every pin is stubbed to a net label, and a board whose footprints are
@@ -382,9 +475,9 @@ are merged on the board.
 
 ## Fabrication
 
-Every board is four layers: signals on the outside, a solid `GND` plane on
-`In1.Cu` and a solid `+5V` plane on `In2.Cu`. Four layers cost more per board
-than two, and they are what makes the register file routable: the two rails are
+The four layers are signals on the outside, a solid `GND` plane on `In1.Cu` and
+a solid `+5V` plane on `In2.Cu`. They cost more per board than two layers would,
+and they are what makes the register file routable: the two rails are
 a third of its connections, and taking them off the signal layers is the
 difference between sixty connections left open and none.
 
@@ -409,15 +502,14 @@ clearance, so a board whose DRC fails is routed again with the next value in
 narrow one, `datapath` the wide one. `FREEROUTING_PASSES` is an upper
 bound rather than a cost: the router stops once a pass no longer improves, which
 the small boards reach after five or six and the register file after twenty. The
-six boards together take about RUNTIME minutes and come out with no unrouted
-connection and no DRC violation, so there is no manual pass in pcbnew. The jar
+six boards come out with no unrouted connection and no DRC violation, so there
+is no manual pass in pcbnew. The jar
 is not packaged anywhere -- put it where `FREEROUTING_JAR` points, or pass
 `FREEROUTING_JAR=/path/to/freerouting.jar`.
 
 `make logisim_kicad` checks a board that has no tracks yet, so open connections
 are the one DRC class it lets through; `make logisim_route` and
 `make logisim_gerbers` count them as errors. Gerbers carry both inner layers.
-Every board carries the same 2x20 backplane header, whose pinout
-`logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and
+The projects bring their own symbol and
 footprint library, so they do not depend on which version of KiCad's libraries
 is installed.

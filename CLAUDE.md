@@ -214,7 +214,7 @@ arrives as ASCII 10 (CR 13 is normalized to 10 in `keyboard_push_cpu`); backspac
 **Display** (own process) — write the char to `R19`, write 1 to `R18`, then poll `R18`
 until it is 0 before pushing the next char, or the char is overwritten before the display
 sees it. 20x4 grid — the geometry of the LCD2004 the machine is built for, see
-`logisim/INTERFACE.md`; a full row advances to the next (cleared) row, a full last row clears
+`logisim/README.md`; a full row advances to the next (cleared) row, a full last row clears
 the whole display. Chars outside 32-126 occupy a cell but render blank. Writing 8 to `R19`
 steps back one cell and clears it; at column 0 it does nothing.
 
@@ -381,11 +381,12 @@ a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, a
 parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
 and writes `logisim/kicad/BACKPLANE.md`, the pinout every board carries, and
 `logisim/PARTS.md`, what to order — one section per board, a total, and a hand kept
-interface section, with the per-board counts checked against the placed footprints.
-`logisim/INTERFACE.md` is the other hand written one: the Arduino Mega 2560 that carries the
-USB keyboard and the LCD2004, its pin map onto the io board's device signals, and the two
-protocols it has to implement. Both live beside the README because `logisim/kicad/` is
-generated and `clean` deletes it.
+interface section, with the per-board counts checked against the placed footprints. It lives
+beside the README because `logisim/kicad/` is generated and `clean` deletes it.
+`logisim/README.md` is the only hand written doc on the hardware side: it also carries the
+board format, and the Arduino Mega 2560 bridge that runs the USB keyboard and the LCD2004 —
+its pin map onto the io board's device signals and the two protocols it implements.
+`build_kicad.py` warns when the outline the README states no longer matches the boards.
 
 All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
 `datapath` (15) and `memory` (8), each four layers -- signals outside, a GND plane on

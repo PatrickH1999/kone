@@ -147,7 +147,7 @@ HCT versions drop in.
 ## Interface
 
 Hand kept, not derived from a board: the bridge between the io board
-and the two devices, which `INTERFACE.md` wires up and programs.
+and the two devices, which `README.md` wires up and programs.
 
 | Part | Function | Count |
 | --- | --- | --- |
