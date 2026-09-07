@@ -334,7 +334,6 @@ main__summary:
     CLL disp_putc
     LDI 68          // 'D'
     CLL disp_putc
-    CLL disp_nl
     JMP main__halt
 
 main__all_pass:
@@ -354,7 +353,6 @@ main__all_pass:
     CLL disp_putc
     LDI 83          // 'S'
     CLL disp_putc
-    CLL disp_nl
 
 main__halt:
     JMP main__halt

@@ -213,7 +213,8 @@ arrives as ASCII 10 (CR 13 is normalized to 10 in `keyboard_push_cpu`); backspac
 
 **Display** (own process) — write the char to `R19`, write 1 to `R18`, then poll `R18`
 until it is 0 before pushing the next char, or the char is overwritten before the display
-sees it. 40x24 grid; a full row advances to the next (cleared) row, a full last row clears
+sees it. 20x4 grid — the geometry of the LCD2004 the machine is built for, see
+`logisim/INTERFACE.md`; a full row advances to the next (cleared) row, a full last row clears
 the whole display. Chars outside 32-126 occupy a cell but render blank. Writing 8 to `R19`
 steps back one cell and clears it; at column 0 it does nothing.
 
@@ -221,7 +222,7 @@ The display has no readable cursor, so `disp_putc`/`disp_bs`/`disp_nl`/`disp_cls
 column at `0x8000` and the row at `0x8022`. In a program that uses them, never write
 `R18`/`R19` directly — the counters drift. There is no clear command either: `disp_cls`
 pads the grid with spaces up to the last cell, which is where the display clears itself,
-so a clear costs up to 960 handshakes.
+so a clear costs up to 80 handshakes.
 
 ## Testing
 
@@ -245,9 +246,20 @@ Two traps in C tests, both hit while writing `tests/test_args.c`:
 **klib** (`tests/klib/test_<name>.kasm` → `bin/test_klib_<name>.bin`) — print one
 `PASS:<case>` or `FAIL:<case>` display row per case (case name must match `[a-z0-9_]+`),
 then a summary row `ALL PASS` or `<n> FAILED`, then halt in a loop. The harness runs the
-binary for up to 20 s waiting for that summary, then scrapes the last complete display frame.
+binary for up to 20 s waiting for that summary; the case list is scraped from the whole run,
+the `.expect` rows from the last complete frame.
 Optional `test_<name>.in` is piped to stdin as keystrokes; optional `test_<name>.expect`
-lists display rows that must match exactly. The protocol is also written up in `README.md`,
+lists display rows that must match exactly.
+
+Four rows is what the display holds, and the test protocol lives with it:
+
+- The summary must be the **last thing printed and must not end its row**. Padding the last
+  row out writes the last cell, which is exactly what clears the grid — the report then
+  vanishes between two 20 Hz frames and the harness sees an empty screen. This cost an hour.
+- A `.expect` row has to be on screen at the end, so a test that uses one clears the display
+  and prints its checked rows as the last three, right above the summary.
+- `PASS:` plus a case name over 15 characters wraps, and the report shows the name cut in
+  half. The verdict is unaffected — it comes from the summary row. The protocol is also written up in `README.md`,
 so a new test file states its cases and nothing else. An example's own scratch goes **above
 `0x803F`**, clear of klib and in the same range the klib tests use.
 
@@ -335,9 +347,10 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 - Memory is ROM below `0x8000` and RAM above it: a **write below 0x8000 is dropped**, which
   the VM would honour. Nothing in `klib` or `examples/` writes there, and `mem_poke`'s
   patched instructions live at `0x8000`, so they still execute from RAM.
-- The display is a Logisim TTY. It takes the same handshake (`R19`, then `R18`, cleared once
-  the char is taken) and the same backspace, but a full screen scrolls instead of clearing
-  the next row and then the whole grid the way `display_push_char()` does.
+- The display is a Logisim TTY, 20x4 like the vm's. It takes the same handshake (`R19`, then
+  `R18`, cleared once the char is taken) and the same backspace, but a full screen scrolls
+  instead of clearing the next row and then the whole grid the way `display_push_char()`
+  does.
 - `R18` is cleared by the **device**, over `DISPCLR`, not by io itself: a real display is
   slower than one clock. In `kone.circ` the line is the strobe buffered through a 7404, so
   the simulation still has an always-ready device; on the boards it is a backplane pin. The
@@ -366,7 +379,12 @@ adds what Logisim does not model (VCC/GND pins, a 100nF per IC, headers) and `wr
 a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, and nothing
 parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
 and writes `logisim/kicad/BACKPLANE.md`, the pinout every board carries, and
-`logisim/PARTS.md`, what to order.
+`logisim/PARTS.md`, what to order — one section per board, a total, and a hand kept
+interface section, with the per-board counts checked against the placed footprints.
+`logisim/INTERFACE.md` is the other hand written one: the Arduino Mega 2560 that carries the
+USB keyboard and the LCD2004, its pin map onto the io board's device signals, and the two
+protocols it has to implement. Both live beside the README because `logisim/kicad/` is
+generated and `clean` deletes it.
 
 All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
 `datapath` (15) and `memory` (8), each four layers -- signals outside, a GND plane on

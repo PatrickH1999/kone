@@ -802,9 +802,9 @@ def kone(blocks):
         pin = c.add(Pin(1200 + 500 * i, 100, name, width=width, output=True))
         stub(c, pin.port(), (1100 + 500 * i, 100), name, "east", width=width)
 
-    # The 40x24 display and the keyboard are here rather than inside io, so
+    # The 20x4 display and the keyboard are here rather than inside io, so
     # what a program prints is on screen without opening a subcircuit.
-    tty = c.add(Tty(2800, 500, rows=24, cols=40))
+    tty = c.add(Tty(2800, 500, rows=4, cols=20))
     for port, net, width in (
         ("data", "TTYD", 7),
         ("clk", "CLK", 1),

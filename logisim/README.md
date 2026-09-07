@@ -62,6 +62,7 @@ of the circuit from `logisim/bin/`: Logisim's loader stops with a dialog on the
 | `*.circ` | the generated files |
 | `kicad/<board>/` | the generated KiCad projects, `kicad/out/` their gerber zips |
 | `PARTS.md` | every chip and part the six boards need, generated |
+| `INTERFACE.md` | the Arduino bridge to the keyboard and the display, by hand |
 | `kicad/BACKPLANE.md` | the connector pinout, generated |
 | `Makefile` | the targets above |
 
@@ -301,29 +302,24 @@ ready. On a board those four wires go to the connector instead.
 An **HD44780 character display takes ASCII directly**: its character ROM covers
 0x20-0x7D almost one for one (0x5C is a yen sign, 0x7E and 0x7F are arrows). It
 is not a terminal, though. It has no line wrap, no scrolling, no backspace and
-no notion of a 40x24 grid, it needs an initialisation sequence, and it wants
-RS, R/W and an E pulse rather than one strobe. Between the backplane and the
-display belongs a small controller, and the same one can serve the keyboard:
+no notion of a grid, it needs an initialisation sequence, and it wants RS, R/W
+and an E pulse rather than one strobe. Between the backplane and the display
+belongs a small controller, and the same one serves the keyboard:
 
 | Side | Wires | To |
 | --- | --- | --- |
-| display | `TTYD0`-`6`, `DISPNZ` in, `DISPCLR` out | 9 pins on an Arduino, plus 6 to the LCD in 4-bit mode |
-| keyboard | `KBD0`-`6`, `KBAV` out, `KBACK` in | 9 pins, plus 2 for PS/2 |
+| display | `TTYD0`-`6`, `DISPNZ` in, `DISPCLR` out | 9 pins on the bridge, plus 2 for the LCD's I2C backpack |
+| keyboard | `KBD0`-`6`, `KBAV` out, `KBACK` in | 9 pins, plus 4 SPI lines and an interrupt for the USB host |
 
-An **Arduino Nano** (ATmega328, 5 V) needs no level shifting and has the pins
-for one side; two of them, or one Mega, cover both. Its display sketch latches
-the character on `DISPNZ`, writes it to the LCD, keeps the kone semantics --
-wrap at 40 columns, clear the next row, backspace clears the cell before the
-cursor -- and pulses `DISPCLR` when the LCD is done, which is what makes the
-handshake honest. Its keyboard sketch reads PS/2 scancodes (the `PS2Keyboard`
-library), turns them into ASCII and drives `KBD0`-`6` and `KBAV`. A USB
-keyboard needs a host-capable part instead, a 32u4 or an RP2040 with USB host;
-an RP2040 is 3.3 V, so a `74LVC245` belongs in between.
-
-One mismatch to plan around: the vm's display is 40x24, an HD44780 is at most
-40x4. Either the controller shows the last four lines of the grid it keeps in
-its own memory, or the display becomes a graphic one -- an SSD1306 or a small
-VGA generator -- which changes nothing on this side of the connector.
+The display the machine is built for is a **20x4 HD44780 module** (a Freenove
+I2C LCD2004, the controller behind a PCF8574 backpack), and the vm's grid is
+20x4 because of it: what the bridge receives it writes one for one, with no
+window into a larger grid to keep. The keyboard is a **USB keyboard behind a
+USB Host Shield**. Both hang off one **Arduino Mega 2560**: 5 V like the io
+board, so nothing needs level shifting, and enough pins to serve both sides at
+once, which a Nano has not -- its 18 usable GPIO are already gone on the shield
+and the LCD. `INTERFACE.md` holds the pin map and the two protocols the
+bridge implements.
 
 ## KiCad boards
 

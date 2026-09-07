@@ -4,7 +4,7 @@
 //
 // klib scratch memory, the whole map, so that a new routine can tell what is
 // already taken:
-//     0x8000          display column pointer (0 - 39, see 'disp_putc')
+//     0x8000          display column pointer (0 - 19, see 'disp_putc')
 //     0x8001 - 0x8004 int32_digits:   remaining magnitude
 //     0x8005 - 0x8008 int32_digits:   remaining magnitude / 10
 //     0x8009          int32_digits:   1 if the value is negative
@@ -21,7 +21,7 @@
 //     0x801F          float32_write:  significant digits after trimming
 //     0x8020          float32_write:  the decimal exponent
 //     0x8021          float32_write:  1 for the 'd.dddddemdd' layout
-//     0x8022          display row pointer (0 - 23, see 'disp_putc')
+//     0x8022          display row pointer (0 - 3, see 'disp_putc')
 //     0x8023 - 0x8026 float32_read:   the mantissa typed so far
 //     0x8027          float32_read:   the decimal exponent
 //     0x8028          float32_read:   the state flags
@@ -57,7 +57,7 @@ disp_putc__wait:
     LDI 1
     ADD 13
     STR 13
-    LDI 216         // 256 - 40; carry set only once the column wrapped
+    LDI 236         // 256 - 20; carry set only once the column wrapped
     ADD 13
     JC0 disp_putc__store
     LDI 0
@@ -67,7 +67,7 @@ disp_putc__wait:
     LDI 1
     ADD 13
     STR 13
-    LDI 232         // 256 - 24; carry set only once the row wrapped
+    LDI 252         // 256 - 4; carry set only once the row wrapped
     ADD 13
     JC0 disp_putc__row
     LDI 0
@@ -119,9 +119,8 @@ disp_nl__done:
 // The kone display has no clear command. It clears the whole grid on its own
 // once a char lands on the last cell of the last row, so this pads the rest of
 // the grid with spaces and stops exactly on that cell, which is also where the
-// column and the row pointer are both back at 0. A full sweep is up to 960
-// chars and every one of them waits out the display handshake, so a clear
-// takes a noticeable moment.
+// column and the row pointer are both back at 0. A full sweep is up to 80
+// chars and every one of them waits out the display handshake.
 disp_cls:
     LDI 32          // ' '
     CLL disp_putc
