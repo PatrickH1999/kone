@@ -44,7 +44,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
     - [`math`](#math)
     - [`mem`](#mem)
     - [`str`](#str)
-- [Logisim circuits](#logisim-circuits)
+- [Logisim circuits and PCBs](#logisim-circuits-and-pcbs)
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
@@ -54,13 +54,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make test-klib`: run only the `klib` tests, i.e. one kasm program per routine, run on the vm
  - `make debug`: build with debugging symbols and no optimization
  - `make kasm`: build only the assembler
- - `make logisim_circ`: generate the Logisim circuits in `logisim/` (see below)
- - `make logisim_cpu`: generate only `logisim/kone.circ`, with `LOGISIM_PROG=bin/<name>.bin` baked into its ROM
- - `make logisim_test`: boot three examples and a `klib` test on that circuit in Logisim and check the display
- - `make logisim_clean`: delete the generated circuits (`make clean` does this too)
- - `make logisim_kicad`: generate the KiCad boards in `logisim/kicad/` and run ERC and DRC on them
- - `make logisim_route`: autoroute the boards with Freerouting and re-check them
- - `make logisim_gerbers`: check DRC, then export gerbers and drills, zipped per board into `logisim/kicad/out/`
+ - `make logisim_<target>`: anything in `logisim/`, forwarded to its own makefile (see [`logisim/README.md`](logisim/README.md))
  - `make hooks`: install the pre-commit hook, which runs `make format` and re-stages what it changed
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
@@ -287,35 +281,5 @@ The kone ISA has no register indirect addressing: `LDM` and `STM` take an absolu
 
 - `str_eq`: compares two null terminated strings and returns 0 or 1 in `R0`. It reads them through `mem_peek`, so `klib/mem.kasm` has to be included alongside `klib/str.kasm`.
 
-## Logisim circuits
-The machine also exists as hardware: `logisim/python/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips, so the ISA can be checked against something buildable from real logic. `make logisim_circ` writes them; `logisim/python/README.md` documents the generator.
-
-| File | Contents |
-| --- | --- |
-| `logisim/regfile.circ` | the 32 x 8 bit register file, 74377 + 74245 per register, addressed by a 74138 tree |
-| `logisim/alu.circ` | the nine ALU operations, 74283 adder and 74151/74153/74157 result muxes |
-| `logisim/kone.circ` | the whole CPU: both of the above under a microcoded control unit, with memory, display and keyboard |
-
-`kone.circ` opens as a block diagram of six subcircuits (`regfile`, `alu`, `sequencer`, `datapath`, `memory` and `io`) joined by named buses, with a clock and three probe pins. It is a microcoded machine: every register the ISA names lives in the register file at the index the VM gives it, seven 256-byte ROMs in `sequencer` hold the microprogram, and two more turn an opcode into its entry point. `R16`-`R19` are device registers in `io`; the Logisim TTY and keyboard they drive sit in the top-level circuit, so a running program's output is on screen without opening a subcircuit. The program sits in a ROM below `0x8000` with RAM above it, which is the one deviation from the VM, whose memory is writable throughout.
-
-To watch it run, open `logisim/kone.circ`, reset with *Simulate -> Reset* and start the clock with *Simulate -> Auto-Tick*. The file opens at Logisim's fastest tick rate, 4 kHz, which is about 2000 CPU cycles a second because a cycle is two ticks, and a kone instruction is some 20 cycles. `display` and `hello` print at once; `count` needs roughly 30 000 cycles per number, so expect a number every few seconds rather than a stream.
-
-`make logisim_cpu LOGISIM_PROG=bin/hello.bin` bakes another program into the ROM. `make logisim_test` boots `display`, `hello`, `keyboard` and the `mem` klib test on the circuit headlessly and compares what the TTY shows against what the vm prints. The klib test dominates its runtime; the whole target takes about a minute and a half.
-
-### PCBs
-The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `logisim/python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connector. `make logisim_kicad` writes them under `logisim/kicad/` and checks them with `kicad-cli`; `make logisim_gerbers` exports gerbers and Excellon drill files with JLCPCB's defaults.
-
-Each of the six blocks of `kone.circ` is a board of its own, generated from the same circuit, ERC clean and DRC clean:
-
-| Board | ICs | Contents |
-| --- | --- | --- |
-| `regfile` | 86 | 32 registers, their bus drivers and the address decoder tree |
-| `alu` | 27 | adder, logic banks and the result muxes |
-| `io` | 23 | `R16`-`R19` and the two device handshakes |
-| `sequencer` | 20 | microprogram counter and the nine 28C256 holding the microcode |
-| `datapath` | 15 | bus and operand muxes, the latches around the ALU |
-| `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
-
-The six boards stack: all of them share one outline, four M3 mounting holes in the corners and the same connector positions, so standoffs and vertical headers line up. One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `logisim/kicad/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
-
-Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.
+## Logisim circuits and PCBs
+The machine also exists as hardware: `logisim/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips (the register file, the ALU and the whole CPU) and turns the same circuits into six stackable KiCad boards with gerbers ready for a fab. It has its own makefile and its own documentation: **[`logisim/README.md`](logisim/README.md)**. From here, every one of its targets is reachable with a `logisim_` prefix, `make logisim_circ` and `make logisim_test` to begin with.

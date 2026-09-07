@@ -21,13 +21,8 @@ make            # bin/kone, bin/kasm, all examples
 make test       # test-kone + test-kasm + test-klib (a failing group does not stop the others)
 make format     # clang-format + ruff (or black), run before finishing
 make hooks      # install the pre-commit hook that runs make format
-make logisim_circ   # every logisim/python/build_*.py -> logisim/*.circ
-make logisim_cpu    # only kone.circ; LOGISIM_PROG=bin/<name>.bin is its program
-make logisim_test   # boot four programs on kone.circ in Logisim, headless (~90 s)
-make logisim_clean  # the generated .circ files, logisim/kicad/ and the harness
-make logisim_kicad  # KiCad projects under logisim/kicad/, then kicad-cli ERC + DRC
-make logisim_route  # autoroute with Freerouting, then DRC (FREEROUTING_JAR)
-make logisim_gerbers  # DRC, then gerbers + drills zipped to logisim/kicad/out/
+make logisim_<t>    # forwarded to logisim/Makefile, which owns circ, cpu, test,
+                    # kicad, route, gerbers, clean (see logisim/README.md)
 bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
@@ -84,8 +79,8 @@ print('\n'.join(l.rstrip() for l in last.splitlines() if l.strip()))
 | `examples/` | `*.kasm` → `bin/*.bin`, auto-discovered by wildcard |
 | `tests/` | C unit tests, one `test_<module>.{c,h}` per `src/<module>.c` |
 | `tests/klib/` | klib tests as kasm programs, plus optional `.in` / `.expect` |
-| `logisim/python/` | generator: the `logisim/` library, `build_<circuit>.py`, `kone_microcode.py`, and `build_kicad.py`, which writes boards rather than a `.circ` |
-| `logisim/java/` | `KoneTest.java`, which boots `kone.circ` in Logisim's own simulator |
+| `logisim/` | the machine as hardware: own `Makefile` and `README.md`, the generator in `python/`, the harness in `java/` |
+
 | `tools/` | `bin2bits.sh` and `hooks/pre-commit`, which `make hooks` installs |
 
 A new klib file must be `.include`d from its group file (`klib/math/int32.kasm`,
@@ -275,12 +270,14 @@ so a new test file states its cases and nothing else. An example's own scratch g
 
 ## Logisim
 
-`logisim/python/` generates the `.circ` files that build kone out of 74xx chips: `core.py`
+`logisim/` has its own `Makefile` (the root forwards `logisim_%` to it) and its own
+`README.md`, which is where the reference material lives. `logisim/python/` generates the
+`.circ` files that build kone out of 74xx chips: `core.py`
 is the document model (`Component`, `Wire`, `Circuit`, `Project`, grid and net checks),
 `components.py` the concrete parts and their port geometry, one `build_*.py` per circuit.
 `make logisim_circ` runs them all, `make logisim_regfile` and `make logisim_alu` one
 each; every Logisim target and variable carries that prefix. Reference is
-`logisim/python/README.md`; what costs time:
+`logisim/README.md`; what costs time:
 
 - Port offsets are read out of Logisim's own jar, never guessed. A new part needs the same
   treatment — for a TTL chip, `AbstractTtlGate.portNames` and `outputPorts` give the pinout
@@ -354,7 +351,7 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
   4 kHz is about 100 instructions a second. `count` spends ~30k cycles per number it prints.
 - Logisim leaves a `.<name>.circ.autosave` beside a file it has open, and its loader stops on
   one with a dialog — fatal headless, and not routed through `Loader.showError`. `logisim_test`
-  therefore runs on a copy in `bin/logisim_test/`, so a GUI session cannot break it.
+  therefore runs on a copy in `logisim/bin/`, so a GUI session cannot break it.
 
 
 ## KiCad
