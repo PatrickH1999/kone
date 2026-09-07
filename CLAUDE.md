@@ -365,7 +365,8 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
   ROM's contents after that, then `markComponentAsDirty()`.
 - The circuit carries `simulationFrequency 4096`, Logisim's fastest auto-tick, because the
   1 Hz default shows nothing: a cycle is two ticks and an instruction some 20 cycles, so
-  4 kHz is about 100 instructions a second. `count` spends ~30k cycles per number it prints.
+  4 kHz is about 100 instructions a second. `count` spends some 500 instructions on a
+  number, nearly all of it in `disp_nl` padding the row out.
 - Logisim leaves a `.<name>.circ.autosave` beside a file it has open, and its loader stops on
   one with a dialog — fatal headless, and not routed through `Loader.showError`. `logisim_test`
   therefore runs on a copy in `logisim/bin/`, so a GUI session cannot break it.

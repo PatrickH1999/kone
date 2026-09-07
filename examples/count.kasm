@@ -1,32 +1,67 @@
+// count: counts a byte up forever and prints it as a decimal number. The
+// counting is one ADD against a register holding 1, and the wrap at 255 is
+// the ISA's own overflow -- no klib arithmetic anywhere, only its display
+// helpers.
+
     JMP main
 
-.include "../klib/math.kasm"
-.include "../klib/io.kasm"
+.include "../klib/io/disp.kasm"
 
 main:
-    LDI 0
-    STR 0
+    LDI 1           // the increment, as ADD takes a register
     STR 1
-    STR 2
-    STR 3           // the counter, byte order LSB -> MSB
+    LDI 0
+    STR 0           // the counter
 
 loop:
-    CLL int32_write // R0 - R3 survive the call, R4 - R15 do not
-
-    LDI 1
-    STR 4
     LDI 0
-    STR 5
-    STR 6
-    STR 7           // the summand, 1
-    CLL int32_add   // R8 - R11 = counter + 1
+    STR 5           // no digit printed yet
+    LDR 0
+    STR 3           // what is left of the value
+    LDI 156
+    STR 4           // 256 - 100
+    CLL put_place
+    LDI 246
+    STR 4           // 256 - 10
+    CLL put_place
+    LDI 48          // '0'; the ones digit is what is left
+    ADD 3
+    CLL disp_putc
+    CLL disp_nl
 
-    LDR 8
+    LDR 0
+    ADD 1           // 255 + 1 overflows to 0; the carry is ignored
     STR 0
-    LDR 9
-    STR 1
-    LDR 10
-    STR 2
-    LDR 11
-    STR 3           // counter = R8 - R11
     JMP loop
+
+// put_place: takes one decimal place off the value in R3 and prints its
+// digit, unless it and every digit before it were zero
+//     in:       R3 -> value, R4 -> 256 - the place, R5 -> 1 once a digit
+//               has been printed
+//     out:      R3 = value below the place, R5 set if a digit went out
+//     clobbers: R6, R13
+put_place:
+    LDI 0
+    STR 6           // the digit
+put_place__loop:
+    LDR 4
+    ADD 3           // carry set only while the place still fits
+    JC0 put_place__done
+    STR 3
+    LDI 1
+    ADD 6
+    STR 6
+    JMP put_place__loop
+put_place__done:
+    LDR 6
+    JA1 put_place__print
+    LDR 5
+    JA0 put_place__ret // a leading zero is not printed
+put_place__print:
+    LDI 1
+    STR 5
+    LDI 48          // '0'
+    ADD 6
+    CLL disp_putc
+put_place__ret:
+    RET
