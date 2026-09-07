@@ -58,7 +58,7 @@ regfile:
 
 clean:
 	rm -f $(CIRCS)
-	rm -rf bin python/__pycache__ $(KICAD_DIR)
+	@targets='bin python/__pycache__ $(KICAD_DIR)'; $(RM_RF)
 
 # kone.circ booted headlessly in Logisim; needs a JDK and $(LOGISIM_JAR). The
 # harness reads its programs from the repo root, so java runs from there. It

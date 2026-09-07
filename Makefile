@@ -61,7 +61,7 @@ logisim_%:
 
 clean: logisim_clean
 	$(MAKE) -C $(KASM_DIR) clean
-	rm -rf bin/ obj/
+	@targets='bin obj'; $(RM_RF)
 	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
 
 debug: CFLAGS += -g -O0 -DDEBUG
