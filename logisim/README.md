@@ -1,28 +1,70 @@
-# logisim.py
+# kone as hardware
 
-Generates `.circ` files (logic circuits) for *logisim-evolution* so the `kone`
-CPU can be built in code instead of with the mouse. The target circuit covers
+`logisim/` holds the second half of the project: the same machine as circuits
+and as printed boards. `python/` generates [Logisim
+Evolution](https://github.com/logisim-evolution/) files built from 74xx-series
+chips, so the ISA can be checked against something buildable from real logic,
+and a second backend turns the same circuits into KiCad 10 projects. Nothing
+here is drawn by hand and nothing parses a generated file: a change to a build
+script reaches both outputs.
 
-1. __CPU__
-2. __Keyboard__
-3. __Display__
+Everything has its own makefile. From the repo root the targets carry a
+`logisim_` prefix, inside this directory they do not:
 
-Project-internal tooling: plain scripts, no packaging, `python3` only, no
-dependencies. Requires Python 3.9+.
+| From the root | Here | What it does |
+| --- | --- | --- |
+| `make logisim_circ` | `make circ` | every `python/build_*.py` -> `logisim/*.circ` |
+| `make logisim_cpu` | `make cpu` | only `kone.circ`; `LOGISIM_PROG=bin/<name>.bin` picks its program |
+| `make logisim_regfile`, `make logisim_alu` | `make regfile`, `make alu` | one circuit each |
+| `make logisim_test` | `make test` | boot four programs on `kone.circ` in Logisim, headless |
+| `make logisim_kicad` | `make kicad` | the KiCad projects, then ERC and DRC |
+| `make logisim_route` | `make route` | autoroute with Freerouting, then DRC |
+| `make logisim_gerbers` | `make gerbers` | DRC, then gerbers and drills zipped per board |
+| `make logisim_clean` | `make clean` | the generated files, `kicad/` included |
+
+## The circuits
+
+| File | Contents |
+| --- | --- |
+| `logisim/regfile.circ` | the 32 x 8 bit register file, 74377 + 74245 per register, addressed by a 74138 tree |
+| `logisim/alu.circ` | the nine ALU operations, 74283 adder and 74151/74153/74157 result muxes |
+| `logisim/kone.circ` | the whole CPU: both of the above under a microcoded control unit, with memory, display and keyboard |
+
+`kone.circ` opens as a block diagram of six subcircuits (`regfile`, `alu`, `sequencer`, `datapath`, `memory` and `io`) joined by named buses, with a clock and three probe pins. It is a microcoded machine: every register the ISA names lives in the register file at the index the VM gives it, seven 256-byte ROMs in `sequencer` hold the microprogram, and two more turn an opcode into its entry point. `R16`-`R19` are device registers in `io`; the Logisim TTY and keyboard they drive sit in the top-level circuit, so a running program's output is on screen without opening a subcircuit. The program sits in a ROM below `0x8000` with RAM above it, which is the one deviation from the VM, whose memory is writable throughout.
+
+To watch it run, open `logisim/kone.circ`, reset with *Simulate -> Reset* and start the clock with *Simulate -> Auto-Tick*. The file opens at Logisim's fastest tick rate, 4 kHz, which is about 2000 CPU cycles a second because a cycle is two ticks, and a kone instruction is some 20 cycles. `display` and `hello` print at once; `count` needs roughly 30 000 cycles per number, so expect a number every few seconds rather than a stream.
+
+## Testing headlessly
+
+`make logisim_test` boots `display`, `hello`, `keyboard` and
+`tests/klib/test_mem.kasm` on `kone.circ` in Logisim's own simulator
+(`java/KoneTest.java`), stopping each case as soon as the TTY says what the vm
+prints. The klib case runs `mem_poke`/`mem_peek`, which patch an `LDM`/`STM`
+into scratch and call it, so it is also the test that the machine executes from
+RAM.
+
+A case is one row of the `CASES` table in `KoneTest.java` -- program, cycle
+budget, keystrokes, expected display text. The harness writes the program into
+the `prog` ROM itself, so a new case needs no new `.circ`, and it loads a copy
+of the circuit from `logisim/bin/`: Logisim's loader stops with a dialog on the
+`.circ.autosave` it leaves beside a file that is open in its GUI.
 
 ## Layout
 
 | Path | Contents |
 | --- | --- |
-| `logisim/python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
-| `logisim/python/logisim/components.py` | the concrete components and their port geometry |
-| `logisim/python/build_*.py` | one build script per generated circuit |
-| `logisim/python/kone_microcode.py` | the microprogram `kone.circ` runs |
-| `logisim/java/` | headless checks that run a generated file in Logisim |
-| `logisim/*.circ` | the generated files |
+| `python/logisim/core.py` | `Component`, `Wire`, `Circuit`, `Project`, grid checks |
+| `python/logisim/components.py` | the concrete components and their port geometry |
+| `python/logisim/kicad.py` | the KiCad backend: the same circuits as boards |
+| `python/build_<circuit>.py` | one build script per circuit; `build_kicad.py` writes boards instead |
+| `python/kone_microcode.py` | the microprogram `kone.circ` runs |
+| `java/` | headless checks that run a generated file in Logisim |
+| `*.circ` | the generated files |
+| `kicad/<board>/` | the generated KiCad projects, `kicad/out/` their gerber zips |
+| `Makefile` | the targets above |
 
-`make logisim_circ` runs every `build_*.py`. A build script imports the library from its
-own directory, so `python3 logisim/python/build_regfile.py` works from anywhere.
+A build script imports the library from its own directory, so
+`python3 python/build_regfile.py` works from anywhere.
 
 ## Writing a build script
 
@@ -195,7 +237,7 @@ so it is also the test that the machine executes from RAM.
 A case is one row of the `CASES` table in `KoneTest.java` -- program, cycle
 budget, keystrokes, expected display text. The harness writes the program into
 the `prog` ROM itself, so a new case needs no new `.circ`, and it loads a copy
-of the circuit from `bin/logisim_test/`: Logisim's loader stops with a dialog on
+of the circuit from `bin/`: Logisim's loader stops with a dialog on
 the `.circ.autosave` it leaves beside a file that is open in its GUI.
 
 The microprogram is `kone_microcode.py`, one dict per step, assembled into seven
@@ -212,7 +254,7 @@ The microprogram is `kone_microcode.py`, one dict per step, assembled into seven
 | `dispA`, `dispB` | opcode -> operand fetch, opcode -> execute |
 
 Conditions are read off the main bus, so a step that branches puts the register
-it tests on the bus in the same step. `python3 logisim/python/kone_microcode.py`
+it tests on the bus in the same step. `python3 python/kone_microcode.py`
 prints the assembled listing with its addresses, which is the first thing to
 look at when the CPU goes somewhere unexpected -- the `UADDR` output pin says
 which microstep it is in, and `BUS` and `MAR` say what it is doing.
@@ -227,3 +269,65 @@ the simulator reports. All 1419 combinations agree for v4.1.0. If a future
 Logisim moves a pin, that comparison is the thing to re-run — the probe is four
 short Java files against
 `/usr/share/java/logisim-evolution/logisim-evolution.jar`.
+
+## KiCad boards
+
+The same generator also emits KiCad 10 projects, so a board is built from the circuit rather than drawn: `python/logisim/kicad.py` turns a `Circuit` into a schematic, a netlist and a placed board, adding what Logisim does not model — the VCC and GND pins of every package, a 100nF decoupling capacitor per IC, a power header and the backplane connector. `make logisim_kicad` writes them under `kicad/` and checks them with `kicad-cli`.
+
+Each of the six blocks of `kone.circ` is a board of its own, generated from the same circuit, ERC clean and DRC clean:
+
+| Board | ICs | Contents |
+| --- | --- | --- |
+| `regfile` | 86 | 32 registers, their bus drivers and the address decoder tree |
+| `alu` | 27 | adder, logic banks and the result muxes |
+| `io` | 23 | `R16`-`R19` and the two device handshakes |
+| `sequencer` | 20 | microprogram counter and the nine 28C256 holding the microcode |
+| `datapath` | 15 | bus and operand muxes, the latches around the ALU |
+| `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
+
+The six boards stack: all of them share one outline, four M3 mounting holes in the corners and the same connector positions, so standoffs and vertical headers line up. One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `logisim/kicad/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
+
+```python
+from logisim.kicad import Board, write
+write(Board("regfile", regfile(), columns=8), "logisim/kicad/regfile")
+```
+
+`Netlist` resolves what Logisim uses for wiring into real nets -- a tunnel is a
+net name, a splitter ties a bus to its bits, `Ground`/`Power`/`Constant` are the
+two rails -- and `Board` adds what a board needs and Logisim does not model: the
+VCC and GND pins of each package, a 100nF per IC, the power header and the 2x20
+backplane, whose pinout is the same on every board (`BACKPLANE` in `kicad.py`,
+written out as `logisim/kicad/BACKPLANE.md`).
+
+`write()` emits a project with its own symbol and footprint library, a schematic
+in which every pin is stubbed to a net label, and a board whose footprints are
+placed on the grid the chips were created in -- a row of registers stays a row.
+Each IC carries its designation and reference on the silkscreen (`74377 R7`,
+`U12`), so a board can be populated without the schematic. `make logisim_kicad`
+runs `kicad-cli` ERC and DRC over the result and fails on an error; routing is
+not part of it, so unconnected nets stay warnings.
+
+`dsn()` writes the board as a Specctra design and `parse_ses()` reads back what
+Freerouting made of it, so `make logisim_route` is a round trip that ends in the
+same `.kicad_pcb`. Both ends are here because KiCad 10's CLI dropped Specctra.
+Two things to know: every dimension in a `.dsn` is in the same units as its
+coordinates, pad and via shapes included, and the session comes back at a
+different scale than it went out, which is why `parse_ses()` calibrates on the
+placements rather than on the resolution the file declares.
+
+`build_kicad.py` lists the boards in `BOARDS`, one per block of `kone.circ`, and
+derives the backplane from the top level of that circuit: `system_nets()` reads
+which net a block's port is stubbed to, so `BUS_IN` on the register file and
+`BUS` on the datapath end up on the same header pin. A port the CPU ties to a
+rail is tied on the board instead of brought out.
+
+`PARTS` maps the Logisim parts that are not chips onto real ones: a ROM becomes
+a 28C256 and a RAM a 62256, both on the 28-pin JEDEC pinout. The ROM sits
+permanently selected and output-enabled; the SRAM takes `OE#` from the write
+strobe and `WE#` from the net named `n<STROBE>`, which the circuit provides.
+Logisim's separate `din` and `dout` are one bus on the chip, so those two nets
+are merged on the board.
+
+## Fabrication
+
+Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.

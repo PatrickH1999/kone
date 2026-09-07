@@ -1,4 +1,5 @@
-8bit_adder.circ
 __pycache__/
 *.circ
 *.autosave
+kicad/
+bin/

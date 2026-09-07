@@ -1,7 +1,9 @@
 anaconda_projects
-CLAUDE.md
 compile_commands.json
 ISSUES.md
+
+CLAUDE.md
+.claude/
 
 bin/
 obj/

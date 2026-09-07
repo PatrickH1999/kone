@@ -19,9 +19,9 @@ from logisim import *
 
 OUT = Path(__file__).resolve().parents[1] / "alu.circ"
 
-STRIP_Y = 100                   # the pin strip, above everything else
-ROW = (700, 1500, 2300)         # operators, unary muxes, result muxes and flags
-COL = 400                       # chip pitch within a row
+STRIP_Y = 100  # the pin strip, above everything else
+ROW = (700, 1500, 2300)  # operators, unary muxes, result muxes and flags
+COL = 400  # chip pitch within a row
 X0 = 200
 
 # Opcode bits the ALU uses, from README.md "Instruction set": bit 7 tells the
@@ -44,40 +44,66 @@ def operators(c, y):
     """Adder, OR, AND, XOR and NOT: four bits per chip, low nibble then high."""
     for half, bits in enumerate((range(4), range(4, 8))):
         x = X0 + COL * half
-        nets = {"CIN": "CMID" if half else Ground, "C4": "COUT" if half else "CMID"}
+        nets = {
+            "CIN": "CMID" if half else Ground,
+            "C4": "COUT" if half else "CMID",
+        }
         for g, k in enumerate(bits):
             nets[f"A{g + 1}"] = f"L{k}"
             nets[f"B{g + 1}"] = f"R{k}"
             nets[f"S{g + 1}"] = f"SUM{k}"
         wire_dip(c, c.add(Ttl74283(x, y, label=f"add{half}")), nets)
 
-        for i, (cls, op) in enumerate(((Ttl7432, "ORR"), (Ttl7408, "AND"),
-                                       (Ttl7486, "XOR"))):
-            gate_bank(c, cls, X0 + COL * (2 + 2 * i + half), y,
-                      f"{op.lower()}{half}", "L", "R", op, bits)
+        for i, (cls, op) in enumerate(
+            ((Ttl7432, "ORR"), (Ttl7408, "AND"), (Ttl7486, "XOR"))
+        ):
+            gate_bank(
+                c,
+                cls,
+                X0 + COL * (2 + 2 * i + half),
+                y,
+                f"{op.lower()}{half}",
+                "L",
+                "R",
+                op,
+                bits,
+            )
 
         # Two of the six inverters per chip are spare; TTL inputs cannot float.
         nets = {}
         for g in range(6):
             nets[f"A{g + 1}"] = f"L{bits[g]}" if g < 4 else Ground
             nets[f"Y{g + 1}"] = f"NOT{bits[g]}" if g < 4 else None
-        wire_dip(c, c.add(Ttl7404(X0 + COL * (8 + half), y, label=f"not{half}")), nets)
+        wire_dip(
+            c,
+            c.add(Ttl7404(X0 + COL * (8 + half), y, label=f"not{half}")),
+            nets,
+        )
 
 
 def unary_mux(c, k, x, y):
     """Bit k of the one-operand result, selected by opcode bits 2-0."""
     lo, hi = f"L{(k - 1) % 8}", f"L{(k + 1) % 8}"
-    wire_dip(c, c.add(Ttl74151(x, y, label=f"un{k}")), {
-        "D0": f"L{k}",                          # 0x00 NOP: A is unchanged
-        "D1": f"NOT{k}",                        # 0x01 NOT
-        "D2": Ground, "D3": Ground,             # 0x02, 0x03: no such opcode
-        "D4": lo if k else Ground,              # 0x04 BSL
-        "D5": hi if k < 7 else Ground,          # 0x05 BSR
-        "D6": lo,                               # 0x06 BRL
-        "D7": hi,                               # 0x07 BRR
-        "A": SEL_UNARY[0], "B": SEL_UNARY[1], "C": SEL_UNARY[2],
-        "nG": Ground, "Y": f"UN{k}", "W": None,
-    })
+    wire_dip(
+        c,
+        c.add(Ttl74151(x, y, label=f"un{k}")),
+        {
+            "D0": f"L{k}",  # 0x00 NOP: A is unchanged
+            "D1": f"NOT{k}",  # 0x01 NOT
+            "D2": Ground,
+            "D3": Ground,  # 0x02, 0x03: no such opcode
+            "D4": lo if k else Ground,  # 0x04 BSL
+            "D5": hi if k < 7 else Ground,  # 0x05 BSR
+            "D6": lo,  # 0x06 BRL
+            "D7": hi,  # 0x07 BRR
+            "A": SEL_UNARY[0],
+            "B": SEL_UNARY[1],
+            "C": SEL_UNARY[2],
+            "nG": Ground,
+            "Y": f"UN{k}",
+            "W": None,
+        },
+    )
 
 
 def binary_mux(c, pair, x, y):
@@ -85,10 +111,10 @@ def binary_mux(c, pair, x, y):
     lo, hi = 2 * pair, 2 * pair + 1
     nets = {"S0": SEL_OP[0], "S1": SEL_OP[1], "n1E": Ground, "n2E": Ground}
     for half, k in ((1, lo), (2, hi)):
-        nets[f"{half}D0"] = f"ORR{k}"           # 0xC0 ORR
-        nets[f"{half}D1"] = f"AND{k}"           # 0xD0 AND
-        nets[f"{half}D2"] = f"XOR{k}"           # 0xE0 XOR
-        nets[f"{half}D3"] = f"SUM{k}"           # 0xF0 ADD
+        nets[f"{half}D0"] = f"ORR{k}"  # 0xC0 ORR
+        nets[f"{half}D1"] = f"AND{k}"  # 0xD0 AND
+        nets[f"{half}D2"] = f"XOR{k}"  # 0xE0 XOR
+        nets[f"{half}D3"] = f"SUM{k}"  # 0xF0 ADD
         nets[f"{half}Y"] = f"BIN{k}"
     wire_dip(c, c.add(Ttl74153(x, y, label=f"bin{lo}-{hi}")), nets)
 
@@ -101,27 +127,67 @@ def result_mux(c, half, x, y):
         nets[f"{g + 1}A"] = f"UN{k}"
         nets[f"{g + 1}B"] = f"BIN{k}"
         nets[f"{g + 1}Y"] = f"OUT{k}"
-    wire_dip(c, c.add(Ttl74157(x, y, label=f"out{4 * half}-{4 * half + 3}")), nets)
+    wire_dip(
+        c, c.add(Ttl74157(x, y, label=f"out{4 * half}-{4 * half + 3}")), nets
+    )
 
 
 def flags(c, x, y):
     """Z = OUT is zero; C = the adder's carry, but only while ADD is selected."""
-    wire_dip(c, c.add(Ttl7427(x, y, label="zero")), {
-        "A1": "OUT0", "B1": "OUT1", "C1": "OUT2", "Y1": "NZ0",
-        "A2": "OUT3", "B2": "OUT4", "C2": "OUT5", "Y2": "NZ1",
-        "A3": "OUT6", "B3": "OUT7", "C3": Ground, "Y3": "NZ2",
-    })
-    wire_dip(c, c.add(Ttl7411(x + COL, y, label="zero")), {
-        "A1": "NZ0", "B1": "NZ1", "C1": "NZ2", "Y1": "Z",
-        "A2": Ground, "B2": Ground, "C2": Ground, "Y2": None,
-        "A3": Ground, "B3": Ground, "C3": Ground, "Y3": None,
-    })
+    wire_dip(
+        c,
+        c.add(Ttl7427(x, y, label="zero")),
+        {
+            "A1": "OUT0",
+            "B1": "OUT1",
+            "C1": "OUT2",
+            "Y1": "NZ0",
+            "A2": "OUT3",
+            "B2": "OUT4",
+            "C2": "OUT5",
+            "Y2": "NZ1",
+            "A3": "OUT6",
+            "B3": "OUT7",
+            "C3": Ground,
+            "Y3": "NZ2",
+        },
+    )
+    wire_dip(
+        c,
+        c.add(Ttl7411(x + COL, y, label="zero")),
+        {
+            "A1": "NZ0",
+            "B1": "NZ1",
+            "C1": "NZ2",
+            "Y1": "Z",
+            "A2": Ground,
+            "B2": Ground,
+            "C2": Ground,
+            "Y2": None,
+            "A3": Ground,
+            "B3": Ground,
+            "C3": Ground,
+            "Y3": None,
+        },
+    )
     # CWR is what keeps the other eight operations from touching the flag:
     # only ADD (1111 0000) writes carry.
-    wire_dip(c, c.add(Ttl7421(x + 2 * COL, y, label="carry")), {
-        "A1": "P7", "B1": "P6", "C1": "P5", "D1": "P4", "Y1": "CWR",
-        "A2": "COUT", "B2": "CWR", "C2": Power, "D2": Power, "Y2": "C",
-    })
+    wire_dip(
+        c,
+        c.add(Ttl7421(x + 2 * COL, y, label="carry")),
+        {
+            "A1": "P7",
+            "B1": "P6",
+            "C1": "P5",
+            "D1": "P4",
+            "Y1": "CWR",
+            "A2": "COUT",
+            "B2": "CWR",
+            "C2": Power,
+            "D2": Power,
+            "Y2": "C",
+        },
+    )
 
 
 def io(c):
@@ -129,15 +195,37 @@ def io(c):
     for i, (name, prefix) in enumerate((("L", "L"), ("R", "R"), ("OP", "P"))):
         x = 100 + 600 * i
         pin = c.add(Pin(x, STRIP_Y, name, width=8))
-        split = c.add(Splitter(x + 100, STRIP_Y, fanout=8, incoming=8,
-                               appear="right", spacing=2))
+        split = c.add(
+            Splitter(
+                x + 100,
+                STRIP_Y,
+                fanout=8,
+                incoming=8,
+                appear="right",
+                spacing=2,
+            )
+        )
         c.connect(pin, None, split, "in")
         for k in range(8):
-            stub(c, split.port(str(k)), (x + 300, STRIP_Y + 10 + 20 * k),
-                 f"{prefix}{k}", "west")
+            stub(
+                c,
+                split.port(str(k)),
+                (x + 300, STRIP_Y + 10 + 20 * k),
+                f"{prefix}{k}",
+                "west",
+            )
 
-    split = c.add(Splitter(2100, STRIP_Y + 200, fanout=8, incoming=8,
-                           facing="north", appear="left", spacing=2))
+    split = c.add(
+        Splitter(
+            2100,
+            STRIP_Y + 200,
+            fanout=8,
+            incoming=8,
+            facing="north",
+            appear="left",
+            spacing=2,
+        )
+    )
     for k in range(8):
         ex, ey = split.port(str(k))
         stub(c, (ex, ey), (ex, ey - 40), f"OUT{k}", "south")

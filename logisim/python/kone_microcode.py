@@ -12,7 +12,18 @@ has a single address port -- so a register-to-register move takes two steps:
 the ALU passes L through on opcode 0x00, so `T <- src`, then `dst <- alu(T)`.
 """
 
-SPL, SPH, I, A, F, IR0, IR1, IR2, PCL, PCH = 22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+SPL, SPH, I, A, F, IR0, IR1, IR2, PCL, PCH = (
+    22,
+    23,
+    24,
+    25,
+    26,
+    27,
+    28,
+    29,
+    30,
+    31,
+)
 
 BSRC = {"REG": 0, "MEM": 1, "ALU": 2, "LIT": 3}
 RSRC = {"REG": 0, "LIT": 1, "CY": 2, "T2": 3}
@@ -34,11 +45,34 @@ TWO_OPERANDS = (LDM, STM, JMP, JC0, JC1, JA0, JA1, CLL)
 NO_OPERAND = (NOP, NOT, BSL, BSR, BRL, BRR, PSH, POP, RET)
 
 
-def u(src="REG", ra=0, asel=0, lit=0, aop=NOP, r="REG",
-      w=(), cond=None, alt=None, nxt=None, disp=None):
+def u(
+    src="REG",
+    ra=0,
+    asel=0,
+    lit=0,
+    aop=NOP,
+    r="REG",
+    w=(),
+    cond=None,
+    alt=None,
+    nxt=None,
+    disp=None,
+):
     """One microinstruction; it falls through to the next unless nxt is set."""
-    return dict(label=None, src=src, ra=ra, asel=asel, lit=lit, aop=aop, r=r,
-                w=w, cond=cond, alt=alt, nxt=nxt, disp=disp)
+    return dict(
+        label=None,
+        src=src,
+        ra=ra,
+        asel=asel,
+        lit=lit,
+        aop=aop,
+        r=r,
+        w=w,
+        cond=cond,
+        alt=alt,
+        nxt=nxt,
+        disp=disp,
+    )
 
 
 def block(label, steps):
@@ -47,8 +81,10 @@ def block(label, steps):
 
 
 def move(src_reg, dst_reg, nxt=None):
-    return [u(ra=src_reg, w=("TW",)),
-            u(src="ALU", ra=dst_reg, w=("RW",), nxt=nxt)]
+    return [
+        u(ra=src_reg, w=("TW",)),
+        u(src="ALU", ra=dst_reg, w=("RW",), nxt=nxt),
+    ]
 
 
 def mar(lo, hi):
@@ -56,24 +92,33 @@ def mar(lo, hi):
 
 
 def inc16(lo, hi):
-    return [u(ra=lo, w=("TW",)),
-            u(src="ALU", aop=ADD, r="LIT", lit=1, ra=lo, w=("RW", "CYW")),
-            u(ra=hi, w=("TW",)),
-            u(src="ALU", aop=ADD, r="CY", ra=hi, w=("RW",))]
+    return [
+        u(ra=lo, w=("TW",)),
+        u(src="ALU", aop=ADD, r="LIT", lit=1, ra=lo, w=("RW", "CYW")),
+        u(ra=hi, w=("TW",)),
+        u(src="ALU", aop=ADD, r="CY", ra=hi, w=("RW",)),
+    ]
 
 
 def dec16(lo, hi, tag):
     """Add 0xFF to the low byte; the high byte only changes on a borrow."""
-    return [u(ra=lo, w=("TW",)),
-            u(src="ALU", aop=ADD, r="LIT", lit=0xFF, ra=lo, w=("RW", "CYW")),
-            u(ra=hi, w=("TW",)),
-            u(cond="CY", alt=f"{tag}_end"),
-            u(src="ALU", aop=ADD, r="LIT", lit=0xFF, ra=hi, w=("RW",)),
-            *block(f"{tag}_end", [u()])]
+    return [
+        u(ra=lo, w=("TW",)),
+        u(src="ALU", aop=ADD, r="LIT", lit=0xFF, ra=lo, w=("RW", "CYW")),
+        u(ra=hi, w=("TW",)),
+        u(cond="CY", alt=f"{tag}_end"),
+        u(src="ALU", aop=ADD, r="LIT", lit=0xFF, ra=hi, w=("RW",)),
+        *block(f"{tag}_end", [u()]),
+    ]
 
 
 def fetch(into, last):
-    return mar(PCL, PCH) + [u(src="MEM", ra=into, w=("RW",))] + inc16(PCL, PCH) + [last]
+    return (
+        mar(PCL, PCH)
+        + [u(src="MEM", ra=into, w=("RW",))]
+        + inc16(PCL, PCH)
+        + [last]
+    )
 
 
 def program():
@@ -81,53 +126,90 @@ def program():
 
     # cpu_reset(): SP starts below the display-sized block, everything else at
     # 0, which is where a 74377 powers up.
-    code += block("BOOT", [u(src="LIT", lit=0x3F, ra=SPL, w=("RW",)),
-                           u(src="LIT", lit=0xFC, ra=SPH, w=("RW",), nxt="FETCH")])
-    code += block("BAD", [u(nxt="BAD")])        # an opcode the ISA does not define
+    code += block(
+        "BOOT",
+        [
+            u(src="LIT", lit=0x3F, ra=SPL, w=("RW",)),
+            u(src="LIT", lit=0xFC, ra=SPH, w=("RW",), nxt="FETCH"),
+        ],
+    )
+    code += block("BAD", [u(nxt="BAD")])  # an opcode the ISA does not define
 
     code += block("FETCH", fetch(IR0, u(ra=IR0, disp="A")))
     code += block("FETCH1", fetch(IR1, u(ra=IR0, cond="ISM", alt="FETCH2")))
     code += block("DISPATCH", [u(ra=IR0, disp="B")])
     code += block("FETCH2", fetch(IR2, u(nxt="DISPATCH")))
 
-    for tag, op in (("NOT", NOT), ("BSL", BSL), ("BSR", BSR),
-                    ("BRL", BRL), ("BRR", BRR)):
-        code += block(tag, [u(ra=A, w=("TW",)),
-                            u(src="ALU", ra=I, w=("RW",)),
-                            u(src="ALU", aop=op, ra=A, w=("RW",), nxt="FETCH")])
+    for tag, op in (
+        ("NOT", NOT),
+        ("BSL", BSL),
+        ("BSR", BSR),
+        ("BRL", BRL),
+        ("BRR", BRR),
+    ):
+        code += block(
+            tag,
+            [
+                u(ra=A, w=("TW",)),
+                u(src="ALU", ra=I, w=("RW",)),
+                u(src="ALU", aop=op, ra=A, w=("RW",), nxt="FETCH"),
+            ],
+        )
 
-    code += block("LDR", [u(ra=IR1, w=("ALW",)),
-                          u(asel=1, w=("TW",)),
-                          u(src="ALU", ra=A, w=("RW",), nxt="FETCH")])
-    code += block("STR", [u(ra=IR1, w=("ALW",)),
-                          u(ra=A, w=("TW",)),
-                          u(src="ALU", asel=1, w=("RW",), nxt="FETCH")])
+    code += block(
+        "LDR",
+        [
+            u(ra=IR1, w=("ALW",)),
+            u(asel=1, w=("TW",)),
+            u(src="ALU", ra=A, w=("RW",), nxt="FETCH"),
+        ],
+    )
+    code += block(
+        "STR",
+        [
+            u(ra=IR1, w=("ALW",)),
+            u(ra=A, w=("TW",)),
+            u(src="ALU", asel=1, w=("RW",), nxt="FETCH"),
+        ],
+    )
 
     for tag, op in (("ORR", ORR), ("AND", AND), ("XOR", XOR)):
-        code += block(tag, [u(ra=IR1, w=("ALW",)),
-                            u(ra=A, w=("TW",)),
-                            u(src="ALU", ra=I, w=("RW",)),
-                            u(asel=1, w=("T2W",)),
-                            u(src="ALU", aop=op, r="T2", ra=A, w=("RW",),
-                              nxt="FETCH")])
+        code += block(
+            tag,
+            [
+                u(ra=IR1, w=("ALW",)),
+                u(ra=A, w=("TW",)),
+                u(src="ALU", ra=I, w=("RW",)),
+                u(asel=1, w=("T2W",)),
+                u(src="ALU", aop=op, r="T2", ra=A, w=("RW",), nxt="FETCH"),
+            ],
+        )
 
     # ADD is the only op that writes carry, and it leaves F's other bits alone.
-    code += block("ADD", [u(ra=IR1, w=("ALW",)),
-                          u(ra=A, w=("TW",)),
-                          u(src="ALU", ra=I, w=("RW",)),
-                          u(asel=1, w=("T2W",)),
-                          u(src="ALU", aop=ADD, r="T2", ra=A, w=("RW", "CYW")),
-                          u(ra=F, w=("TW",)),
-                          u(src="ALU", aop=AND, r="LIT", lit=0xFE, w=("TW",)),
-                          u(src="ALU", aop=ORR, r="CY", ra=F, w=("RW",),
-                            nxt="FETCH")])
+    code += block(
+        "ADD",
+        [
+            u(ra=IR1, w=("ALW",)),
+            u(ra=A, w=("TW",)),
+            u(src="ALU", ra=I, w=("RW",)),
+            u(asel=1, w=("T2W",)),
+            u(src="ALU", aop=ADD, r="T2", ra=A, w=("RW", "CYW")),
+            u(ra=F, w=("TW",)),
+            u(src="ALU", aop=AND, r="LIT", lit=0xFE, w=("TW",)),
+            u(src="ALU", aop=ORR, r="CY", ra=F, w=("RW",), nxt="FETCH"),
+        ],
+    )
 
     code += block("LDI", move(IR1, A, nxt="FETCH"))
 
-    code += block("LDM", mar(IR1, IR2) + [u(src="MEM", ra=A, w=("RW",),
-                                            nxt="FETCH")])
-    code += block("STM", mar(IR1, IR2) + [u(ra=A, w=("TW",)),
-                                          u(src="ALU", w=("MEMW",), nxt="FETCH")])
+    code += block(
+        "LDM", mar(IR1, IR2) + [u(src="MEM", ra=A, w=("RW",), nxt="FETCH")]
+    )
+    code += block(
+        "STM",
+        mar(IR1, IR2)
+        + [u(ra=A, w=("TW",)), u(src="ALU", w=("MEMW",), nxt="FETCH")],
+    )
 
     code += block("JMP", move(IR1, PCL) + move(IR2, PCH, nxt="FETCH"))
     code += block("JC0", [u(ra=F, cond="C0", alt="JMP", nxt="FETCH")])
@@ -135,40 +217,72 @@ def program():
     code += block("JA0", [u(ra=A, cond="Z", alt="JMP", nxt="FETCH")])
     code += block("JA1", [u(ra=A, cond="NZ", alt="JMP", nxt="FETCH")])
 
-    code += block("PSH", dec16(SPL, SPH, "psh") + mar(SPL, SPH)
-                  + [u(ra=A, w=("TW",)),
-                     u(src="ALU", w=("MEMW",), nxt="FETCH")])
+    code += block(
+        "PSH",
+        dec16(SPL, SPH, "psh")
+        + mar(SPL, SPH)
+        + [u(ra=A, w=("TW",)), u(src="ALU", w=("MEMW",), nxt="FETCH")],
+    )
 
     # alu_pop() and alu_ret() zero the cell they read.
-    code += block("POP", mar(SPL, SPH)
-                  + [u(src="MEM", ra=A, w=("RW",)),
-                     u(src="LIT", lit=0, w=("MEMW",))]
-                  + inc16(SPL, SPH))
+    code += block(
+        "POP",
+        mar(SPL, SPH)
+        + [u(src="MEM", ra=A, w=("RW",)), u(src="LIT", lit=0, w=("MEMW",))]
+        + inc16(SPL, SPH),
+    )
     code[-1]["nxt"] = "FETCH"
 
     # The high byte of PC sits at the lower address.
-    code += block("RET", mar(SPL, SPH)
-                  + [u(src="MEM", ra=PCH, w=("RW",)),
-                     u(src="LIT", lit=0, w=("MEMW",))]
-                  + inc16(SPL, SPH) + mar(SPL, SPH)
-                  + [u(src="MEM", ra=PCL, w=("RW",)),
-                     u(src="LIT", lit=0, w=("MEMW",))]
-                  + inc16(SPL, SPH))
+    code += block(
+        "RET",
+        mar(SPL, SPH)
+        + [u(src="MEM", ra=PCH, w=("RW",)), u(src="LIT", lit=0, w=("MEMW",))]
+        + inc16(SPL, SPH)
+        + mar(SPL, SPH)
+        + [u(src="MEM", ra=PCL, w=("RW",)), u(src="LIT", lit=0, w=("MEMW",))]
+        + inc16(SPL, SPH),
+    )
     code[-1]["nxt"] = "FETCH"
 
-    code += block("CLL", dec16(SPL, SPH, "cll0") + mar(SPL, SPH)
-                  + [u(ra=PCL, w=("TW",)), u(src="ALU", w=("MEMW",))]
-                  + dec16(SPL, SPH, "cll1") + mar(SPL, SPH)
-                  + [u(ra=PCH, w=("TW",)),
-                     u(src="ALU", w=("MEMW",), nxt="JMP")])
+    code += block(
+        "CLL",
+        dec16(SPL, SPH, "cll0")
+        + mar(SPL, SPH)
+        + [u(ra=PCL, w=("TW",)), u(src="ALU", w=("MEMW",))]
+        + dec16(SPL, SPH, "cll1")
+        + mar(SPL, SPH)
+        + [u(ra=PCH, w=("TW",)), u(src="ALU", w=("MEMW",), nxt="JMP")],
+    )
     return code
 
 
-ENTRY = {NOP: "FETCH", NOT: "NOT", BSL: "BSL", BSR: "BSR", BRL: "BRL",
-         BRR: "BRR", PSH: "PSH", POP: "POP", RET: "RET", LDR: "LDR",
-         STR: "STR", ORR: "ORR", AND: "AND", XOR: "XOR", ADD: "ADD",
-         LDI: "LDI", LDM: "LDM", STM: "STM", JMP: "JMP", JC0: "JC0",
-         JC1: "JC1", JA0: "JA0", JA1: "JA1", CLL: "CLL"}
+ENTRY = {
+    NOP: "FETCH",
+    NOT: "NOT",
+    BSL: "BSL",
+    BSR: "BSR",
+    BRL: "BRL",
+    BRR: "BRR",
+    PSH: "PSH",
+    POP: "POP",
+    RET: "RET",
+    LDR: "LDR",
+    STR: "STR",
+    ORR: "ORR",
+    AND: "AND",
+    XOR: "XOR",
+    ADD: "ADD",
+    LDI: "LDI",
+    LDM: "LDM",
+    STM: "STM",
+    JMP: "JMP",
+    JC0: "JC0",
+    JC1: "JC1",
+    JA0: "JA0",
+    JA1: "JA1",
+    CLL: "CLL",
+}
 
 
 def assemble():
@@ -192,7 +306,7 @@ def assemble():
         for bit, name in enumerate(WRITES):
             if name in s["w"]:
                 writes |= 1 << bit
-        disp = {None: 0, "A": 1, "B": 3}[s["disp"]]     # bit 0 on, bit 1 picks B
+        disp = {None: 0, "A": 1, "B": 3}[s["disp"]]  # bit 0 on, bit 1 picks B
         rom[0][addr] = s["lit"]
         rom[1][addr] = s["aop"]
         rom[2][addr] = target(s["nxt"], (addr + 1) & 0xFF)
@@ -207,7 +321,7 @@ def assemble():
     for opcode, entry in ENTRY.items():
         # A register operand is encoded in the opcode's low nibble, so every
         # 1xxx0000 opcode covers its whole nibble -- cpu_decode_exec() masks it.
-        codes = ([opcode | n for n in range(16)] if opcode & 0x80 else [opcode])
+        codes = [opcode | n for n in range(16)] if opcode & 0x80 else [opcode]
         for oc in codes:
             dispatch_b[oc] = labels[entry]
             if oc in ONE_OPERAND or (oc & 0xF0) in ONE_OPERAND:

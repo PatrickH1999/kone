@@ -1,0 +1,29 @@
+#!/bin/sh
+# Runs `make format` before every commit, so formatting never lands in a later
+# one. Install with `make hooks`.
+#
+# Only files that were already staged are staged again afterwards. A file that
+# is staged *and* modified in the tree is ambiguous -- formatting it would
+# sweep the unstaged part into the commit -- so the commit stops instead.
+
+set -e
+
+staged=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -n "$staged" ] || exit 0
+
+mixed=$(git diff --name-only -- $staged)
+if [ -n "$mixed" ]; then
+    echo "pre-commit: staged and also modified in the working tree:"
+    echo "$mixed" | sed 's/^/  /'
+    echo "pre-commit: stage or stash the rest first"
+    exit 1
+fi
+
+make format > /dev/null
+
+formatted=$(git diff --name-only -- $staged)
+if [ -n "$formatted" ]; then
+    echo "pre-commit: make format changed:"
+    echo "$formatted" | sed 's/^/  /'
+    git add -- $formatted
+fi

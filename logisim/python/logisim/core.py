@@ -8,8 +8,19 @@ GRID = 10
 # Library ids as Logisim Evolution 4.1 writes them; the header declares all of
 # them so a hand-edit in the GUI does not renumber ours.
 LIBRARIES = [
-    "Wiring", "Gates", "Plexers", "Arithmetic", "FPArithmetic", "Memory",
-    "I/O", "TTL", "TCL", "Base", "BFH-Praktika", "Input/Output-Extra", "Soc",
+    "Wiring",
+    "Gates",
+    "Plexers",
+    "Arithmetic",
+    "FPArithmetic",
+    "Memory",
+    "I/O",
+    "TTL",
+    "TCL",
+    "Base",
+    "BFH-Praktika",
+    "Input/Output-Extra",
+    "Soc",
 ]
 LIB_ID = {name: i for i, name in enumerate(LIBRARIES)}
 
@@ -43,7 +54,7 @@ def attr_value(value):
 
 def _attr_xml(attrs, indent):
     return "".join(
-        f'{indent}<a name={quoteattr(str(k))} val={quoteattr(attr_value(v))}/>\n'
+        f"{indent}<a name={quoteattr(str(k))} val={quoteattr(attr_value(v))}/>\n"
         for k, v in attrs.items()
     )
 
@@ -64,8 +75,8 @@ def rotate(dx, dy, facing):
 class Component:
     LIB = "Wiring"
     NAME = ""
-    PORTS = ()          # ((name, dx, dy), ...) in Logisim's own end order
-    ALIASES = {}        # extra name -> canonical name
+    PORTS = ()  # ((name, dx, dy), ...) in Logisim's own end order
+    ALIASES = {}  # extra name -> canonical name
 
     def __init__(self, x, y, **attrs):
         self.x, self.y = int(x), int(y)
@@ -91,7 +102,8 @@ class Component:
             if len(spec) != 1:
                 raise PortError(
                     f"{self.NAME} has {len(spec)} ports, name one of "
-                    f"{self.port_names()}")
+                    f"{self.port_names()}"
+                )
             name = spec[0][0]
         if isinstance(name, int):
             n, dx, dy = spec[name]
@@ -100,15 +112,21 @@ class Component:
         for n, dx, dy in spec:
             if n == key:
                 return self.x + dx, self.y + dy
-        raise PortError(f"{self.NAME} has no port {name!r}; have {self.port_names()}")
+        raise PortError(
+            f"{self.NAME} has no port {name!r}; have {self.port_names()}"
+        )
 
     def to_xml(self, indent="    "):
         lib = f'lib="{LIB_ID[self.LIB]}" ' if self.LIB else ""
         head = f'{indent}<comp {lib}loc="({self.x},{self.y})" name={quoteattr(self.NAME)}'
         if not self.attrs:
             return head + "/>\n"
-        return (head + ">\n" + _attr_xml(self.attrs, indent + "  ")
-                + f"{indent}</comp>\n")
+        return (
+            head
+            + ">\n"
+            + _attr_xml(self.attrs, indent + "  ")
+            + f"{indent}</comp>\n"
+        )
 
     def __repr__(self):
         return f"<{type(self).__name__} {self.NAME} ({self.x},{self.y})>"
@@ -119,14 +137,17 @@ class Wire:
         (x1, y1), (x2, y2) = a, b
         if x1 != x2 and y1 != y2:
             raise ValueError(
-                f"wire ({x1},{y1})-({x2},{y2}) is neither horizontal nor vertical")
+                f"wire ({x1},{y1})-({x2},{y2}) is neither horizontal nor vertical"
+            )
         on_grid(x1, y1, "wire end")
         on_grid(x2, y2, "wire end")
         self.a, self.b = (x1, y1), (x2, y2)
 
     def to_xml(self, indent="    "):
-        return (f'{indent}<wire from="({self.a[0]},{self.a[1]})" '
-                f'to="({self.b[0]},{self.b[1]})"/>\n')
+        return (
+            f'{indent}<wire from="({self.a[0]},{self.a[1]})" '
+            f'to="({self.b[0]},{self.b[1]})"/>\n'
+        )
 
 
 class Circuit:
@@ -138,7 +159,7 @@ class Circuit:
     so port() refuses to guess for them.
     """
 
-    PITCH = 20          # vertical spacing of ports on a custom appearance
+    PITCH = 20  # vertical spacing of ports on a custom appearance
 
     def __init__(self, name, appearance="custom", simulation_frequency=None):
         self.name = name
@@ -181,8 +202,9 @@ class Circuit:
 
     def connect(self, src, src_port, dst, dst_port=None, style="hv"):
         """Wire two component ports by name: connect(adder, "A", pin_a)."""
-        return self.route(_endpoint(src, src_port), _endpoint(dst, dst_port),
-                          style=style)
+        return self.route(
+            _endpoint(src, src_port), _endpoint(dst, dst_port), style=style
+        )
 
     # -- pins and subcircuit appearance ------------------------------------
 
@@ -205,16 +227,24 @@ class Circuit:
             if not p.get("label"):
                 raise ValueError(
                     f"circuit {self.name!r}: every pin needs a label to be usable "
-                    f"as a subcircuit port ({p!r})")
+                    f"as a subcircuit port ({p!r})"
+                )
         longest = lambda ps: max((len(p.get("label")) for p in ps), default=0)
-        width = max(80, _ceil_grid(8 * (longest(ins) + longest(outs) + 3)),
-                    _ceil_grid(8 * (len(self.name) + 2)))
-        height = max(2 * self.PITCH,
-                     self.PITCH * (max(len(ins), len(outs)) + 1))
-        ports = [(p.get("label"), 0, self.PITCH * (i + 1))
-                 for i, p in enumerate(ins)]
-        ports += [(p.get("label"), width, self.PITCH * (i + 1))
-                  for i, p in enumerate(outs)]
+        width = max(
+            80,
+            _ceil_grid(8 * (longest(ins) + longest(outs) + 3)),
+            _ceil_grid(8 * (len(self.name) + 2)),
+        )
+        height = max(
+            2 * self.PITCH, self.PITCH * (max(len(ins), len(outs)) + 1)
+        )
+        ports = [
+            (p.get("label"), 0, self.PITCH * (i + 1)) for i, p in enumerate(ins)
+        ]
+        ports += [
+            (p.get("label"), width, self.PITCH * (i + 1))
+            for i, p in enumerate(outs)
+        ]
         return width, height, ports
 
     def _appear_xml(self, indent="    "):
@@ -224,22 +254,30 @@ class Circuit:
         width, height, ports = self.port_layout()
         pins = self.input_pins() + self.output_pins()
         out = [f"{indent}<appear>\n"]
-        out.append(f'{indent}  <rect fill="none" height="{height}" '
-                   f'stroke="#000000" stroke-width="2" width="{width}" '
-                   f'x="{ox}" y="{oy}"/>\n')
-        out.append(f'{indent}  <text font-family="SansSerif" font-size="12" '
-                   f'text-anchor="middle" x="{ox + width // 2}" y="{oy + 14}">'
-                   f"{escape(self.name)}</text>\n")
-        out.append(f'{indent}  <circ-anchor facing="east" height="6" width="6" '
-                   f'x="{ox - 3}" y="{oy - 3}"/>\n')
+        out.append(
+            f'{indent}  <rect fill="none" height="{height}" '
+            f'stroke="#000000" stroke-width="2" width="{width}" '
+            f'x="{ox}" y="{oy}"/>\n'
+        )
+        out.append(
+            f'{indent}  <text font-family="SansSerif" font-size="12" '
+            f'text-anchor="middle" x="{ox + width // 2}" y="{oy + 14}">'
+            f"{escape(self.name)}</text>\n"
+        )
+        out.append(
+            f'{indent}  <circ-anchor facing="east" height="6" width="6" '
+            f'x="{ox - 3}" y="{oy - 3}"/>\n'
+        )
         n_in = len(self.input_pins())
         for i, (pin, (_, dx, dy)) in enumerate(zip(pins, ports)):
             # Logisim reads the direction off the radius: 4 in, 5 out.
             radius, direction = (4, "in") if i < n_in else (5, "out")
-            out.append(f'{indent}  <circ-port dir="{direction}" '
-                       f'height="{2 * radius}" pin="{pin.x},{pin.y}" '
-                       f'width="{2 * radius}" x="{ox + dx - radius}" '
-                       f'y="{oy + dy - radius}"/>\n')
+            out.append(
+                f'{indent}  <circ-port dir="{direction}" '
+                f'height="{2 * radius}" pin="{pin.x},{pin.y}" '
+                f'width="{2 * radius}" x="{ox + dx - radius}" '
+                f'y="{oy + dy - radius}"/>\n'
+            )
         out.append(f"{indent}</appear>\n")
         return "".join(out)
 
@@ -274,8 +312,11 @@ class Circuit:
                 cols.setdefault(w.a[0], []).append(w)
 
         points = {p for w in self.wires for p in (w.a, w.b)}
-        points.update(p for c in self.components for p in
-                      ((x, y) for _, x, y in c.ports()))
+        points.update(
+            p
+            for c in self.components
+            for p in ((x, y) for _, x, y in c.ports())
+        )
         for x, y in points:
             for w in rows.get(y, ()):
                 if min(w.a[0], w.b[0]) < x < max(w.a[0], w.b[0]):
@@ -308,26 +349,36 @@ class Circuit:
         labels = [p.get("label") for p in self.pins() if p.get("label")]
         for label in set(labels):
             if labels.count(label) > 1:
-                problems.append(f"{self.name}: {labels.count(label)} pins labelled {label!r}")
+                problems.append(
+                    f"{self.name}: {labels.count(label)} pins labelled {label!r}"
+                )
         index = self.ports_at()
         nets = self.nets()
         for net in nets:
-            tunnels = {c.get("label") for p in net for c in index.get(p, ())
-                       if c.NAME == "Tunnel"}
+            tunnels = {
+                c.get("label")
+                for p in net
+                for c in index.get(p, ())
+                if c.NAME == "Tunnel"
+            }
             if len(tunnels) > 1:
                 problems.append(
                     f"{self.name}: tunnels {sorted(tunnels)} share the net at "
-                    f"{min(net)}")
+                    f"{min(net)}"
+                )
         net_of = {p: net for net in nets for p in net}
         for comp in self.components:
             for name in getattr(comp, "INPUTS", ()):
                 loc = comp.port(name)
-                if not any(other is not comp
-                           for p in net_of.get(loc, [loc])
-                           for other in index.get(p, ())):
+                if not any(
+                    other is not comp
+                    for p in net_of.get(loc, [loc])
+                    for other in index.get(p, ())
+                ):
                     problems.append(
                         f"{self.name}: {comp.NAME} {comp.get('label', '')!r} "
-                        f"input {name} at {loc} is floating")
+                        f"input {name} at {loc} is floating"
+                    )
         return problems
 
     def to_xml(self, indent="  "):
@@ -358,7 +409,8 @@ class Subcircuit(Component):
             raise PortError(
                 f"circuit {self.circuit.name!r} uses Logisim's {self.circuit.appearance!r} "
                 f"appearance, whose port positions depend on rendered text; use "
-                f"appearance='custom' to address its ports by name")
+                f"appearance='custom' to address its ports by name"
+            )
         return self.circuit.port_layout()[2]
 
 
@@ -433,7 +485,7 @@ class Project:
         out = [self.HEADER.format(source=self.source, version=self.version)]
         for i, lib in enumerate(LIBRARIES):
             out.append(f'  <lib desc="#{lib}" name="{i}"/>\n')
-        out.append(f'  <main name={quoteattr(self.main)}/>\n')
+        out.append(f"  <main name={quoteattr(self.main)}/>\n")
         out.append(self.OPTIONS)
         for c in self.circuits:
             out.append(c.to_xml())
