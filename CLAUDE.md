@@ -361,7 +361,8 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 adds what Logisim does not model (VCC/GND pins, a 100nF per IC, headers) and `write()` emits
 a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, and nothing
 parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
-and writes `logisim/kicad/BACKPLANE.md`, the 2x20 pinout every board carries.
+and writes `logisim/kicad/BACKPLANE.md`, the pinout every board carries, and
+`logisim/PARTS.md`, what to order.
 
 All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
 `datapath` (15) and `memory` (8), each with a 100nF per IC, a 100uF bulk cap, the backplane

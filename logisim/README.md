@@ -61,6 +61,8 @@ of the circuit from `logisim/bin/`: Logisim's loader stops with a dialog on the
 | `java/` | headless checks that run a generated file in Logisim |
 | `*.circ` | the generated files |
 | `kicad/<board>/` | the generated KiCad projects, `kicad/out/` their gerber zips |
+| `PARTS.md` | every chip and part the six boards need, generated |
+| `kicad/BACKPLANE.md` | the connector pinout, generated |
 | `Makefile` | the targets above |
 
 A build script imports the library from its own directory, so
