@@ -27,7 +27,7 @@ make logisim_test   # boot four programs on kone.circ in Logisim, headless (~90 
 make logisim_clean  # the generated .circ files, logisim/kicad/ and the harness
 make logisim_kicad  # KiCad projects under logisim/kicad/, then kicad-cli ERC + DRC
 make logisim_route  # autoroute with Freerouting, then DRC (FREEROUTING_JAR)
-make logisim_gerbers  # gerbers and drill files per board, JLCPCB defaults
+make logisim_gerbers  # DRC, then gerbers + drills zipped to logisim/kicad/out/
 bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
@@ -367,8 +367,13 @@ parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BO
 and writes `logisim/kicad/BACKPLANE.md`, the 2x20 pinout every board carries.
 
 All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
-`datapath` (15) and `memory` (8), each with a 100nF per IC, the backplane connectors it needs
-and a power header. `BACKPLANE.md` is generated from the top level of `kone.circ`, so a
+`datapath` (15) and `memory` (8), each with a 100nF per IC, a 100uF bulk cap, the backplane
+connectors it needs and a power header. They are meant to stack, so every board carries the
+**same outline** (the size the largest one needs), four M3 holes 6 mm in from the corners and
+its backplane connectors at the same coordinates. The stack is fed at one point: a screw
+terminal on `io` puts `+5V` and `GND` on the backplane, with an LED and its resistor beside
+it. There is no regulator anywhere -- the supply has to be regulated 5 V, and
+`BACKPLANE.md`, which is generated, says what it has to deliver. `BACKPLANE.md` is generated from the top level of `kone.circ`, so a
 header pin means the same signal on every board. What costs time here:
 
 - Tunnels with the same label are **one net**, and `Netlist` has to union them: a block's
@@ -395,6 +400,8 @@ header pin means the same signal on every board. What costs time here:
   nothing drives -- which is what ERC's `power_pin_not_driven` is for.
 - The gate is `--severity-error --exit-code-violations` on both tools. Unrouted nets are
   warnings by project setting.
+- A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
+  circle over each one on both layers. Without it tracks run straight through the M3 holes.
 - Routing runs through Freerouting, which is not packaged: put its jar where
   `FREEROUTING_JAR` points (`~/.cache/freerouting/freerouting.jar`) and `make logisim_route`
   writes the `.dsn`, runs it and reads the `.ses` back into the board. KiCad 10's CLI has

@@ -50,6 +50,15 @@ PARTS = {
     "RAM": ("62256", "DIP-28_W15.24mm"),
 }
 
+# footprint -> (lead pitch, drill, pad diameter) for the two-lead parts the
+# boards need beyond the logic: bulk capacitor, power entry, indicator.
+TWO_PAD = {
+    "CP_Radial_D6.3mm_P2.50mm": (2.5, 0.9, 1.8),
+    "TerminalBlock_2x5.08mm": (5.08, 1.3, 2.6),
+    "R_Axial_P10.16mm": (10.16, 0.9, 1.8),
+    "LED_D3.0mm_P2.54mm": (2.54, 0.9, 1.8),
+}
+
 
 class Netlist:
     """Chips, connectors and the nets between them, all named."""
@@ -512,6 +521,9 @@ def pads(footprint):
             for col in range(cols)
             for row in range(rows)
         ]
+    if footprint in TWO_PAD:
+        pitch, drill, pad = TWO_PAD[footprint]
+        return [(1, 0.0, 0.0, pad, drill), (2, pitch, 0.0, pad, drill)]
     return [(1, 0.0, 0.0, 1.6, 0.8), (2, 5.08, 0.0, 1.6, 0.8)]
 
 
@@ -602,6 +614,89 @@ def header_footprint(
     return "\n".join(out) + "\n"
 
 
+def footprint_body(footprint, **kw):
+    """The .kicad_mod text for a footprint, as library entry or placed."""
+    if footprint.startswith("DIP"):
+        pins = int(footprint.split("-")[1].split("_")[0])
+        return dip_footprint(pins, width=dip_rows(footprint), **kw)
+    if footprint.startswith("C_Disc"):
+        return cap_footprint(**kw)
+    if footprint.startswith("MountingHole"):
+        return hole_footprint(**kw)
+    if footprint in TWO_PAD:
+        pitch, drill, pad = TWO_PAD[footprint]
+        return two_pad_footprint(footprint, pitch, drill, pad, **kw)
+    cols, rows = footprint.split("_")[1].split("x")
+    return header_footprint(int(rows.split("_")[0]), int(cols), **kw)
+
+
+def hole_footprint(key=None, at=None, ref="H**", value="M3", nets=None):
+    """A plated-free M3 hole; the pad carries no net, so nothing routes to it."""
+    name = "MountingHole_3.2mm_M3"
+    key = key or f"lib/{name}"
+    out = _head(
+        name if at is None else f"kone:{name}",
+        key,
+        at,
+        ref,
+        value,
+        (0, -3.5),
+        (0, 3.5),
+    )
+    out.append(
+        f'\t(pad "" np_thru_hole circle (at 0 0) (size 3.2 3.2) '
+        f'(drill 3.2) (layers "F&B.Cu" "*.Mask") '
+        f'(uuid "{uid(key, "hole")}"))'
+    )
+    out += _outline(
+        key,
+        [(-3.5, -3.5), (3.5, -3.5), (3.5, 3.5), (-3.5, 3.5)],
+        layers=(("F.CrtYd", 0.05),),
+    )
+    out.append(
+        f"\t(fp_circle (center 0 0) (end 2.5 0) "
+        '(stroke (width 0.12) (type solid)) (fill none) (layer "F.SilkS") '
+        f'(uuid "{uid(key, "ring")}"))'
+    )
+    out.append(")")
+    return "\n".join(out) + "\n"
+
+
+def two_pad_footprint(
+    name, pitch, drill, pad, key=None, at=None, ref="X**", value=None, nets=None
+):
+    """Anything with two leads in a row: resistor, LED, electrolytic, terminal."""
+    key, nets = key or f"lib/{name}", nets or {}
+    out = _head(
+        name if at is None else f"kone:{name}",
+        key,
+        at,
+        ref,
+        value or name,
+        (pitch / 2, -2.6),
+        (pitch / 2, 3.2),
+    )
+    for number, x, y, size, hole in pads(name):
+        out.append(
+            _pad(
+                key,
+                number,
+                "rect" if number == 1 else "oval",
+                x,
+                y,
+                size,
+                hole,
+                nets,
+            )
+        )
+    out += _outline(
+        key,
+        [(-1.6, -2.0), (pitch + 1.6, -2.0), (pitch + 1.6, 2.0), (-1.6, 2.0)],
+    )
+    out.append(")")
+    return "\n".join(out) + "\n"
+
+
 def cap_footprint(key=None, at=None, ref="C**", value="100n", nets=None):
     name = "C_Disc_D5.0mm_P5.08mm"
     key, nets = key or f"lib/{name}", nets or {}
@@ -637,6 +732,11 @@ def cap_footprint(key=None, at=None, ref="C**", value="100n", nets=None):
 # --------------------------------------------------------------------------
 
 ORIGIN = 63.5  # the sheet grid; every stub lands on 1.27 mm
+CONN_STRIP = 95.0  # room at the bottom for the connectors
+CONN_X = 20.0  # the connector row, identical on every board
+CONN_PITCH = 45.0
+HOLE_INSET = 6.0  # M3 holes, one per corner
+HOLE_KEEPOUT = 7.0  # nothing routes inside this, washer room
 CAP_ROOM = 13.0  # room under an IC for its decoupling cap             # board grid per IC, room for its decoupling cap
 SCH_CELL = (63.5, 50.8)  # schematic grid, room for pin labels
 LAYERS = (
@@ -663,11 +763,21 @@ class Board:
     """
 
     def __init__(
-        self, name, circuit, columns=8, title=None, ports=None, positions=None
+        self,
+        name,
+        circuit,
+        columns=8,
+        title=None,
+        ports=None,
+        positions=None,
+        size=None,
+        entry=False,
     ):
         self.name, self.title = name, title or name
         self.netlist = Netlist(circuit)
         self.columns = columns
+        self.size = size  # the outline every board shares
+        self.entry = entry  # this board carries the supply connector
         self.ports = ports or {}  # port label -> (system net, width)
         self.positions = positions or {}  # system signal -> backplane index
         self.parts = []
@@ -791,8 +901,20 @@ class Board:
             [(n + 1, str(n + 1), "passive") for n in range(HEADER_PINS)],
             f"PinHeader_2x{rows:02d}_P2.54mm",
         )
+        # Every board carries the same outline, the same four M3 holes and
+        # the same connector positions, so a stack lines up.
+        grid = (
+            20 + self.columns * self.cell[0],
+            20 + self.ic_rows * self.cell[1],
+        )
+        self.width, self.height = self.size or (
+            grid[0] + 20,
+            grid[1] + CONN_STRIP + 10,
+        )
+        conn_y = self.height - CONN_STRIP + 6
+
         headers = sorted({p // HEADER_PINS for p in used})
-        for i, header in enumerate(headers):
+        for header in headers:
             pins = {
                 p % HEADER_PINS + 1: net
                 for p, net in used.items()
@@ -805,7 +927,7 @@ class Board:
                     f"PinHeader_2x{rows:02d}_P2.54mm",
                     "Conn_2x20",
                     pins,
-                    (20 + i * 40, 30 + self.ic_rows * self.cell[1]),
+                    (CONN_X + header * CONN_PITCH, conn_y),
                     silk=f"BP{header + 1} ({header * HEADER_PINS + 1}"
                     f"-{(header + 1) * HEADER_PINS})",
                 )
@@ -822,10 +944,101 @@ class Board:
                 "PinHeader_1x02_P2.54mm",
                 "Conn_1x02",
                 {1: "+5V", 2: "GND"},
-                (20 + len(headers) * 40, 30 + self.ic_rows * self.cell[1]),
+                (CONN_X + 4 * CONN_PITCH, conn_y),
                 silk="+5V / GND",
             )
         )
+
+        # Bulk capacitance sits with the connectors on every board.
+        self._symbol(
+            "CP",
+            [(1, "1", "passive"), (2, "2", "passive")],
+            "CP_Radial_D6.3mm_P2.50mm",
+        )
+        self.parts.append(
+            Part(
+                "C0",
+                "100u",
+                "CP_Radial_D6.3mm_P2.50mm",
+                "CP",
+                {1: "+5V", 2: "GND"},
+                (CONN_X + 4 * CONN_PITCH, conn_y + 20),
+                silk="100u",
+            )
+        )
+
+        # The whole stack is fed here, and this is the board that says so.
+        if self.entry:
+            for ref, value, footprint, symbol, pins, dy, silk in (
+                (
+                    "J5",
+                    "5V IN",
+                    "TerminalBlock_2x5.08mm",
+                    "Conn_1x02",
+                    {1: "+5V", 2: "GND"},
+                    40,
+                    "5V IN  +5V/GND",
+                ),
+                (
+                    "R1",
+                    "220R",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: "+5V", 2: "PWRLED"},
+                    60,
+                    "220R",
+                ),
+                (
+                    "D1",
+                    "PWR",
+                    "LED_D3.0mm_P2.54mm",
+                    "LED",
+                    {1: "PWRLED", 2: "GND"},
+                    75,
+                    "PWR",
+                ),
+            ):
+                self._symbol(
+                    symbol,
+                    [(1, "1", "passive"), (2, "2", "passive")],
+                    footprint,
+                )
+                self.parts.append(
+                    Part(
+                        ref,
+                        value,
+                        footprint,
+                        symbol,
+                        pins,
+                        (CONN_X + 4 * CONN_PITCH, conn_y + dy),
+                        silk=silk,
+                    )
+                )
+
+        self._symbol("HOLE", [], "MountingHole_3.2mm_M3")
+        for i, (hx, hy) in enumerate(
+            (
+                (HOLE_INSET, HOLE_INSET),
+                (self.width - HOLE_INSET, HOLE_INSET),
+                (HOLE_INSET, self.height - HOLE_INSET),
+                (self.width - HOLE_INSET, self.height - HOLE_INSET),
+            )
+        ):
+            self.parts.append(
+                Part(
+                    f"H{i + 1}",
+                    "M3",
+                    "MountingHole_3.2mm_M3",
+                    "HOLE",
+                    {},
+                    (hx, hy),
+                    silk="M3",
+                )
+            )
+        self.holes = [
+            (p.x, p.y) for p in self.parts if p.footprint.startswith("Mounting")
+        ]
+
         self._symbol("PWR", [(1, "1", "power_out")], "")
         self.parts.append(Part("PWR1", "+5V", "", "PWR", {1: "+5V"}, (0, 0)))
         self.parts.append(Part("PWR2", "GND", "", "PWR", {1: "GND"}, (0, 0)))
@@ -837,6 +1050,8 @@ class Board:
         return {n: i + 1 for i, n in enumerate(names)}
 
     def extent(self):
+        if self.size:
+            return 0.0, 0.0, self.width, self.height
         xs, ys = [], []
         for part in self.parts:
             if part.symbol == "PWR":
@@ -974,35 +1189,14 @@ def pcb(board, tracks=(), vias=()):
         if part.symbol == "PWR":
             continue
         pads = {str(n): (nets[net], net) for n, net in part.pins.items()}
-        if part.footprint.startswith("DIP"):
-            body = dip_footprint(
-                int(part.footprint.split("-")[1].split("_")[0]),
-                key=part.ref,
-                at=(part.x, part.y),
-                ref=part.ref,
-                value=part.value,
-                nets=pads,
-                width=dip_rows(part.footprint),
-            )
-        elif part.footprint.startswith("C_"):
-            body = cap_footprint(
-                key=part.ref,
-                at=(part.x, part.y),
-                ref=part.ref,
-                value=part.value,
-                nets=pads,
-            )
-        else:
-            cols, rows = part.footprint.split("_")[1].split("x")
-            body = header_footprint(
-                int(rows.split("_")[0]),
-                int(cols),
-                key=part.ref,
-                at=(part.x, part.y),
-                ref=part.ref,
-                value=part.value,
-                nets=pads,
-            )
+        body = footprint_body(
+            part.footprint,
+            key=part.ref,
+            at=(part.x, part.y),
+            ref=part.ref,
+            value=part.value,
+            nets=pads,
+        )
         out.append("\t" + body.replace("\n", "\n\t").rstrip("\t"))
         if part.footprint.startswith("C_"):
             continue  # its reference on the silk is enough
@@ -1078,16 +1272,7 @@ def write(board, outdir, tracks=(), vias=()):
         if not part.footprint or part.footprint in seen:
             continue
         seen.add(part.footprint)
-        if part.footprint.startswith("DIP"):
-            body = dip_footprint(
-                int(part.footprint.split("-")[1].split("_")[0]),
-                width=dip_rows(part.footprint),
-            )
-        elif part.footprint.startswith("C_"):
-            body = cap_footprint()
-        else:
-            cols, rows = part.footprint.split("_")[1].split("x")
-            body = header_footprint(int(rows.split("_")[0]), int(cols))
+        body = footprint_body(part.footprint)
         (out / "kone.pretty" / f"{part.footprint}.kicad_mod").write_text(body)
     (out / "sym-lib-table").write_text(
         '(sym_lib_table (version 7)\n  (lib (name "kone")(type "KiCad")'
@@ -1169,6 +1354,13 @@ def dsn(board):
         )
         + "))",
         f'    (via "{VIA}")',
+        *(
+            f'    (keepout "" (circle F.Cu {round(HOLE_KEEPOUT * DSN_SCALE)} '
+            f"{_dsn(hx, hy)}))\n"
+            f'    (keepout "" (circle B.Cu {round(HOLE_KEEPOUT * DSN_SCALE)} '
+            f"{_dsn(hx, hy)}))"
+            for hx, hy in board.holes
+        ),
         f"    (rule (width {round(TRACK_WIDTH * DSN_SCALE)}) "
         f"(clearance {round(CLEARANCE * DSN_SCALE)}) "
         f"(clearance {round(CLEARANCE * DSN_SCALE)} (type default_smd)))",
@@ -1177,7 +1369,7 @@ def dsn(board):
     ]
     by_footprint = {}
     for part in board.parts:
-        if part.symbol == "PWR":
+        if part.symbol == "PWR" or not part.pins:
             continue
         by_footprint.setdefault(part.footprint, []).append(part)
     for footprint, group in sorted(by_footprint.items()):

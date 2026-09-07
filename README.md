@@ -60,7 +60,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make logisim_clean`: delete the generated circuits (`make clean` does this too)
  - `make logisim_kicad`: generate the KiCad boards in `logisim/kicad/` and run ERC and DRC on them
  - `make logisim_route`: autoroute the boards with Freerouting and re-check them
- - `make logisim_gerbers`: export gerbers and drill files for every board
+ - `make logisim_gerbers`: check DRC, then export gerbers and drills, zipped per board into `logisim/kicad/out/`
  - `make hooks`: install the pre-commit hook, which runs `make format` and re-stages what it changed
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
@@ -316,6 +316,6 @@ Each of the six blocks of `kone.circ` is a board of its own, generated from the 
 | `datapath` | 15 | bus and operand muxes, the latches around the ALU |
 | `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
 
-Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
+The six boards stack: all of them share one outline, four M3 mounting holes in the corners and the same connector positions, so standoffs and vertical headers line up. One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `logisim/kicad/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `logisim/kicad/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
 
 Tracks come from [Freerouting](https://github.com/freerouting/freerouting): `make logisim_route` writes a Specctra `.dsn`, runs the router over it and reads the `.ses` back into the board, since KiCad 10's command line can do neither. The default three passes take about nine minutes and leave the board with some 6900 track segments and 150 vias, no shorts and no clearance violations; about 60 connections stay unrouted on two layers and want a manual pass in pcbnew. `FREEROUTING_PASSES` trades runtime for those. The jar is not packaged anywhere — put it where `FREEROUTING_JAR` points, or pass `FREEROUTING_JAR=/path/to/freerouting.jar`; `FREEROUTING_PASSES` sets how hard it tries. Every board carries the same 2x20 backplane header, whose pinout `logisim/kicad/BACKPLANE.md` lists. The projects bring their own symbol and footprint library, so they do not depend on which version of KiCad's libraries is installed.

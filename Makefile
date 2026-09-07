@@ -318,19 +318,32 @@ logisim_route: logisim_kicad
 			|| printf "$$dred[ FAIL ] $${rst}$${wht}%s: see $$d/drc.rpt$${rst}\n" "$$b"; \
 	done
 
-# Gerbers and drill files, JLCPCB's defaults: Excellon, absolute origin, PTH
-# and NPTH apart.
+# Fabrication data per board: DRC first, then gerbers and Excellon drills into
+# kicad/<board>/gerber/, zipped to kicad/out/<board>_gerber.zip for upload.
+# JLCPCB's defaults: RS-274X, no X2 attributes, PTH and NPTH apart.
 logisim_gerbers: logisim_kicad
-	@for b in $(LOGISIM_BOARDS); do \
+	@$(TEST_COLORS); \
+	mkdir -p $(KICAD_DIR)/out; \
+	for b in $(LOGISIM_BOARDS); do \
 		d=$(KICAD_DIR)/$$b; \
-		mkdir -p $$d/gerbers; \
+		if ! kicad-cli pcb drc --severity-error --exit-code-violations \
+				-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1; then \
+			printf "$${bld}$${red}[ FAIL ] $${dflt}%s: DRC, see %s$${rst}\n" \
+				"$$b" "$$d/drc.rpt"; \
+			exit 1; \
+		fi; \
+		rm -rf $$d/gerber; \
+		mkdir -p $$d/gerber; \
 		kicad-cli pcb export gerbers --layers "$(GERBER_LAYERS)" --no-x2 \
-			--subtract-soldermask -o $$d/gerbers/ $$d/$$b.kicad_pcb \
+			--subtract-soldermask -o $$d/gerber/ $$d/$$b.kicad_pcb \
 			> /dev/null; \
 		kicad-cli pcb export drill --format excellon --drill-origin absolute \
 			--excellon-zeros-format decimal --excellon-separate-th \
-			-o $$d/gerbers/ $$d/$$b.kicad_pcb > /dev/null; \
-		echo "$$d/gerbers: $$(ls $$d/gerbers | wc -l) files"; \
+			-o $$d/gerber/ $$d/$$b.kicad_pcb > /dev/null; \
+		python3 -m zipfile -c $(KICAD_DIR)/out/$${b}_gerber.zip $$d/gerber/*; \
+		printf "$$dgrn[ PASS ] $${rst}$${wht}%s -> %s (%s files)$${rst}\n" \
+			"$$b" "$(KICAD_DIR)/out/$${b}_gerber.zip" \
+			"$$(ls $$d/gerber | wc -l)"; \
 	done
 
 # kone.circ booted headlessly in Logisim; needs a JDK and $(LOGISIM_JAR). One of
