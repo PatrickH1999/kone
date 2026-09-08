@@ -189,7 +189,7 @@ def bom(path, boards, out):
         "## Interface",
         "",
         "Hand kept, not derived from a board: the bridge between the io board",
-        "and the two devices, which `INTERFACE.md` wires up and programs.",
+        "and the two devices, which `README.md` wires up and programs.",
         "",
         "| Part | Function | Count |",
         "| --- | --- | --- |",
@@ -278,6 +278,20 @@ def pinout(path, signals, boards):
     return path
 
 
+def outline(size):
+    """Warn when the README's board format no longer states the real outline."""
+    readme = Path(__file__).resolve().parents[1] / "README.md"
+    stated = re.search(r"outline, \*\*([\d.]+) x ([\d.]+) mm\*\*", readme.read_text())
+    if not stated:
+        print(f"{readme}: no board format line to check", file=sys.stderr)
+    elif tuple(float(v) for v in stated.groups()) != tuple(round(v, 2) for v in size):
+        print(
+            f"{readme}: board format says {stated.group(1)} x {stated.group(2)} mm, "
+            f"boards are {size[0]:.2f} x {size[1]:.2f} mm",
+            file=sys.stderr,
+        )
+
+
 def stacking(boards, connectors):
     """Guard the mechanics of the stack.
 
@@ -307,7 +321,10 @@ def stacking(boards, connectors):
 if __name__ == "__main__":
     args = sys.argv[1:]
     route = "--route" in args
-    wanted = [a for a in args if a != "--route"] or list(BOARDS)
+    # --fix writes the design with what is routed already protected, so the
+    # next run of the router only has to close what it left open.
+    fixed = "--fix" in args
+    wanted = [a for a in args if not a.startswith("--")] or list(BOARDS)
     circuits = blocks()
     system = system_nets(kone(tuple(circuits.values())))
     signals = backplane(system)
@@ -336,6 +353,7 @@ if __name__ == "__main__":
         max(b.height for b in measured),
     )
     boards = {name: make(name, size) for name in BOARDS}
+    outline(size)
     stacking(boards, len(signals) // HEADER_PINS)
     for name in wanted:
         if name not in BOARDS:
@@ -345,7 +363,7 @@ if __name__ == "__main__":
         # A session from an earlier run is kept, so regenerating a board does
         # not silently throw its routing away.
         session = OUT / name / f"{name}.ses"
-        if route and not session.exists():
+        if (route or fixed) and not session.exists():
             sys.exit(f"no {session}; run the router first")
         if session.exists():
             text = session.read_text()
@@ -357,7 +375,7 @@ if __name__ == "__main__":
                 session.unlink()
                 print(f"{session}: stale, board changed -- route again")
         print(
-            write(board, OUT / name, tracks, vias),
+            write(board, OUT / name, tracks, vias, fixed),
             f"({len(board.parts)} parts, {len(board.nets())} nets"
             + (
                 f", {sum(len(p) - 1 for *_, p in tracks)} segments, "

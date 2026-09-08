@@ -6,6 +6,7 @@ have no place on a board: a Tunnel is a net name, a Splitter joins a bus to its
 bits, a Pin becomes a header pin, Ground/Power/Constant become the two rails.
 """
 
+import math
 import os
 
 from .components import _TtlChip
@@ -1347,7 +1348,7 @@ PROJECT = {
 }
 
 
-def write(board, outdir, tracks=(), vias=()):
+def write(board, outdir, tracks=(), vias=(), fixed=False):
     """The whole project: libraries, tables, schematic, board, and its .dsn."""
     from pathlib import Path
 
@@ -1374,7 +1375,11 @@ def write(board, outdir, tracks=(), vias=()):
     (out / f"{board.name}.kicad_pro").write_text(json.dumps(project, indent=2))
     (out / f"{board.name}.kicad_sch").write_text(schematic(board))
     (out / f"{board.name}.kicad_pcb").write_text(pcb(board, tracks, vias))
-    (out / f"{board.name}.dsn").write_text(dsn(board))
+    # The design keeps what is routed only when asked: a fresh route starts
+    # from an empty board, a second pass keeps the tracks and closes the rest.
+    (out / f"{board.name}.dsn").write_text(
+        dsn(board, tracks, vias) if fixed else dsn(board)
+    )
     return out
 
 
@@ -1388,7 +1393,7 @@ def write(board, outdir, tracks=(), vias=()):
 DSN_SCALE = 10000  # (resolution um 10): one unit is 0.1 um
 VIA = "Via[0-1]_800:400_um"
 VIA_SIZE, VIA_DRILL = 0.8, 0.4  # mm
-TRACK_WIDTH = 0.25  # mm
+TRACK_WIDTH = 0.2  # mm; JLCPCB stops at 0.09, the room matters more
 EDGE = 1.0  # mm the routing keeps clear of the outline
 # What the router is told to keep, wider than KiCad's 0.2 rule so its rounding
 # stays inside it. Which value comes out clean is a property of the board, not
@@ -1410,8 +1415,12 @@ def _dsn(x, y):
     return f"{round(x * DSN_SCALE)} {round(-y * DSN_SCALE)}"
 
 
-def dsn(board):
-    """The board as a Specctra design, the autorouter's input."""
+def dsn(board, tracks=(), vias=()):
+    """The board as a Specctra design, the autorouter's input.
+
+    Tracks handed in go into the wiring section as protected, which is how the
+    router is asked to keep what it already found and only close the rest.
+    """
     # Inset the boundary: the router lays tracks right up to it, and copper on
     # the board outline is a DRC error.
     x0, y0, x1, y1 = board.extent()
@@ -1519,9 +1528,20 @@ def dsn(board):
         "    )",
         "  )",
         "  (wiring",
-        "  )",
-        ")",
     ]
+    for net, layer, width, path in tracks:
+        if net in routable:
+            out.append(
+                f"    (wire (path {layer} {round(width * DSN_SCALE)} "
+                + " ".join(_dsn(x, y) for x, y in path)
+                + f') (net "{net}") (type protect))'
+            )
+    for net, x, y in vias:
+        if net in routable:
+            out.append(
+                f'    (via "{VIA}" {_dsn(x, y)} (net "{net}") (type protect))'
+            )
+    out += ["  )", ")"]
     return "\n".join(out) + "\n"
 
 
@@ -1569,17 +1589,28 @@ def ses_fits(text, board):
     """
     tree = _tree(_tokens(text))
     placed = {
-        place[1]
+        place[1]: (component[1], float(place[2]), float(place[3]))
         for session in _walk(tree, "session")
         for placement in _walk(session, "placement")
         for component in _walk(placement, "component")
         for place in _walk(component, "place")
     }
-    return placed == {
-        part.ref
+    at = {
+        part.ref: part
         for part in board.parts
         if part.symbol != "PWR" and part.pins
     }
+    if set(placed) != set(at):
+        return False
+    scale = _ses_scale(tree, board)
+    # References are positional, so a part that changed under one keeps its
+    # place: the footprint has to match too, not only the coordinates.
+    return all(
+        footprint == at[ref].footprint
+        and abs(x / scale - at[ref].x) < 0.01
+        and abs(-y / scale - at[ref].y) < 0.01
+        for ref, (footprint, x, y) in placed.items()
+    )
 
 
 def parse_ses(text, board):
@@ -1620,3 +1651,4 @@ def parse_ses(text, board):
                             )
                         )
     return tracks, vias
+

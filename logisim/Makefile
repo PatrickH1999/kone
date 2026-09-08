@@ -28,6 +28,8 @@ LOGISIM_JAR ?= /usr/share/java/logisim-evolution/logisim-evolution.jar
 # A board that fails DRC is routed again with a different clearance, which is
 # the one input that changes what the router does -- re-running it unchanged,
 # with any strategy or item order, reproduces the same short to the coordinate.
+# What is still open after that gets one more pass with the routing so far
+# protected, so the router only has to close the rest.
 FREEROUTING_JAR ?= $(HOME)/.cache/freerouting/freerouting.jar
 FREEROUTING_PASSES ?= 25
 FREEROUTING_CLEARANCES ?= 0.3 0.35 0.25
@@ -135,6 +137,18 @@ route: kicad
 				ok=1; break; \
 			fi; \
 		done; \
+		if [ $$ok = 0 ]; then \
+			printf "closing what is left on %s ...\n" "$$b"; \
+			python3 python/build_kicad.py --fix $$b > /dev/null; \
+			java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
+				-de $$d/$$b.dsn -do $$d/$$b.ses \
+				-mp $(FREEROUTING_PASSES) >> $$d/route.log 2>&1; \
+			python3 python/build_kicad.py --route $$b; \
+			kicad-cli pcb drc --refill-zones --save-board \
+				--severity-error --exit-code-violations \
+				-o $$d/drc.rpt $$d/$$b.kicad_pcb > /dev/null 2>&1 \
+				&& ok=1; \
+		fi; \
 		if [ $$ok = 1 ]; then \
 			printf "$$dgrn[ PASS ] $${rst}$${wht}%s: drc after routing$${rst}\n" "$$b"; \
 			passed=$$((passed + 1)); \
