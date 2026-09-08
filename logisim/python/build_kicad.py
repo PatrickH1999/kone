@@ -65,6 +65,7 @@ def blocks():
 # BACKPLANE.md assumes; LS works as well but takes about five times the supply.
 CHIPS = {
     "7404": ("74HC04", "hex inverter"),
+    "7414": ("74HC14", "hex Schmitt inverter"),
     "7408": ("74HC08", "quad 2-input AND"),
     "7411": ("74HC11", "triple 3-input AND"),
     "7421": ("74HC21", "dual 4-input AND"),
@@ -92,6 +93,9 @@ PASSIVES = {
     "Power": ("pin header 1x02", "supply header"),
     "M3": ("M3 hole, screw and standoff", "stacking"),
     "1MHz": ("1 MHz can oscillator, DIP-14", "the clock, in a socket"),
+    "10k": ("resistor 10k, 1/4W", "power-on reset RC"),
+    "10u": ("electrolytic 10uF/16V, 2.5mm", "power-on reset RC"),
+    "RESET": ("pin header 1x02", "reset by hand, short to reset"),
     "CLK SRC": ("pin header 1x03 and jumper", "clock from the can or from J7"),
     "EXT CLK": ("pin header 1x02", "external or hand stepped clock in"),
 }
@@ -179,7 +183,28 @@ def bom(path, boards, out):
     for name in boards:
         rows += [f"## {name}", "", *table(per[name]), ""]
     chips = sum(n for v, n in total.items() if v in CHIPS)
+    sockets = {}
+    for board in boards.values():
+        for part in board.parts:
+            if part.footprint.startswith("DIP-"):
+                pins = part.footprint.split("-")[1].split("_")[0]
+                sockets[f"DIP-{pins} socket"] = (
+                    sockets.get(f"DIP-{pins} socket", 0) + 1
+                )
     rows += [
+        "## Sockets",
+        "",
+        "One per DIP package, if you want them. The ten 28C256 and the can",
+        "oscillator want them for certain -- those are the parts you pull to",
+        "reprogram, or to swap for another frequency.",
+        "",
+        "| Part | Function | Count |",
+        "| --- | --- | --- |",
+        *(
+            f"| `{name}` | {SOCKETS.get(name, 'per IC')} | {n} |"
+            for name, n in sorted(sockets.items(), key=lambda kv: -kv[1])
+        ),
+        "",
         "## Total",
         "",
         *table(total),
@@ -200,7 +225,7 @@ def bom(path, boards, out):
         "| USB Host Shield, MAX3421E | the USB keyboard | 1 |",
         "| Freenove I2C LCD2004, 20x4 | the display, HD44780 behind a PCF8574 | 1 |",
         "| pin header 2x20, stackable | the io board's free stack connector | 2 |",
-        "| jumper wires, female to female | 18 signals and a ground to the Mega | 19 |",
+        "| jumper wires, female to female | 18 signals, a ground, and J7 and J8 for stepping | 21 |",
         "| resistor 4.7k | I2C pull-ups, only if the LCD module has none | 2 |",
         "",
         "A USB Host Shield is an Uno shield: on a Mega it has to take SPI from",
@@ -247,6 +272,15 @@ def pinout(path, signals, boards):
             f"`{signal}` | {', '.join(on) or '-'} |"
         )
 
+    # Which image goes into which socket: the file is named after the label
+    # the silkscreen carries, so the board says where each one belongs.
+    roms = [
+        (name, part.ref, part.silk.split()[-1])
+        for name, board in boards.items()
+        for part in sorted(board.parts, key=lambda p: p.ref)
+        if part.value == "28C256"
+    ]
+
     ics = {
         name: sum(1 for p in board.parts if p.ref.startswith("U"))
         for name, board in boards.items()
@@ -280,6 +314,22 @@ def pinout(path, signals, boards):
         "memory, the stack draws roughly 0.5 to 1 A at a low clock, so a 5 V /",
         "2 A supply leaves headroom. 74LS parts instead would multiply that by",
         "about five, which is worth checking before choosing a supply.",
+        "",
+        "## EEPROMs",
+        "",
+        "`make logisim_roms` writes one image per chip into `logisim/roms/`.",
+        "Each file is named after the label on the socket's silkscreen, so",
+        "`uLIT.bin` goes into the chip marked `28C256 uLIT`. The nine microcode",
+        "images are 256 bytes: the address lines above A7 are grounded, so the",
+        "rest of the chip is never read. `prog.bin` is the assembled kasm",
+        "program, and `LOGISIM_PROG` picks which one.",
+        "",
+        "| Image | Board | Socket | Silkscreen |",
+        "| --- | --- | --- | --- |",
+        *(
+            f"| `{label}.bin` | {board} | {ref} | `28C256 {label}` |"
+            for board, ref, label in roms
+        ),
     ]
     path.write_text("\n".join(rows) + "\n")
     return path
@@ -297,6 +347,13 @@ def outline(size):
             f"boards are {size[0]:.2f} x {size[1]:.2f} mm",
             file=sys.stderr,
         )
+
+
+# what the DIP sockets of a given size are for, where it is worth saying
+SOCKETS = {
+    "DIP-28 socket": "the ten 28C256 and the 62256",
+    "DIP-14 socket": "per IC, the can oscillator among them",
+}
 
 
 def stacking(boards, connectors):

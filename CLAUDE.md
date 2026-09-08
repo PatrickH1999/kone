@@ -459,17 +459,31 @@ header pin means the same signal on every board. What costs time here:
   the build unless all six boards agree on the connector count, the connector and M3 hole
   coordinates and the outline — nothing on a board is rotated, so a position is the whole
   story. That check is what keeps the stack mechanically honest; do not weaken it.
+- The clock and the reset are the two things Logisim has and a board has not, so `io`
+  carries both beside the power entry: X1 (a can oscillator) with J6 to pick it or J7's
+  external clock, and an RC into a 74HC14 with J8 to reset by hand. `NRES` is a backplane
+  signal; the sequencer gates its next microaddress to zero while it is low, which lands the
+  machine on microaddress 0, `BOOT`. In the simulation `NRES` comes from a spare gate of the
+  same top-level inverter that fakes the display acknowledge.
 - A `.ses` is only valid for the board it was routed against. Applying a stale one puts
   copper through pads that were not there before — it cost alu 12 DRC errors — so
   `ses_fits()` drops the session instead. It compares the **footprint and the position** of
   every part: references are positional, so after a placement change the same `U65` is a
   different chip, and comparing names alone let a stale session through for another 378
   violations. The comparison skips `PWR` parts and anything without pins, since the `.dsn`
-  does not place those either.
+  does not place those either. A session is stale as soon as the **design is newer** than
+  it, too: the parts stay where they are when a new backplane signal shifts every connector
+  pin onto another net, and the old tracks then join the wrong pins.
 - `BACKPLANE.md` and `PARTS.md` are written from all six boards on every run, not from the
   ones a `--route <board>` invocation happened to touch.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
   circle over each one on both layers. Without it tracks run straight through the M3 holes.
+- `make logisim_roms` writes the ten EEPROM images into `logisim/roms/`, each named after
+  the label on its socket's silkscreen. `build_roms.py` is not one of the circuit scripts,
+  so `SCRIPTS` filters it out the way it filters `build_kicad.py`.
+- The router runs through `ROUTE_ONE`, which starts the JVM in the background and traps
+  INT/TERM to kill it. An interrupted `make` used to leave a JVM chewing on the board, and
+  the next run then fought it for the same files.
 - Routing runs through Freerouting, which is not packaged: put its jar where
   `FREEROUTING_JAR` points (`~/.cache/freerouting/freerouting.jar`) and `make logisim_route`
   writes the `.dsn`, runs it and reads the `.ses` back into the board. KiCad 10's CLI has
@@ -513,11 +527,22 @@ The chain takes about 25 minutes, and two things about running it cost a night e
 
 What is left:
 
-1. **The display and keyboard connectors.** The TTY and keyboard lines reach the backplane
+1. **The SRAM sits on the main bus.** On the board the 62256's data pins are din and dout
+   merged, and din is `BUS` — which the datapath's bus mux drives all the time. The RAM is
+   output-enabled whenever it is not being written, so the two fight. In Logisim there is no
+   conflict, because din and dout are separate nets there and a mux picks `ROMO` or `RAMO`.
+   The fix is a 74245 between `BUS` and the RAM's data pins, enabled from the write strobe,
+   with the RAM keeping `nOE` as it is. Adding it to `memory()` breaks the simulation --
+   `hello` prints one character forever and the klib mem test prints nothing, which is what
+   a broken write path looks like -- and neither tying `DIR` with `Power`, with an explicit
+   `Constant(1)`, nor holding `nOE` low the whole time changes that. Something about the
+   transceiver in that position is wrong and it wants a look with the simulator open, not
+   another guess. **Do not fabricate the memory board before this is settled.**
+2. **The display and keyboard connectors.** The TTY and keyboard lines reach the backplane
    but no board carries a socket for them: the Arduino bridge is wired to the stack
    connector by hand, which `logisim/README.md` describes. The clock is done — `io` carries
    the can oscillator (X1), the source jumper (J6) and the external clock header (J7).
-2. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
+3. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a
 separate package (`kicad-library`) and are not installed, so the boards carry generated ones.

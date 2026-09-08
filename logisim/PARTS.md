@@ -62,12 +62,13 @@ is the exception: those parts sit on no board and are kept by hand.
 | --- | --- | --- | --- |
 | `AT28C256-15PU` | DIP-28 | 32K x 8 EEPROM, parallel | 9 |
 | `74HC157` | DIP-16 | quad 2:1 multiplexer | 6 |
+| `74HC08` | DIP-14 | quad 2-input AND | 2 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
 | `74HC11` | DIP-14 | triple 3-input AND | 1 |
 | `74HC151` | DIP-16 | 8:1 multiplexer | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
 | `74HC377` | DIP-20 | octal register, clock enable | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 20 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 22 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -100,11 +101,14 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC04` | DIP-14 | hex inverter | 2 |
 | `74HC11` | DIP-14 | triple 3-input AND | 1 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 1 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 24 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 25 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
+| `resistor 10k, 1/4W` | - | power-on reset RC | 1 |
+| `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
 | `screw terminal 2x5.08mm` | - | supply entry | 1 |
@@ -112,6 +116,20 @@ is the exception: those parts sit on no board and are kept by hand.
 | `pin header 1x02` | - | external or hand stepped clock in | 1 |
 | `LED 3mm` | - | power indicator | 1 |
 | `pin header 1x02` | - | supply header | 1 |
+| `pin header 1x02` | - | reset by hand, short to reset | 1 |
+
+## Sockets
+
+One per DIP package, if you want them. The ten 28C256 and the can
+oscillator want them for certain -- those are the parts you pull to
+reprogram, or to swap for another frequency.
+
+| Part | Function | Count |
+| --- | --- | --- |
+| `DIP-20 socket` | per IC | 75 |
+| `DIP-16 socket` | per IC | 51 |
+| `DIP-14 socket` | per IC, the can oscillator among them | 46 |
+| `DIP-28 socket` | the ten 28C256 and the 62256 | 11 |
 
 ## Total
 
@@ -123,29 +141,33 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC32` | DIP-14 | quad 2-input OR | 18 |
 | `74HC153` | DIP-16 | dual 4:1 multiplexer | 16 |
 | `AT28C256-15PU` | DIP-28 | 32K x 8 EEPROM, parallel | 10 |
+| `74HC08` | DIP-14 | quad 2-input AND | 9 |
 | `74HC151` | DIP-16 | 8:1 multiplexer | 9 |
 | `74HC04` | DIP-14 | hex inverter | 8 |
-| `74HC08` | DIP-14 | quad 2-input AND | 7 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 6 |
 | `74HC11` | DIP-14 | triple 3-input AND | 3 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 3 |
 | `74HC283` | DIP-16 | 4-bit binary adder | 2 |
 | `74HC86` | DIP-14 | quad 2-input XOR | 2 |
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 180 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 183 |
 | `Backplane` | 2.54mm | board to board | 24 |
 | `M3 hole, screw and standoff` | - | stacking | 24 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 6 |
 | `pin header 1x02` | - | supply header | 6 |
+| `resistor 10k, 1/4W` | - | power-on reset RC | 1 |
+| `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
 | `screw terminal 2x5.08mm` | - | supply entry | 1 |
 | `pin header 1x03 and jumper` | - | clock from the can or from J7 | 1 |
 | `pin header 1x02` | - | external or hand stepped clock in | 1 |
 | `LED 3mm` | - | power indicator | 1 |
+| `pin header 1x02` | - | reset by hand, short to reset | 1 |
 
-179 chips over the six boards. Sockets are worth it for the two
+182 chips over the six boards. Sockets are worth it for the two
 memory types, which are the parts you will want to reprogram.
 `74HC21` and `74HC27` are the two that are thinly stocked; the LS or
 HCT versions drop in.
@@ -161,7 +183,7 @@ and the two devices, which `README.md` wires up and programs.
 | USB Host Shield, MAX3421E | the USB keyboard | 1 |
 | Freenove I2C LCD2004, 20x4 | the display, HD44780 behind a PCF8574 | 1 |
 | pin header 2x20, stackable | the io board's free stack connector | 2 |
-| jumper wires, female to female | 18 signals and a ground to the Mega | 19 |
+| jumper wires, female to female | 18 signals, a ground, and J7 and J8 for stepping | 21 |
 | resistor 4.7k | I2C pull-ups, only if the LCD module has none | 2 |
 
 A USB Host Shield is an Uno shield: on a Mega it has to take SPI from

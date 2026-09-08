@@ -118,6 +118,21 @@ def mux2(c, x, y, tag, sel, a, b, out):
         )
 
 
+def gate_and(c, x, y, tag, sel, ins, outs):
+    """74HC08s, four gates each: out[k] = in[k] AND sel."""
+    for j in range((len(outs) + 3) // 4):
+        nets = {}
+        for ch in range(4):
+            k = 4 * j + ch
+            inside = k < len(outs)
+            nets[f"A{ch + 1}"] = ins[k] if inside else Ground
+            nets[f"B{ch + 1}"] = sel if inside else Ground
+            nets[f"Y{ch + 1}"] = outs[k] if inside else None
+        wire_dip(
+            c, c.add(Ttl7408(x + PITCH * j, y, label=f"{tag}{4 * j}")), nets
+        )
+
+
 def latch(c, x, y, tag, d, q, nclken):
     """One 74377, loaded on the CPU clock while nclken is low."""
     nets = {"CLK": "CLK", "nCLKen": nclken}
@@ -132,7 +147,7 @@ def sequencer(rom, dispatch_a, dispatch_b):
     c = Circuit("sequencer")
     y = ports(
         c,
-        [("CLK", 1), ("BUS", 8), ("CY", 1)],
+        [("CLK", 1), ("BUS", 8), ("CY", 1), ("NRES", 1)],
         [
             ("UADDR", 8),
             ("LIT", 8),
@@ -205,7 +220,10 @@ def sequencer(rom, dispatch_a, dispatch_b):
     mux2(c, 200, y, "seqb", "COND", bits("NEXT"), bits("ALT"), bits("SEQ"))
     mux2(c, 1000, y, "seqd", "DISPSEL", bits("DA"), bits("DB"), bits("DSP"))
     mux2(c, 1800, y, "seqn", "DISPEN", bits("SEQ"), bits("DSP"), bits("UNEXT"))
-    latch(c, 2600, y, "uaddr", bits("UNEXT"), bits("UADDR"), Ground)
+    # A 74377 powers up wherever it likes, so NRES holds the next address at 0
+    # until it is released; 0 is BOOT, which is what cpu_reset() does in the vm.
+    gate_and(c, 200, y + 1200, "ures", "NRES", bits("UNEXT"), bits("URES"))
+    latch(c, 2600, y, "uaddr", bits("URES"), bits("UADDR"), Ground)
     wires(c, 3000, y + 400, "UADDR", bits("UADDR"))
     wires(c, 3400, y + 400, "BUS", bits("BUS"))
     wires(c, 3800, y + 400, "WE", keep(WE_BITS, "RW"))
@@ -827,8 +845,9 @@ def kone(blocks):
             "Y1": "NDISPNZ",
             "A2": "NDISPNZ",
             "Y2": "DISPCLR",
+            # reset is deasserted in simulation; on the boards io generates it
             "A3": Ground,
-            "Y3": None,
+            "Y3": "NRES",
             "A4": Ground,
             "Y4": None,
             "A5": Ground,

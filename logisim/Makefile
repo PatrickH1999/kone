@@ -6,9 +6,10 @@ ROOT := ..
 
 include $(ROOT)/tools/test.mk
 
-# build_kicad.py writes KiCad projects rather than a .circ, so it is not one
-# of the circuit scripts.
-SCRIPTS := $(filter-out python/build_kicad.py, $(wildcard python/build_*.py))
+# build_kicad.py writes KiCad projects and build_roms.py EEPROM images rather
+# than a .circ, so neither is one of the circuit scripts.
+SCRIPTS := $(filter-out python/build_kicad.py python/build_roms.py, \
+             $(wildcard python/build_*.py))
 
 # What the generator writes: build_<name>.py -> <name>.circ. Hand-drawn
 # circuits here are not in this list and survive `clean`.
@@ -31,6 +32,12 @@ LOGISIM_JAR ?= /usr/share/java/logisim-evolution/logisim-evolution.jar
 # What is still open after that gets one more pass with the routing so far
 # protected, so the router only has to close the rest.
 FREEROUTING_JAR ?= $(HOME)/.cache/freerouting/freerouting.jar
+
+# The router in a process the recipe can kill: an interrupted make otherwise
+# leaves a JVM chewing on the board, and the next run fights it for the files.
+ROUTE_ONE = sh -c 'java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
+	-de "$$0" -do "$$1" -mp $(FREEROUTING_PASSES) $$2 & \
+	pid=$$!; trap "kill $$pid 2> /dev/null" INT TERM HUP; wait $$pid'
 FREEROUTING_PASSES ?= 25
 FREEROUTING_CLEARANCES ?= 0.3 0.35 0.25
 
@@ -40,7 +47,7 @@ LOGISIM_PROG ?= bin/display.bin
 # What the headless harness boots, mirroring the CASES table in KoneTest.java.
 PROGRAMS := display hello keyboard test_klib_mem
 
-.PHONY: alu circ clean cpu gerbers kicad regfile route test
+.PHONY: alu circ clean cpu gerbers kicad regfile roms route test
 
 # The kasm binaries come from the top-level makefile.
 $(ROOT)/bin/%.bin:
@@ -58,9 +65,13 @@ cpu: $(ROOT)/$(LOGISIM_PROG)
 regfile:
 	@python3 python/build_regfile.py
 
+# One .bin per EEPROM, named after the chip's silkscreen label.
+roms: $(ROOT)/$(LOGISIM_PROG)
+	@python3 python/build_roms.py $(ROOT)/$(LOGISIM_PROG)
+
 clean:
 	rm -f $(CIRCS)
-	@targets='bin python/__pycache__ $(KICAD_DIR)'; $(RM_RF)
+	@targets='bin roms python/__pycache__ $(KICAD_DIR)'; $(RM_RF)
 
 # kone.circ booted headlessly in Logisim; needs a JDK and $(LOGISIM_JAR). The
 # harness reads its programs from the repo root, so java runs from there. It
@@ -126,9 +137,7 @@ route: kicad
 			printf "routing %s, %s mm clearance ...\n" "$$b" "$$c"; \
 			KONE_CLEARANCE=$$c python3 python/build_kicad.py $$b \
 				> /dev/null; \
-			java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
-				-de $$d/$$b.dsn -do $$d/$$b.ses \
-				-mp $(FREEROUTING_PASSES) \
+			$(ROUTE_ONE) $$d/$$b.dsn $$d/$$b.ses \
 				> $$d/route.log 2>&1; \
 			KONE_CLEARANCE=$$c python3 python/build_kicad.py --route $$b; \
 			if kicad-cli pcb drc --refill-zones --save-board \
@@ -140,9 +149,8 @@ route: kicad
 		if [ $$ok = 0 ]; then \
 			printf "closing what is left on %s ...\n" "$$b"; \
 			python3 python/build_kicad.py --fix $$b > /dev/null; \
-			java -Djava.awt.headless=true -jar $(FREEROUTING_JAR) \
-				-de $$d/$$b.dsn -do $$d/$$b.ses \
-				-mp $(FREEROUTING_PASSES) >> $$d/route.log 2>&1; \
+			$(ROUTE_ONE) $$d/$$b.dsn $$d/$$b.ses \
+				>> $$d/route.log 2>&1; \
 			python3 python/build_kicad.py --route $$b; \
 			kicad-cli pcb drc --refill-zones --save-board \
 				--severity-error --exit-code-violations \

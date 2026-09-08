@@ -45,6 +45,7 @@ Everything has its own makefile. From the repo root the targets carry a
 | `make logisim_cpu` | `make cpu` | only `kone.circ`; `LOGISIM_PROG=bin/<name>.bin` picks its program |
 | `make logisim_regfile`, `make logisim_alu` | `make regfile`, `make alu` | one circuit each |
 | `make logisim_test` | `make test` | boot four programs on `kone.circ` in Logisim, headless |
+| `make logisim_roms` | `make roms` | one EEPROM image per chip into `roms/` |
 | `make logisim_kicad` | `make kicad` | the KiCad projects, then ERC and DRC |
 | `make logisim_route` | `make route` | autoroute with Freerouting, then DRC |
 | `make logisim_gerbers` | `make gerbers` | DRC, then gerbers and drills zipped per board |
@@ -89,6 +90,7 @@ of the circuit from `logisim/bin/`: Logisim's loader stops with a dialog on the
 | `java/` | headless checks that run a generated file in Logisim |
 | `*.circ` | the generated files |
 | `kicad/<board>/` | the generated KiCad projects, `kicad/out/` their gerber zips |
+| `roms/` | the EEPROM images, one per chip, generated |
 | `PARTS.md` | every chip and part the six boards need, generated |
 | `kicad/BACKPLANE.md` | the connector pinout, generated |
 | `Makefile` | the targets above |
@@ -383,13 +385,15 @@ direction is the machine's, the mode is the Mega's.
 | `KBACK` | BP2.7 | out | 39 | input |
 | `GND` | BP1.2 | - | GND | - |
 
-One more wire is worth having: **J7 on the io board is the clock input**, and a
-free Mega pin on it turns the bridge into the single step debugger. The stack
+Two more wires are worth having: **J7 on the io board is the clock input** and
+**J8 is reset**, and a free Mega pin on each turns the bridge into the single
+step debugger. The stack
 normally runs off X1, the 1 MHz can oscillator, with the jumper on J6 across
 pins 1-2; move that jumper to 2-3 and `CLK` comes from J7 instead. Pulse it
 from the sketch and the machine advances one clock at a time, which is the only
-way to watch a microstep go by. J7's second pin is `GND`, so the Mega's ground
-is already shared.
+way to watch a microstep go by; pull J8 low first and the machine starts from
+BOOT rather than wherever it happened to be. Both headers have `GND` on their
+second pin, so the Mega's ground is already shared.
 
 `KBSET` (BP2.16) stays unconnected: the bridge watches the `KBAV` level rather
 than an edge. The data lines are seven bits wide, so ASCII 0-127 passes and
@@ -521,3 +525,40 @@ are the one DRC class it lets through; `make logisim_route` and
 The projects bring their own symbol and
 footprint library, so they do not depend on which version of KiCad's libraries
 is installed.
+
+## Assembly
+
+The six boards come out of `make logisim_gerbers` as ZIPs in `kicad/out/`, one
+per board, four layers each and all the same outline. What to do with them:
+
+**Stacking order does not matter.** Every board carries all four backplane
+connectors, and a pin whose signal a board has no use for is a pass-through:
+the pad is there, carrying the backplane net, with nothing else on that board
+on it. Only the orientation matters, and pin 1 wears a square pad and a dot on
+the silkscreen on every board. The four M3 holes sit 6 mm in from the corners
+on all six, so one set of standoffs goes through the lot.
+
+**Sockets.** `PARTS.md` counts one per DIP package. The eleven 28-pin memories
+and the can oscillator want them for certain, since those are the parts you
+pull to reprogram or to change the clock.
+
+**The EEPROMs.** `make logisim_roms` writes one image per chip into
+`logisim/roms/`, named after the label on the socket's silkscreen: `uLIT.bin`
+into the chip marked `28C256 uLIT`, `prog.bin` into `28C256 prog` on the memory
+board. `kicad/BACKPLANE.md` has the table with the board and reference of each.
+The nine microcode images are 256 bytes -- the address lines above A7 are
+grounded, so a programmer filling the rest of the chip with anything is fine.
+`LOGISIM_PROG` picks which kasm program becomes `prog.bin`.
+
+**Power and clock.** One 5 V regulated supply into the screw terminal (J5) on
+`io` feeds the whole stack; there is no regulator anywhere on it. X1, the can
+oscillator, drives `CLK` with the jumper on J6 across 1-2. Across 2-3 the clock
+comes from J7 instead, which is where an external generator or the Arduino
+bridge single-steps the machine.
+
+**Reset.** The microprogram counter is a 74377 and comes up wherever it likes,
+so the sequencer gates its next address to zero while `NRES` is low. `io`
+generates that: an RC (R2, C89) holds it down while the rails come up, U24
+squares the edge, and shorting J8 resets by hand. Microaddress 0 is `BOOT`,
+which sets the stack pointer and falls into FETCH -- the same thing
+`cpu_reset()` does in the vm.

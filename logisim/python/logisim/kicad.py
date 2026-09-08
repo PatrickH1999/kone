@@ -1097,6 +1097,89 @@ class Board:
                 [(n, str(n), "passive") for n in (1, 2, 3)],
                 "PinHeader_1x03_P2.54mm",
             )
+            # Power-on reset. The RC holds NRES low while the rails come up,
+            # the Schmitt inverter gives the sequencer a clean edge, and
+            # shorting J8 resets by hand. NRES is a backplane signal, so the
+            # sequencer sees it wherever it sits in the stack.
+            self._symbol(
+                "SCHMITT",
+                [
+                    (1, "A", "input"),
+                    (2, "Y", "output"),
+                    (3, "A", "input"),
+                    (4, "Y", "output"),
+                    (5, "A", "input"),
+                    (9, "A", "input"),
+                    (11, "A", "input"),
+                    (13, "A", "input"),
+                    (7, "GND", "power_in"),
+                    (14, "VCC", "power_in"),
+                ],
+                "DIP-14_W7.62mm",
+            )
+            reset = (CONN_X + 4 * CONN_PITCH, conn_y - 60)
+            for ref, value, footprint, symbol, pins, at, silk in (
+                (
+                    "U24",
+                    "7414",
+                    "DIP-14_W7.62mm",
+                    "SCHMITT",
+                    # the four gates nothing uses keep their inputs tied
+                    {1: "RESRC", 2: "RES", 3: "RES", 4: "NRES",
+                     5: "GND", 9: "GND", 11: "GND", 13: "GND",
+                     7: "GND", 14: "+5V"},
+                    (0, 0),
+                    "7414 reset",
+                ),
+                (
+                    "C88",
+                    "100n",
+                    "C_Disc_D5.0mm_P5.08mm",
+                    "C",
+                    {1: "+5V", 2: "GND"},
+                    (2, 16),
+                    "100n",
+                ),
+                (
+                    "R2",
+                    "10k",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: "+5V", 2: "RESRC"},
+                    (0, 26),
+                    "10k",
+                ),
+                (
+                    "C89",
+                    "10u",
+                    "CP_Radial_D6.3mm_P2.50mm",
+                    "CP",
+                    {1: "RESRC", 2: "GND"},
+                    (0, 34),
+                    "10u",
+                ),
+                (
+                    "J8",
+                    "RESET",
+                    "PinHeader_1x02_P2.54mm",
+                    "Conn_1x02",
+                    {1: "RESRC", 2: "GND"},
+                    (14, 30),
+                    "RESET",
+                ),
+            ):
+                self.parts.append(
+                    Part(
+                        ref,
+                        value,
+                        footprint,
+                        symbol,
+                        pins,
+                        (reset[0] + at[0], reset[1] + at[1]),
+                        silk=silk,
+                    )
+                )
+
             clock = (CONN_X + 5 * CONN_PITCH, conn_y - 60)
             for ref, value, footprint, symbol, pins, at, silk in (
                 (
@@ -1676,12 +1759,40 @@ def ses_fits(text, board):
     scale = _ses_scale(tree, board)
     # References are positional, so a part that changed under one keeps its
     # place: the footprint has to match too, not only the coordinates.
-    return all(
+    if not all(
         footprint == at[ref].footprint
         and abs(x / scale - at[ref].x) < 0.01
         and abs(-y / scale - at[ref].y) < 0.01
         for ref, (footprint, x, y) in placed.items()
-    )
+    ):
+        return False
+    # And the nets have to be the ones it routed: a signal added to the
+    # backplane moves every connector pin onto another net without moving a
+    # part, and the old tracks then join the wrong pins.
+    pads = {}
+    for net, (x, y), _ in _pads_of(board):
+        pads[(round(x, 2), round(y, 2))] = net
+    for session in _walk(tree, "session"):
+        for routes in _walk(session, "routes"):
+            for network in _walk(routes, "network_out"):
+                for net in _walk(network, "net"):
+                    for wire in _walk(net, "wire"):
+                        for path in _walk(wire, "path"):
+                            xy = [float(v) / scale for v in path[3:]]
+                            for i in (0, len(xy) - 2):
+                                at_pad = pads.get(
+                                    (round(xy[i], 2), round(-xy[i + 1], 2))
+                                )
+                                if at_pad is not None and at_pad != net[1]:
+                                    return False
+    return True
+
+
+def _pads_of(board):
+    """Every pad on the board as (net, (x, y), radius)."""
+    for part in board.parts:
+        for number, dx, dy, size, _ in pads(part.footprint):
+            yield part.pins.get(number), (part.x + dx, part.y + dy), size / 2
 
 
 def parse_ses(text, board):
