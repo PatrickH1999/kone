@@ -6,6 +6,9 @@ have no place on a board: a Tunnel is a net name, a Splitter joins a bus to its
 bits, a Pin becomes a header pin, Ground/Power/Constant become the two rails.
 """
 
+import math
+import os
+
 from .components import _TtlChip
 
 
@@ -220,6 +223,10 @@ class Netlist:
 # --------------------------------------------------------------------------
 
 PITCH = 2.54  # DIP pin pitch, and the schematic grid
+# A track has to pass between two pins, so the pad is as small as a
+# 0.8 mm drill allows: 2.54 - 1.4 leaves 1.14 mm, and a 0.25 track with
+# its clearance on both sides needs 0.95 of it.
+DIP_PAD = 1.4
 ROW = 7.62  # DIP row spacing, 0.3 inch packages throughout
 
 # One entry per pin: number -> (name, electrical type).
@@ -471,9 +478,12 @@ def _outline(key, box, layers=(("F.SilkS", 0.12), ("F.CrtYd", 0.05))):
     return out
 
 
-def _pad(key, number, shape, x, y, size, drill, nets):
+def _pad(key, number, shape, x, y, size, drill, nets, solid=False):
     net = nets.get(str(number))
     tail = f' (net {net[0]} "{net[1]}")' if net else ""
+    # A pin in a header grid has no room for two thermal spokes; the plane
+    # takes it solid instead, which is what DRC's spoke count asks for.
+    tail += " (zone_connect 2)" if solid else ""
     return (
         f'\t(pad "{number}" thru_hole {shape} (at {x:.2f} {y:.2f}) '
         f'(size {size} {size}) (drill {drill}) (layers "*.Cu" "*.Mask")'
@@ -508,7 +518,7 @@ def pads(footprint):
                 i + 1,
                 (i if i < half else pins - 1 - i) * PITCH,
                 0.0 if i < half else row,
-                1.6,
+                DIP_PAD,
                 0.8,
             )
             for i in range(pins)
@@ -599,6 +609,7 @@ def header_footprint(
                 size,
                 drill,
                 nets,
+                solid=True,
             )
         )
     out += _outline(
@@ -609,6 +620,18 @@ def header_footprint(
             ((cols - 1) * PITCH + 1.5, (rows - 1) * PITCH + 1.5),
             (-1.5, (rows - 1) * PITCH + 1.5),
         ],
+    )
+    # Pin 1, the one mark that says which way round the connector goes: a
+    # square around the pad and a dot beside it, the same on every board.
+    out += _outline(
+        key + "/pin1",
+        [(-1.5, -1.5), (1.5, -1.5), (1.5, 1.5), (-1.5, 1.5)],
+        layers=(("F.SilkS", 0.2),),
+    )
+    out.append(
+        f"\t(fp_circle (center -2.6 0) (end -2.2 0) "
+        '(stroke (width 0.12) (type solid)) (fill solid) (layer "F.SilkS") '
+        f'(uuid "{uid(key, "pin1")}"))'
     )
     out.append(")")
     return "\n".join(out) + "\n"
@@ -732,27 +755,49 @@ def cap_footprint(key=None, at=None, ref="C**", value="100n", nets=None):
 # --------------------------------------------------------------------------
 
 ORIGIN = 63.5  # the sheet grid; every stub lands on 1.27 mm
-CONN_STRIP = 95.0  # room at the bottom for the connectors
+CONN_STRIP = 60.0  # room at the bottom for the connectors
 CONN_X = 20.0  # the connector row, identical on every board
 CONN_PITCH = 45.0
 HOLE_INSET = 6.0  # M3 holes, one per corner
 HOLE_KEEPOUT = 7.0  # nothing routes inside this, washer room
-CAP_ROOM = 13.0  # room under an IC for its decoupling cap             # board grid per IC, room for its decoupling cap
+CAP_ROOM = 16.0  # under an IC: its cap, and the row's routing channel             # board grid per IC, room for its decoupling cap
 SCH_CELL = (63.5, 50.8)  # schematic grid, room for pin labels
+# KiCad 10 numbering: copper is even, F.Cu 0, B.Cu 2, inner layers from 4.
+# The two inner ones are solid planes, which is what makes 391 nets routable
+# on a board this dense: the router only sees signals.
 LAYERS = (
     (0, "F.Cu", "signal", None),
+    (4, "In1.Cu", "power", None),
+    (6, "In2.Cu", "power", None),
     (2, "B.Cu", "signal", None),
     (9, "F.Adhes", "user", "F.Adhesive"),
-    (11, "F.Paste", "user", None),
-    (13, "F.SilkS", "user", "F.Silkscreen"),
-    (15, "F.Mask", "user", None),
-    (17, "B.Mask", "user", None),
-    (31, "B.SilkS", "user", "B.Silkscreen"),
-    (33, "F.CrtYd", "user", "F.Courtyard"),
+    (13, "F.Paste", "user", None),
+    (5, "F.SilkS", "user", "F.Silkscreen"),
+    (1, "F.Mask", "user", None),
+    (3, "B.Mask", "user", None),
+    (7, "B.SilkS", "user", "B.Silkscreen"),
+    (31, "F.CrtYd", "user", "F.Courtyard"),
     (35, "F.Fab", "user", None),
-    (44, "Edge.Cuts", "user", None),
-    (45, "Margin", "user", None),
+    (25, "Edge.Cuts", "user", None),
+    (27, "Margin", "user", None),
 )
+
+# net -> the plane it lives on; these never reach the router.
+PLANES = (("GND", "In1.Cu"), ("+5V", "In2.Cu"))
+
+
+def _order(comp):
+    """Placement order: chips that share a label end up side by side, so a
+    register sits next to the driver it feeds and a bus stays local."""
+    label = comp.get("label") or ""
+    digits = "".join(c if c.isdigit() else " " for c in label).split()
+    return (
+        "".join(c for c in label if not c.isdigit()),
+        int(digits[0]) if digits else 0,
+        comp.NAME,
+        comp.y,
+        comp.x,
+    )
 
 
 class Board:
@@ -807,7 +852,7 @@ class Board:
     def _packages(self):
         """Every real IC: the TTL chips, then the memories, in layout order."""
         out = []
-        for chip in sorted(self.netlist.chips, key=lambda c: (c.y, c.x)):
+        for chip in sorted(self.netlist.chips, key=_order):
             pins = dip(chip)
             nets = {
                 n: (
@@ -820,7 +865,7 @@ class Board:
             out.append(
                 (chip.NAME, package(chip), pins, nets, chip.get("label"))
             )
-        for mem in sorted(self.netlist.memories, key=lambda c: (c.y, c.x)):
+        for mem in sorted(self.netlist.memories, key=_order):
             value, footprint = PARTS[mem.NAME]
             nets = {
                 n: self.net(v)
@@ -848,6 +893,16 @@ class Board:
         spans = [Part("U", v, f, v, {}, (0, 0)).span() for v, f, *_ in packages]
         body = max(h for _, h in spans)
         self.cell = (max(w for w, _ in spans) + 6, body + CAP_ROOM)
+        rows = (len(packages) + self.columns - 1) // self.columns
+        if self.size:
+            # Every board carries the largest one's outline, so a small board
+            # spreads its chips over the whole of it rather than crowding a
+            # corner: the router needs the channels more than the board needs
+            # to be compact.
+            self.cell = (
+                max(self.cell[0], (self.size[0] - 40) / self.columns),
+                max(self.cell[1], (self.size[1] - CONN_STRIP - 30) / rows),
+            )
         for i, (value, footprint, pins, nets, label) in enumerate(packages):
             col, row = i % self.columns, i // self.columns
             x, y = 20 + col * self.cell[0], 20 + row * self.cell[1]
@@ -879,11 +934,16 @@ class Board:
                     silk="100n",
                 )
             )
-        self.ic_rows = (len(packages) + self.columns - 1) // self.columns
+        self.ic_rows = rows
 
-        # The backplane: fixed positions system-wide, wired where this board
-        # has the signal. A board only carries the connectors it needs.
+        # The backplane: fixed positions system-wide. Every board carries every
+        # connector, so a stack goes together in any order; a pin whose signal
+        # a board has not got is a pass-through, carrying the backplane net
+        # and nothing else on that board.
         used = dict(enumerate(RAILS))
+        for signal, index in self.positions.items():
+            used.setdefault(index, signal)
+        driven = set()
         for pin in self.netlist.circuit.pins():
             label = pin.get("label")
             system, _ = self.ports.get(label, (label, 1))
@@ -894,7 +954,9 @@ class Board:
                 key = f"{system}{bit}" if len(nets) > 1 else system
                 if key in self.positions:
                     used[self.positions[key]] = self.net(net)
+                    driven.add(self.positions[key])
         self.used = used
+        self.driven = driven
         rows = HEADER_PINS // 2
         self._symbol(
             "Conn_2x20",
@@ -1010,7 +1072,161 @@ class Board:
                         footprint,
                         symbol,
                         pins,
-                        (CONN_X + 4 * CONN_PITCH, conn_y + dy),
+                        (CONN_X + 5 * CONN_PITCH, conn_y + dy - 40),
+                        silk=silk,
+                    )
+                )
+
+            # The clock the whole stack runs on. A can oscillator in a socket
+            # drives CLK through a jumper; move the jumper and an external
+            # source on J7 drives it instead, down to single steps by hand.
+            # Pin 1 is an enable on the cans that have one and open on the
+            # rest, so it is tied high either way.
+            self._symbol(
+                "OSC",
+                [
+                    (1, "EN", "input"),
+                    (7, "GND", "power_in"),
+                    (8, "OUT", "output"),
+                    (14, "VCC", "power_in"),
+                ],
+                "DIP-14_W7.62mm",
+            )
+            self._symbol(
+                "Conn_1x03",
+                [(n, str(n), "passive") for n in (1, 2, 3)],
+                "PinHeader_1x03_P2.54mm",
+            )
+            # Power-on reset. The RC holds NRES low while the rails come up,
+            # the Schmitt inverter gives the sequencer a clean edge, and
+            # shorting J8 resets by hand. NRES is a backplane signal, so the
+            # sequencer sees it wherever it sits in the stack.
+            self._symbol(
+                "SCHMITT",
+                [
+                    (1, "A", "input"),
+                    (2, "Y", "output"),
+                    (3, "A", "input"),
+                    (4, "Y", "output"),
+                    (5, "A", "input"),
+                    (9, "A", "input"),
+                    (11, "A", "input"),
+                    (13, "A", "input"),
+                    (7, "GND", "power_in"),
+                    (14, "VCC", "power_in"),
+                ],
+                "DIP-14_W7.62mm",
+            )
+            reset = (CONN_X + 4 * CONN_PITCH, conn_y - 60)
+            for ref, value, footprint, symbol, pins, at, silk in (
+                (
+                    "U24",
+                    "7414",
+                    "DIP-14_W7.62mm",
+                    "SCHMITT",
+                    # the four gates nothing uses keep their inputs tied
+                    {1: "RESRC", 2: "RES", 3: "RES", 4: "NRES",
+                     5: "GND", 9: "GND", 11: "GND", 13: "GND",
+                     7: "GND", 14: "+5V"},
+                    (0, 0),
+                    "7414 reset",
+                ),
+                (
+                    "C88",
+                    "100n",
+                    "C_Disc_D5.0mm_P5.08mm",
+                    "C",
+                    {1: "+5V", 2: "GND"},
+                    (2, 16),
+                    "100n",
+                ),
+                (
+                    "R2",
+                    "10k",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: "+5V", 2: "RESRC"},
+                    (0, 26),
+                    "10k",
+                ),
+                (
+                    "C89",
+                    "10u",
+                    "CP_Radial_D6.3mm_P2.50mm",
+                    "CP",
+                    {1: "RESRC", 2: "GND"},
+                    (0, 34),
+                    "10u",
+                ),
+                (
+                    "J8",
+                    "RESET",
+                    "PinHeader_1x02_P2.54mm",
+                    "Conn_1x02",
+                    {1: "RESRC", 2: "GND"},
+                    (14, 30),
+                    "RESET",
+                ),
+            ):
+                self.parts.append(
+                    Part(
+                        ref,
+                        value,
+                        footprint,
+                        symbol,
+                        pins,
+                        (reset[0] + at[0], reset[1] + at[1]),
+                        silk=silk,
+                    )
+                )
+
+            clock = (CONN_X + 5 * CONN_PITCH, conn_y - 60)
+            for ref, value, footprint, symbol, pins, at, silk in (
+                (
+                    "X1",
+                    "1MHz",
+                    "DIP-14_W7.62mm",
+                    "OSC",
+                    {1: "+5V", 7: "GND", 8: "OSC", 14: "+5V"},
+                    (0, 0),
+                    "1MHz",
+                ),
+                (
+                    "C87",
+                    "100n",
+                    "C_Disc_D5.0mm_P5.08mm",
+                    "C",
+                    {1: "+5V", 2: "GND"},
+                    (2, 16),
+                    "100n",
+                ),
+                (
+                    "J6",
+                    "CLK SRC",
+                    "PinHeader_1x03_P2.54mm",
+                    "Conn_1x03",
+                    {1: "OSC", 2: self.net("CLK"), 3: "EXTCLK"},
+                    (0, 28),
+                    "CLK SRC  osc/ext",
+                ),
+                (
+                    "J7",
+                    "EXT CLK",
+                    "PinHeader_1x02_P2.54mm",
+                    "Conn_1x02",
+                    {1: "EXTCLK", 2: "GND"},
+                    (20, 28),
+                    "EXT CLK",
+                ),
+            ):
+                self.parts.append(
+                    Part(
+                        ref,
+                        value,
+                        footprint,
+                        symbol,
+                        pins,
+                        (clock[0] + at[0], clock[1] + at[1]),
                         silk=silk,
                     )
                 )
@@ -1201,9 +1417,14 @@ def pcb(board, tracks=(), vias=()):
         if part.footprint.startswith("C_"):
             continue  # its reference on the silk is enough
         w, _ = part.span()
+        at = (
+            (part.x + PITCH / 2, part.y - 3.4)
+            if part.footprint.startswith("PinHeader_2x")
+            else (part.x + w / 2 - 2, part.y + ROW + 2.4)
+        )
         out.append(
-            f'\t(gr_text "{part.silk}" (at {part.x + w / 2 - 2:.2f} '
-            f'{part.y + ROW + 2.4:.2f}) (layer "F.SilkS") '
+            f'\t(gr_text "{part.silk}" (at {at[0]:.2f} '
+            f'{at[1]:.2f}) (layer "F.SilkS") '
             f'(uuid "{uid(part.ref, "silk")}") '
             "(effects (font (size 1 1) (thickness 0.15))))"
         )
@@ -1224,6 +1445,27 @@ def pcb(board, tracks=(), vias=()):
             f'(layers "F.Cu" "B.Cu") (net {nets_by_name.get(net, 0)}) '
             f'(uuid "{uid(board.name, "via", i)}"))'
         )
+
+    # GND and +5V are planes, not routed nets: 380 pads reach them straight
+    # through the board, and the two signal layers stay free.
+    pour = [
+        (x0 + EDGE, y0 + EDGE),
+        (x1 - EDGE, y0 + EDGE),
+        (x1 - EDGE, y1 - EDGE),
+        (x0 + EDGE, y1 - EDGE),
+    ]
+    for net, layer in PLANES:
+        out += [
+            f'\t(zone (net {nets[net]}) (net_name "{net}") (layer "{layer}") '
+            f'(uuid "{uid(board.name, "zone", net)}") (hatch edge 0.5)',
+            "\t\t(connect_pads (clearance 0.5))",
+            "\t\t(min_thickness 0.25) (filled_areas_thickness no)",
+            "\t\t(fill yes (thermal_gap 0.5) (thermal_bridge_width 0.5))",
+            "\t\t(polygon (pts "
+            + " ".join(f"(xy {x:.2f} {y:.2f})" for x, y in pour)
+            + "))",
+            "\t)",
+        ]
 
     box = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
     for i, (ax, ay) in enumerate(box):
@@ -1246,7 +1488,7 @@ PROJECT = {
     "board": {
         "design_settings": {
             "rule_severities": {
-                "unconnected_items": "warning",
+                "unconnected_items": "error",
                 "silk_over_copper": "warning",
                 "silk_overlap": "warning",
                 "lib_footprint_mismatch": "ignore",
@@ -1260,7 +1502,7 @@ PROJECT = {
 }
 
 
-def write(board, outdir, tracks=(), vias=()):
+def write(board, outdir, tracks=(), vias=(), fixed=False):
     """The whole project: libraries, tables, schematic, board, and its .dsn."""
     from pathlib import Path
 
@@ -1287,7 +1529,11 @@ def write(board, outdir, tracks=(), vias=()):
     (out / f"{board.name}.kicad_pro").write_text(json.dumps(project, indent=2))
     (out / f"{board.name}.kicad_sch").write_text(schematic(board))
     (out / f"{board.name}.kicad_pcb").write_text(pcb(board, tracks, vias))
-    (out / f"{board.name}.dsn").write_text(dsn(board))
+    # The design keeps what is routed only when asked: a fresh route starts
+    # from an empty board, a second pass keeps the tracks and closes the rest.
+    (out / f"{board.name}.dsn").write_text(
+        dsn(board, tracks, vias) if fixed else dsn(board)
+    )
     return out
 
 
@@ -1301,10 +1547,13 @@ def write(board, outdir, tracks=(), vias=()):
 DSN_SCALE = 10000  # (resolution um 10): one unit is 0.1 um
 VIA = "Via[0-1]_800:400_um"
 VIA_SIZE, VIA_DRILL = 0.8, 0.4  # mm
-TRACK_WIDTH = 0.25  # mm
+TRACK_WIDTH = 0.2  # mm; JLCPCB stops at 0.09, the room matters more
 EDGE = 1.0  # mm the routing keeps clear of the outline
-CLEARANCE = 0.25  # mm; KiCad's rule is 0.2, and the
-# router's rounding has to stay inside it
+# What the router is told to keep, wider than KiCad's 0.2 rule so its rounding
+# stays inside it. Which value comes out clean is a property of the board, not
+# of the run, so `route` retries with another one (KONE_CLEARANCE) rather than
+# running the same board twice.
+CLEARANCE = float(os.environ.get("KONE_CLEARANCE", "0.3"))
 
 
 def _padstack(size, square):
@@ -1320,8 +1569,12 @@ def _dsn(x, y):
     return f"{round(x * DSN_SCALE)} {round(-y * DSN_SCALE)}"
 
 
-def dsn(board):
-    """The board as a Specctra design, the autorouter's input."""
+def dsn(board, tracks=(), vias=()):
+    """The board as a Specctra design, the autorouter's input.
+
+    Tracks handed in go into the wiring section as protected, which is how the
+    router is asked to keep what it already found and only close the rest.
+    """
     # Inset the boundary: the router lays tracks right up to it, and copper on
     # the board outline is a DRC error.
     x0, y0, x1, y1 = board.extent()
@@ -1332,7 +1585,11 @@ def dsn(board):
             continue
         for number, net in part.pins.items():
             routable.setdefault(net, []).append(f"{part.ref}-{number}")
-    routable = {n: p for n, p in sorted(routable.items()) if len(p) > 1}
+    routable = {
+        n: p
+        for n, p in sorted(routable.items())
+        if len(p) > 1 and n not in {net for net, _ in PLANES}
+    }
 
     out = [
         f'(pcb "{board.name}.dsn"',
@@ -1425,9 +1682,20 @@ def dsn(board):
         "    )",
         "  )",
         "  (wiring",
-        "  )",
-        ")",
     ]
+    for net, layer, width, path in tracks:
+        if net in routable:
+            out.append(
+                f"    (wire (path {layer} {round(width * DSN_SCALE)} "
+                + " ".join(_dsn(x, y) for x, y in path)
+                + f') (net "{net}") (type protect))'
+            )
+    for net, x, y in vias:
+        if net in routable:
+            out.append(
+                f'    (via "{VIA}" {_dsn(x, y)} (net "{net}") (type protect))'
+            )
+    out += ["  )", ")"]
     return "\n".join(out) + "\n"
 
 
@@ -1465,6 +1733,66 @@ def _ses_scale(tree, board):
                     if part and part.x:
                         return float(place[2]) / part.x
     raise NetlistError("no placement in the session file to calibrate on")
+
+
+def ses_fits(text, board):
+    """Whether a session still describes this board.
+
+    A part added or moved since the router ran invalidates every track in it,
+    and applying it anyway lays copper through the new pads.
+    """
+    tree = _tree(_tokens(text))
+    placed = {
+        place[1]: (component[1], float(place[2]), float(place[3]))
+        for session in _walk(tree, "session")
+        for placement in _walk(session, "placement")
+        for component in _walk(placement, "component")
+        for place in _walk(component, "place")
+    }
+    at = {
+        part.ref: part
+        for part in board.parts
+        if part.symbol != "PWR" and part.pins
+    }
+    if set(placed) != set(at):
+        return False
+    scale = _ses_scale(tree, board)
+    # References are positional, so a part that changed under one keeps its
+    # place: the footprint has to match too, not only the coordinates.
+    if not all(
+        footprint == at[ref].footprint
+        and abs(x / scale - at[ref].x) < 0.01
+        and abs(-y / scale - at[ref].y) < 0.01
+        for ref, (footprint, x, y) in placed.items()
+    ):
+        return False
+    # And the nets have to be the ones it routed: a signal added to the
+    # backplane moves every connector pin onto another net without moving a
+    # part, and the old tracks then join the wrong pins.
+    pads = {}
+    for net, (x, y), _ in _pads_of(board):
+        pads[(round(x, 2), round(y, 2))] = net
+    for session in _walk(tree, "session"):
+        for routes in _walk(session, "routes"):
+            for network in _walk(routes, "network_out"):
+                for net in _walk(network, "net"):
+                    for wire in _walk(net, "wire"):
+                        for path in _walk(wire, "path"):
+                            xy = [float(v) / scale for v in path[3:]]
+                            for i in (0, len(xy) - 2):
+                                at_pad = pads.get(
+                                    (round(xy[i], 2), round(-xy[i + 1], 2))
+                                )
+                                if at_pad is not None and at_pad != net[1]:
+                                    return False
+    return True
+
+
+def _pads_of(board):
+    """Every pad on the board as (net, (x, y), radius)."""
+    for part in board.parts:
+        for number, dx, dy, size, _ in pads(part.footprint):
+            yield part.pins.get(number), (part.x + dx, part.y + dy), size / 2
 
 
 def parse_ses(text, board):
@@ -1505,3 +1833,4 @@ def parse_ses(text, board):
                             )
                         )
     return tracks, vias
+

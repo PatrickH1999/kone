@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define DISP_NCOLS 40
-#define DISP_NROWS 24
+#define DISP_NCOLS 20 // the grid of a 20x4 HD44780 module
+#define DISP_NROWS 4
 #define DISP_ASCII_LO 32    // Lower limit of ASCII printable chars (incl.)
 #define DISP_ASCII_HI 126   // Upper limit of ASCII printable chars (incl.)
 #define DISP_ASCII_BS 8     // Backspace: clears the cell before the cursor

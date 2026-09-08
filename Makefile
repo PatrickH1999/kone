@@ -61,7 +61,7 @@ logisim_%:
 
 clean: logisim_clean
 	$(MAKE) -C $(KASM_DIR) clean
-	rm -rf bin/ obj/
+	@targets='bin obj'; $(RM_RF)
 	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
 
 debug: CFLAGS += -g -O0 -DDEBUG
@@ -177,7 +177,7 @@ test-klib: $(KLIB_TEST_BINS) $(TARGET)
 		a='BEGIN{RS="\033\\[3J"}{p=c;c=$$0}END{printf "%s",p}'; \
 		awk "$$a" $$out | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/[[:space:]]*$$//' \
 			> $$out.frame; \
-		grep -oE '(PASS|FAIL):[a-z0-9_]+' $$out.frame | \
+		grep -aoE '(PASS|FAIL):[a-z0-9_]+' $$out | awk '!seen[$$0]++' | \
 		while IFS=: read -r r c; do \
 			if [ "$$r" = PASS ]; then col=$$dgrn; else col=$$dred; fi; \
 			printf "$$col[ %s ] $${rst}$${wht}%s$${rst}\n" "$$r" "$$c"; \
