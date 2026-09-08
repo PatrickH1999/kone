@@ -502,22 +502,7 @@ the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREER
 points. `logisim_clean` and `clean` delete `logisim/kicad/`, the `.ses` with it, so routing
 has to be recomputed rather than restored after either.
 
-**Pick up here (2026-09-09).** The one thing outstanding is the fabrication chain over all
-six boards:
-
-```
-make -C logisim route && make -C logisim gerbers
-```
-
-It has to end 6/6 with the ZIPs in `logisim/kicad/out/`, and it takes about 25 minutes.
-What is already verified: `regfile`, routed on its own, comes out at **0 DRC violations and
-0 unconnected pads** — that was the hard one, and what fixed it is in the repo (0.2 mm
-tracks and the protected second pass below). `make logisim_kicad` is 6/6, which only says
-the unrouted boards are sound. What is **not** verified: the other five since the track
-width changed. They still carry the routing they got at 0.25 mm, all of them 0/0 back then,
-so expect them to route again without trouble rather than to be a problem.
-
-Two things about running it, both of which cost a night:
+The chain takes about 25 minutes, and two things about running it cost a night each:
 
 - **Never run it next to another one.** Two runs write the same `kicad/<board>/` files and
   delete each other's sessions; it looks exactly like a board that will not route, and it
@@ -528,9 +513,10 @@ Two things about running it, both of which cost a night:
 
 What is left:
 
-1. **The clock and the two devices.** `CLK`, the TTY lines and the keyboard lines are
-   backplane signals, so nothing carries an oscillator module or the display and keyboard
-   connectors yet; they want a small seventh board, or a place on `io`.
+1. **The display and keyboard connectors.** The TTY and keyboard lines reach the backplane
+   but no board carries a socket for them: the Arduino bridge is wired to the stack
+   connector by hand, which `logisim/README.md` describes. The clock is done — `io` carries
+   the can oscillator (X1), the source jumper (J6) and the external clock header (J7).
 2. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a

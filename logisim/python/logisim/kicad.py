@@ -1077,6 +1077,77 @@ class Board:
                     )
                 )
 
+            # The clock the whole stack runs on. A can oscillator in a socket
+            # drives CLK through a jumper; move the jumper and an external
+            # source on J7 drives it instead, down to single steps by hand.
+            # Pin 1 is an enable on the cans that have one and open on the
+            # rest, so it is tied high either way.
+            self._symbol(
+                "OSC",
+                [
+                    (1, "EN", "input"),
+                    (7, "GND", "power_in"),
+                    (8, "OUT", "output"),
+                    (14, "VCC", "power_in"),
+                ],
+                "DIP-14_W7.62mm",
+            )
+            self._symbol(
+                "Conn_1x03",
+                [(n, str(n), "passive") for n in (1, 2, 3)],
+                "PinHeader_1x03_P2.54mm",
+            )
+            clock = (CONN_X + 5 * CONN_PITCH, conn_y - 60)
+            for ref, value, footprint, symbol, pins, at, silk in (
+                (
+                    "X1",
+                    "1MHz",
+                    "DIP-14_W7.62mm",
+                    "OSC",
+                    {1: "+5V", 7: "GND", 8: "OSC", 14: "+5V"},
+                    (0, 0),
+                    "1MHz",
+                ),
+                (
+                    "C87",
+                    "100n",
+                    "C_Disc_D5.0mm_P5.08mm",
+                    "C",
+                    {1: "+5V", 2: "GND"},
+                    (2, 16),
+                    "100n",
+                ),
+                (
+                    "J6",
+                    "CLK SRC",
+                    "PinHeader_1x03_P2.54mm",
+                    "Conn_1x03",
+                    {1: "OSC", 2: self.net("CLK"), 3: "EXTCLK"},
+                    (0, 28),
+                    "CLK SRC  osc/ext",
+                ),
+                (
+                    "J7",
+                    "EXT CLK",
+                    "PinHeader_1x02_P2.54mm",
+                    "Conn_1x02",
+                    {1: "EXTCLK", 2: "GND"},
+                    (20, 28),
+                    "EXT CLK",
+                ),
+            ):
+                self.parts.append(
+                    Part(
+                        ref,
+                        value,
+                        footprint,
+                        symbol,
+                        pins,
+                        (clock[0] + at[0], clock[1] + at[1]),
+                        silk=silk,
+                    )
+                )
+
         self._symbol("HOLE", [], "MountingHole_3.2mm_M3")
         for i, (hx, hy) in enumerate(
             (

@@ -383,6 +383,14 @@ direction is the machine's, the mode is the Mega's.
 | `KBACK` | BP2.7 | out | 39 | input |
 | `GND` | BP1.2 | - | GND | - |
 
+One more wire is worth having: **J7 on the io board is the clock input**, and a
+free Mega pin on it turns the bridge into the single step debugger. The stack
+normally runs off X1, the 1 MHz can oscillator, with the jumper on J6 across
+pins 1-2; move that jumper to 2-3 and `CLK` comes from J7 instead. Pulse it
+from the sketch and the machine advances one clock at a time, which is the only
+way to watch a microstep go by. J7's second pin is `GND`, so the Mega's ground
+is already shared.
+
 `KBSET` (BP2.16) stays unconnected: the bridge watches the `KBAV` level rather
 than an edge. The data lines are seven bits wide, so ASCII 0-127 passes and
 nothing above it -- the vm's keyboard takes 32-255, but a real keyboard has no

@@ -91,6 +91,9 @@ PASSIVES = {
     "5V IN": ("screw terminal 2x5.08mm", "supply entry"),
     "Power": ("pin header 1x02", "supply header"),
     "M3": ("M3 hole, screw and standoff", "stacking"),
+    "1MHz": ("1 MHz can oscillator, DIP-14", "the clock, in a socket"),
+    "CLK SRC": ("pin header 1x03 and jumper", "clock from the can or from J7"),
+    "EXT CLK": ("pin header 1x02", "external or hand stepped clock in"),
 }
 
 
@@ -143,7 +146,7 @@ def bom(path, boards, out):
     def package(value):
         if value == "Backplane":
             return "2.54mm"
-        if value not in CHIPS:
+        if value not in CHIPS and value != "1MHz":
             return "-"
         for board in boards.values():
             for part in board.parts:
@@ -256,7 +259,11 @@ def pinout(path, signals, boards):
         "terminal (J5) feeding `+5V` and `GND` into the backplane. Every other",
         "board is powered through the backplane connectors alone -- there is no",
         "regulator anywhere on the stack, so the supply has to be regulated 5 V.",
-        "`io` also carries the power indicator, an LED with a 220 ohm resistor",
+        "`io` also carries the clock and the power indicator: a 1 MHz can",
+        "oscillator (X1, socketed) drives `CLK` through the jumper on J6, and",
+        "moving that jumper hands `CLK` to J7 instead -- an external source, or",
+        "single pulses by hand, which is how the machine is stepped. The",
+        "indicator is an LED with a 220 ohm resistor",
         "(about 14 mA). Each board has a 100 uF bulk capacitor beside its",
         "connectors, and every IC its own 100 nF.",
         "",

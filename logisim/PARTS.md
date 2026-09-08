@@ -101,12 +101,15 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC11` | DIP-14 | triple 3-input AND | 1 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 23 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 24 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
+| `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
 | `screw terminal 2x5.08mm` | - | supply entry | 1 |
+| `pin header 1x03 and jumper` | - | clock from the can or from J7 | 1 |
+| `pin header 1x02` | - | external or hand stepped clock in | 1 |
 | `LED 3mm` | - | power indicator | 1 |
 | `pin header 1x02` | - | supply header | 1 |
 
@@ -130,13 +133,16 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC86` | DIP-14 | quad 2-input XOR | 2 |
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 179 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 180 |
 | `Backplane` | 2.54mm | board to board | 24 |
 | `M3 hole, screw and standoff` | - | stacking | 24 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 6 |
 | `pin header 1x02` | - | supply header | 6 |
+| `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
 | `screw terminal 2x5.08mm` | - | supply entry | 1 |
+| `pin header 1x03 and jumper` | - | clock from the can or from J7 | 1 |
+| `pin header 1x02` | - | external or hand stepped clock in | 1 |
 | `LED 3mm` | - | power indicator | 1 |
 
 179 chips over the six boards. Sockets are worth it for the two
