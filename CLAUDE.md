@@ -417,6 +417,19 @@ header pin means the same signal on every board. What costs time here:
   gap is 0.94, vertical channels through a chip run out, and one bus bit stays open no matter
   how long the router tries. Header pins take the plane solid (`zone_connect 2`); in a
   2.54 mm grid there is no room for the two thermal spokes DRC wants.
+- A track is **0.2 mm**, not 0.25. What matters is the room between two DIP pins, not the
+  current a bus bit carries, and 0.2 is still twice JLCPCB's minimum: it took `regfile` from
+  six open connections to one.
+- The last connection is closed by a **second pass with the routing so far protected**:
+  `build_kicad.py --fix` writes the design with every track it already has as
+  `(type protect)` in the wiring section, so the router only has to solve what it left open.
+  That is seconds of work and it is what `route` does after the clearances are exhausted.
+  Freerouting on its own stops at pass 18 of 25 and reports the connection rather than
+  laying it, so more passes are wasted time.
+- Grouping the decode tree's five 74138 side by side (they sort apart, `group` before the
+  16 OR gates, `sel0`-`sel3` after) makes it **worse**, six open instead of one: fanning
+  four selects out of one row costs more than the long way round. Tried, reverted, do not
+  try it again.
 - The router is far more deterministic than it looks: `-is random` and `-us global` both
   reproduced the same short down to the coordinate, so retrying a board unchanged is wasted
   time. The clearance in the `.dsn` is the input that changes its mind, which is why `route`
@@ -448,9 +461,11 @@ header pin means the same signal on every board. What costs time here:
   story. That check is what keeps the stack mechanically honest; do not weaken it.
 - A `.ses` is only valid for the board it was routed against. Applying a stale one puts
   copper through pads that were not there before — it cost alu 12 DRC errors — so
-  `ses_fits()` compares the session's placements against the board's parts and drops the
-  session instead. The comparison skips `PWR` parts and anything without pins, since the
-  `.dsn` does not place those either.
+  `ses_fits()` drops the session instead. It compares the **footprint and the position** of
+  every part: references are positional, so after a placement change the same `U65` is a
+  different chip, and comparing names alone let a stale session through for another 378
+  violations. The comparison skips `PWR` parts and anything without pins, since the `.dsn`
+  does not place those either.
 - `BACKPLANE.md` and `PARTS.md` are written from all six boards on every run, not from the
   ones a `--route <board>` invocation happened to touch.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
@@ -487,25 +502,29 @@ the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREER
 points. `logisim_clean` and `clean` delete `logisim/kicad/`, the `.ses` with it, so routing
 has to be recomputed rather than restored after either.
 
-**Pick up here (2026-09-08).** The display moved to 20x4 and every board took on all four
-backplane connectors; both are done and documented, but the fabrication chain has **not
-been re-verified since the connectors changed**. The last green `route`/`gerbers` run was
-before it, and the run started that evening was still on `regfile` when work stopped —
-`make logisim_kicad` was 6/6 at that point, which only says the unrouted boards are sound.
-So the first thing tomorrow is:
+**Pick up here (2026-09-09).** The one thing outstanding is the fabrication chain over all
+six boards:
 
 ```
 make -C logisim route && make -C logisim gerbers
 ```
 
-and it has to end 6/6 with the ZIPs in `logisim/kicad/out/`. Expect it to take twenty
-minutes or so: every session was thrown away, because the added connectors changed all six
-boards, so nothing is routed at the moment. If a board fails, the retry with the next
-`FREEROUTING_CLEARANCES` value is the first lever and more room the second — never a
-re-run of the same board unchanged. To find out whether the run finished on its own after
-all: six ZIPs in `logisim/kicad/out/` newer than the boards, and
-`kicad-cli pcb drc --refill-zones --save-board --severity-error --exit-code-violations`
-green on each of the six.
+It has to end 6/6 with the ZIPs in `logisim/kicad/out/`, and it takes about 25 minutes.
+What is already verified: `regfile`, routed on its own, comes out at **0 DRC violations and
+0 unconnected pads** — that was the hard one, and what fixed it is in the repo (0.2 mm
+tracks and the protected second pass below). `make logisim_kicad` is 6/6, which only says
+the unrouted boards are sound. What is **not** verified: the other five since the track
+width changed. They still carry the routing they got at 0.25 mm, all of them 0/0 back then,
+so expect them to route again without trouble rather than to be a problem.
+
+Two things about running it, both of which cost a night:
+
+- **Never run it next to another one.** Two runs write the same `kicad/<board>/` files and
+  delete each other's sessions; it looks exactly like a board that will not route, and it
+  sent me chasing a placement bug that was not there.
+- A long run in the background was killed twice from outside, once in the middle of `alu`,
+  which then reported `no alu.ses; run the router first`. Start it detached
+  (`setsid nohup sh -c '...' &`) and read the log rather than the exit code.
 
 What is left:
 
