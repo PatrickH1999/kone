@@ -1,6 +1,4 @@
 __pycache__/
 *.circ
 *.autosave
-kicad/
-roms/
 bin/

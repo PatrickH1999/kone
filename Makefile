@@ -10,8 +10,12 @@ LDFLAGS :=
 
 TARGET := bin/kone
 
-SRCS := $(wildcard src/*.c)
-OBJS := $(patsubst src/%.c, obj/%.o, $(SRCS))
+# The two programs are a directory each under src/; kasm has its own makefile.
+KONE_DIR := src/kone
+KASM_DIR := src/kasm
+
+SRCS := $(wildcard $(KONE_DIR)/*.c)
+OBJS := $(patsubst $(KONE_DIR)/%.c, obj/%.o, $(SRCS))
 DEPS := $(OBJS:.o=.d)
 
 TEST_SRCS := $(wildcard tests/*.c)
@@ -32,7 +36,6 @@ KLIB_TEST_BINS := $(patsubst tests/klib/test_%.kasm, bin/test_klib_%.bin, \
 # this long.
 KLIB_TEST_TIMEOUT := 20
 
-KASM_DIR := src/kasm
 KASM := bin/kasm
 KASM_SRCS := $(wildcard $(KASM_DIR)/*.c) $(wildcard $(KASM_DIR)/*.h)
 KASM_OBJS := obj/assembler.o obj/isa.o obj/symtab.o
@@ -55,10 +58,15 @@ all: $(TARGET) $(KASM) $(EXAMPLE_TARGETS)
 
 check: format all
 
-# Everything Logisim and KiCad lives in logisim/ and has its own makefile.
+# The circuits and the boards are a directory each, with a makefile each.
 logisim_%:
 	@$(MAKE) -C logisim $*
 
+kicad_%:
+	@$(MAKE) -C kicad $*
+
+# Deliberately not `kicad_clean`: the boards carry the router's sessions, which
+# cost about 25 minutes to recompute and are not in git. Ask for them by name.
 clean: logisim_clean
 	$(MAKE) -C $(KASM_DIR) clean
 	@targets='bin obj'; $(RM_RF)
@@ -71,7 +79,8 @@ examples: $(EXAMPLE_TARGETS)
 
 # C with clang-format, python with ruff or black -- neither is a build
 # dependency, so a missing formatter is reported rather than fatal.
-PYTHON_SRCS := $(shell find logisim -name '*.py' -not -path '*__pycache__*')
+PYTHON_SRCS := $(shell find logisim kicad -name '*.py' \
+                     -not -path '*__pycache__*')
 
 format:
 	clang-format -i $$(find . -name '*.c' -or -name '*.h')
@@ -136,7 +145,7 @@ bin/test_klib_%.bin: tests/klib/test_%.kasm $(KLIB_SRCS) $(KASM)
 obj bin:
 	mkdir -p $@
 
-obj/%.o: src/%.c | obj bin
+obj/%.o: $(KONE_DIR)/%.c | obj bin
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
 
 test-kasm: $(KASM_TEST_BIN)
@@ -153,8 +162,14 @@ test-kasm: $(KASM_TEST_BIN)
 	group=kasm; \
 	$(TEST_SUMMARY)
 
+# A kone program never halts, so every case here has to be killed. The VM forks
+# a display and a keyboard child, and an interrupted make would orphan the lot:
+# they keep bin/kone and their redirected output open, which on a FUSE mount
+# leaves .fuse_hidden entries that make `clean` fail on a non-empty bin/.
 test-klib: $(KLIB_TEST_BINS) $(TARGET)
 	@$(TEST_COLORS); \
+	trap 'pkill -f "$(TARGET) -b bin/test_klib[_]" > /dev/null 2>&1' \
+		INT TERM HUP EXIT; \
 	passed=0; failed=0; \
 	printf "\n"; \
 	for t in $(KLIB_TEST_BINS); do \
@@ -174,6 +189,7 @@ test-klib: $(KLIB_TEST_BINS) $(TARGET)
 		pkill -P $$pid > /dev/null 2>&1; \
 		kill $$pid > /dev/null 2>&1; \
 		wait $$pid 2>/dev/null; \
+		pkill -f "$(TARGET) -b $$t" > /dev/null 2>&1; \
 		a='BEGIN{RS="\033\\[3J"}{p=c;c=$$0}END{printf "%s",p}'; \
 		awk "$$a" $$out | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/[[:space:]]*$$//' \
 			> $$out.frame; \

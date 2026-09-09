@@ -17,7 +17,7 @@ Open points, kept short; the design limits that are not going to change are in
 
 - [ ] __No connectors for the display and the keyboard.__ Their lines reach the
   backplane, but no board carries a socket, so the Arduino bridge is wired to
-  the stack connector by hand as `logisim/README.md` describes.
+  the stack connector by hand as `kicad/README.md` describes.
 
 - [ ] __No bill of materials export.__ `PARTS.md` is the list to order from;
   `kicad-cli sch export bom` would give a machine readable one and there is no

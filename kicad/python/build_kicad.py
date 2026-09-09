@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """KiCad projects for the boards, from the circuits the .circ files come from.
 
-    python3 logisim/python/build_kicad.py [board ...]
-    python3 logisim/python/build_kicad.py --route [board ...]
+    python3 kicad/python/build_kicad.py [board ...]
+    python3 kicad/python/build_kicad.py --route [board ...]
 
-One directory per board under logisim/kicad/, each a KiCad project with its own
+One directory per board under kicad/boards/, each a KiCad project with its own
 symbol and footprint library: KiCad's own libraries are a separate install and
 this way the boards do not depend on which version of them is present.
 
@@ -16,7 +16,14 @@ import re
 import sys
 from pathlib import Path
 
-from logisim.kicad import (
+# The boards are generated from the circuits in logisim/python, so that
+# directory holds both the logisim package and the build_*.py this imports.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "logisim" / "python")
+)
+
+from kicad import (  # noqa: E402
     Board,
     HEADER_PINS,
     RAILS,
@@ -26,12 +33,12 @@ from logisim.kicad import (
     system_nets,
     write,
 )
-from build_alu import alu
-from build_kone import datapath, io, kone, memory, sequencer
-from build_regfile import regfile
-from kone_microcode import assemble
+from build_alu import alu  # noqa: E402
+from build_kone import datapath, io, kone, memory, sequencer  # noqa: E402
+from build_regfile import regfile  # noqa: E402
+from kone_microcode import assemble  # noqa: E402
 
-OUT = Path(__file__).resolve().parents[1] / "kicad"
+OUT = Path(__file__).resolve().parents[1] / "boards"
 
 # name -> chips per row on the board
 BOARDS = {
@@ -320,7 +327,7 @@ def pinout(path, signals, boards):
         "",
         "## EEPROMs",
         "",
-        "`make logisim_roms` writes one image per chip into `logisim/roms/`.",
+        "`make kicad_roms` writes one image per chip into `kicad/roms/`.",
         "Each file is named after the label on the socket's silkscreen, so",
         "`uLIT.bin` goes into the chip marked `28C256 uLIT`. The nine microcode",
         "images are 256 bytes: the address lines above A7 are grounded, so the",
@@ -459,5 +466,5 @@ if __name__ == "__main__":
         )
     print(pinout(OUT / "BACKPLANE.md", signals, boards))
     # The parts list is documentation, not a build artifact, so it lives
-    # beside the README rather than in the ignored kicad/ tree.
+    # beside the README rather than in the ignored boards/ tree.
     print(bom(OUT.parent / "PARTS.md", boards, OUT))

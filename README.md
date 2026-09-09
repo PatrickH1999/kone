@@ -18,6 +18,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 ## Table of contents:
 
 - [Start](#start)
+- [Folder structure](#folder-structure)
 - [Make targets](#make-targets)
 - [`kone` usage](#kone-usage)
 - [`kasm` usage](#kasm-usage)
@@ -44,7 +45,19 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
     - [`math`](#math)
     - [`mem`](#mem)
     - [`str`](#str)
-- [Logisim circuits and PCBs](#logisim-circuits-and-pcbs)
+- [Circuits and boards](#circuits-and-boards)
+
+## Folder structure
+- __bin__: `kone`, `kasm`, `kone` binaries (*.bin), tests (test_*)
+- __examples__: `kasm` examples
+- __kicad__: PCB circuit diagrams
+- __klib__: `kasm` standard library
+- __logisim__: logic diagrams
+- __src__: source code
+    - __kone__: the virtual machine
+    - __kasm__: the assembler
+- __tests__: unit tests of the virtual machine, the assembler and `klib`
+- __tools__: development tools
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
@@ -55,6 +68,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make debug`: build with debugging symbols and no optimization
  - `make kasm`: build only the assembler
  - `make logisim_<target>`: anything in `logisim/`, forwarded to its own makefile (see [`logisim/README.md`](logisim/README.md))
+ - `make kicad_<target>`: anything in `kicad/`, forwarded to its own makefile (see [`kicad/README.md`](kicad/README.md))
  - `make hooks`: install the pre-commit hook, which runs `make format` and re-stages what it changed
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
@@ -283,5 +297,5 @@ The kone ISA has no register indirect addressing: `LDM` and `STM` take an absolu
 
 - `str_eq`: compares two null terminated strings and returns 0 or 1 in `R0`. It reads them through `mem_peek`, so `klib/mem.kasm` has to be included alongside `klib/str.kasm`.
 
-## Logisim circuits and PCBs
-The machine also exists as hardware: `logisim/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips (the register file, the ALU and the whole CPU) and turns the same circuits into six stackable KiCad boards with gerbers, an EEPROM image per memory and a parts list to order from. Nothing has been built yet, and one board carries a known defect -- see [ISSUES.md](ISSUES.md) before ordering. It has its own makefile and its own documentation: **[`logisim/README.md`](logisim/README.md)**. From here, every one of its targets is reachable with a `logisim_` prefix, `make logisim_circ` and `make logisim_test` to begin with.
+## Circuits and boards
+The machine also exists as hardware, in two directories with a makefile and a README each. `logisim/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips -- the register file, the ALU and the whole CPU -- and boots programs on them headlessly: **[`logisim/README.md`](logisim/README.md)**. `kicad/` turns those same circuits into six stackable KiCad boards with gerbers, an EEPROM image per memory and a parts list to order from: **[`kicad/README.md`](kicad/README.md)**. Nothing has been built yet, and one board carries a known defect -- see [ISSUES.md](ISSUES.md) before ordering. From here their targets are reachable with a `logisim_` or a `kicad_` prefix, `make logisim_circ` and `make kicad_boards` to begin with.

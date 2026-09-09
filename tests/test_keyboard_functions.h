@@ -4,8 +4,8 @@
 #include <assert.h>
 #include <unistd.h>
 
-#include "../src/cpu_functions.h"
-#include "../src/keyboard_functions.h"
+#include "../src/kone/cpu_functions.h"
+#include "../src/kone/keyboard_functions.h"
 #include "test_common.h"
 
 void test_keyboard_get_char_reads_available_byte();

@@ -3,8 +3,8 @@
 
 #include <assert.h>
 
-#include "../src/cpu_functions.h"
-#include "../src/utility.h"
+#include "../src/kone/cpu_functions.h"
+#include "../src/kone/utility.h"
 #include "test_common.h"
 
 void test_cpu_init(CPU *cpu);

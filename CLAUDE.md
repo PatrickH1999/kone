@@ -22,14 +22,18 @@ make test       # test-kone + test-kasm + test-klib (a failing group does not st
 make format     # clang-format + ruff (or black), run before finishing
 make hooks      # install the pre-commit hook that runs make format
 make logisim_<t>    # forwarded to logisim/Makefile, which owns circ, cpu, test,
-                    # kicad, route, gerbers, clean (see logisim/README.md)
+                    # clean (see logisim/README.md)
+make kicad_<t>      # forwarded to kicad/Makefile, which owns boards, route,
+                    # gerbers, roms, clean (see kicad/README.md)
 bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
 
-`make clean` also deletes `$(PREFIX)/bin/{kone,kasm}`, the generated `.circ` files and
-`logisim/kicad/` (`make logisim_clean` for only those, and it leaves a hand-drawn circuit
-alone; the routing goes with them and has to be recomputed); `make debug`
+`make clean` also deletes `$(PREFIX)/bin/{kone,kasm}` and the generated `.circ` files
+(`make logisim_clean` for only those; it leaves a hand-drawn circuit alone). It does **not**
+touch `kicad/boards/` — that takes `make kicad_clean`, on purpose: the boards carry the
+router's `.ses` sessions, which are not in git and cost about 25 minutes to recompute.
+`make debug`
 depends on `clean`, so it uninstalls as a side effect. `make -n clean` is not a dry run
 either — the recursive `$(MAKE) -C src/kasm clean` runs for real and takes `bin/kasm` with
 it. kasm emits no depfiles, so any klib edit rebuilds every
@@ -73,14 +77,14 @@ print('\n'.join(l.rstrip() for l in last.splitlines() if l.strip()))
 
 | Path | Contents |
 | --- | --- |
-| `src/` | VM: `cpu_*`, `alu_*`, `display_*`, `keyboard_*`, `args`, `utility`, `kone.c` |
+| `src/kone/` | VM: `cpu_*`, `alu_*`, `display_*`, `keyboard_*`, `args`, `utility`, `kone.c` |
 | `src/kasm/` | assembler: `isa`, `symtab`, `assembler`, `kasm.c` (own Makefile) |
 | `klib/<class>/` | one routine per file; `klib/<class>.kasm` umbrella `.include`s them |
 | `examples/` | `*.kasm` → `bin/*.bin`, auto-discovered by wildcard |
-| `tests/` | C unit tests, one `test_<module>.{c,h}` per `src/<module>.c` |
+| `tests/` | C unit tests, one `test_<module>.{c,h}` per `src/kone/<module>.c` |
 | `tests/klib/` | klib tests as kasm programs, plus optional `.in` / `.expect` |
-| `logisim/` | the machine as hardware: own `Makefile` and `README.md`, the generator in `python/`, the harness in `java/` |
-
+| `logisim/` | the machine as circuits: own `Makefile` and `README.md`, the generator in `python/`, the harness in `java/` |
+| `kicad/` | the machine as boards: own `Makefile` and `README.md`, the second backend in `python/` |
 | `tools/` | `bin2bits.sh` and `hooks/pre-commit`, which `make hooks` installs |
 
 A new klib file must be `.include`d from its group file (`klib/math/int32.kasm`,
@@ -96,7 +100,8 @@ Right`, `SortIncludes: false`). Beyond what it decides, follow Google C++ style.
 header first then system then project includes, `const` on value parameters, trailing
 underscore to dodge keywords (`char_`).
 
-**Python** — `make format` runs `ruff format` (or `black`) over `logisim/**/*.py` with the
+**Python** — `make format` runs `ruff format` (or `black`) over `logisim/**/*.py` and
+`kicad/**/*.py` with the
 line length in `pyproject.toml`, 80, the same column limit `.clang-format` uses. Neither tool is a
 build dependency: without one, `make format` says so and leaves the files alone.
 
@@ -214,7 +219,7 @@ arrives as ASCII 10 (CR 13 is normalized to 10 in `keyboard_push_cpu`); backspac
 **Display** (own process) — write the char to `R19`, write 1 to `R18`, then poll `R18`
 until it is 0 before pushing the next char, or the char is overwritten before the display
 sees it. 20x4 grid — the geometry of the LCD2004 the machine is built for, see
-`logisim/README.md`; a full row advances to the next (cleared) row, a full last row clears
+`kicad/README.md`; a full row advances to the next (cleared) row, a full last row clears
 the whole display. Chars outside 32-126 occupy a cell but render blank. Writing 8 to `R19`
 steps back one cell and clears it; at column 0 it does nothing.
 
@@ -284,12 +289,13 @@ so a new test file states its cases and nothing else. An example's own scratch g
 
 `logisim/` has its own `Makefile` (the root forwards `logisim_%` to it) and its own
 `README.md`, which is where the reference material lives. `logisim/python/` generates the
-`.circ` files that build kone out of 74xx chips: `core.py`
+`.circ` files that build kone out of 74xx chips: `logisim/core.py`
 is the document model (`Component`, `Wire`, `Circuit`, `Project`, grid and net checks),
-`components.py` the concrete parts and their port geometry, one `build_*.py` per circuit.
-`make logisim_circ` runs them all, `make logisim_regfile` and `make logisim_alu` one
-each; every Logisim target and variable carries that prefix. Reference is
-`logisim/README.md`; what costs time:
+`logisim/components.py` the concrete parts and their port geometry, one `build_*.py` per
+circuit. `make logisim_circ` runs them all, `make logisim_regfile` and `make logisim_alu`
+one each; every Logisim target and variable carries that prefix. The boards in `kicad/`
+import this package and these build scripts, never the other way round, so nothing here
+knows about KiCad. Reference is `logisim/README.md`; what costs time:
 
 - Port offsets are read out of Logisim's own jar, never guessed. A new part needs the same
   treatment — for a TTL chip, `AbstractTtlGate.portNames` and `outputPorts` give the pinout
@@ -374,16 +380,17 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 
 ## KiCad
 
-`logisim/python/logisim/kicad.py` is a second backend on the same `Circuit` objects the
+`kicad/` has its own `Makefile` (the root forwards `kicad_%` to it) and its own
+`README.md`. `kicad/python/kicad.py` is a second backend on the same `Circuit` objects the
 `.circ` writer uses: `Netlist` resolves the tunnels and splitters into real nets, `Board`
 adds what Logisim does not model (VCC/GND pins, a 100nF per IC, headers) and `write()` emits
 a KiCad 10 project. A change to a `build_*.py` therefore reaches both outputs, and nothing
 parses a generated `.circ`. `build_kicad.py` builds the boards listed in its `BOARDS` table
-and writes `logisim/kicad/BACKPLANE.md`, the pinout every board carries, and
-`logisim/PARTS.md`, what to order — one section per board, a total, and a hand kept
+and writes `kicad/boards/BACKPLANE.md`, the pinout every board carries, and
+`kicad/PARTS.md`, what to order — one section per board, a total, and a hand kept
 interface section, with the per-board counts checked against the placed footprints. It lives
-beside the README because `logisim/kicad/` is generated and `clean` deletes it.
-`logisim/README.md` is the only hand written doc on the hardware side: it also carries the
+beside the README because `kicad/boards/` is generated and `clean` deletes it.
+`kicad/README.md` is the hand written doc on the board side: it carries the
 board format, and the Arduino Mega 2560 bridge that runs the USB keyboard and the LCD2004 —
 its pin map onto the io board's device signals and the two protocols it implements.
 `build_kicad.py` warns when the outline the README states no longer matches the boards.
@@ -449,7 +456,7 @@ header pin means the same signal on every board. What costs time here:
   their nets are `+5V` and `GND`. Naming them after the pin instead leaves a "VCC" net that
   nothing drives -- which is what ERC's `power_pin_not_driven` is for.
 - The gate is `--severity-error --exit-code-violations` on both tools, and open connections
-  are **errors**, so a board that is not fully routed cannot pass. `logisim_kicad` checks a
+  are **errors**, so a board that is not fully routed cannot pass. `kicad_boards` checks a
   board that has no tracks yet, so it is the one step that lets that class through — it fails
   on anything else. DRC runs with `--refill-zones --save-board`: the planes have to be poured
   before connectivity means anything, and the poured board is what the gerbers export.
@@ -478,16 +485,17 @@ header pin means the same signal on every board. What costs time here:
   ones a `--route <board>` invocation happened to touch.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout
   circle over each one on both layers. Without it tracks run straight through the M3 holes.
-- `make logisim_roms` writes the ten EEPROM images into `logisim/roms/`, each named after
-  the label on its socket's silkscreen. `build_roms.py` is not one of the circuit scripts,
-  so `SCRIPTS` filters it out the way it filters `build_kicad.py`.
+- `make kicad_roms` writes the ten EEPROM images into `kicad/roms/`, each named after
+  the label on its socket's silkscreen. `build_roms.py` sits in `kicad/python/` beside
+  `build_kicad.py` and imports the microcode from `logisim/python`, so neither of them is
+  one of logisim's circuit scripts — which is why `SCRIPTS` there is a plain wildcard.
 - The router runs through `ROUTE_ONE`, which starts the JVM in the background and traps
   INT/TERM to kill it. An interrupted `make` used to leave a JVM chewing on the board, and
   the next run then fought it for the same files.
 - Routing runs through Freerouting, which is not packaged: put its jar where
-  `FREEROUTING_JAR` points (`~/.cache/freerouting/freerouting.jar`) and `make logisim_route`
+  `FREEROUTING_JAR` points (`~/.cache/freerouting/freerouting.jar`) and `make kicad_route`
   writes the `.dsn`, runs it and reads the `.ses` back into the board. KiCad 10's CLI has
-  neither Specctra export nor import, so both ends live in `kicad.py`.
+  neither Specctra export nor import, so both ends live in `kicad/python/kicad.py`.
 - **Every dimension in a `.dsn` uses the same scale** as its coordinates (`resolution um 10`
   is 0.1 um per unit): pad and via shapes, track width, clearance. Getting the pads wrong by
   a factor of ten lets the router pull tracks straight through them, and the board comes back
@@ -507,18 +515,18 @@ The VM, kasm, klib and the Logisim circuits are done and green: `make test` 3/3,
 `make logisim_test` 5/5 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
 `kone.circ` in Logisim's own simulator.
 
-All six boards are generated, ERC clean and fully routed: `make logisim_clean && make
-logisim_route && make logisim_gerbers` ends 6/6 with every board at 0 unrouted connections
-and 0 DRC violations, no manual pass in pcbnew, and the ZIPs in `logisim/kicad/out/`. That
+All six boards are generated, ERC clean and fully routed: `make kicad_clean && make
+kicad_route && make kicad_gerbers` ends 6/6 with every board at 0 unrouted connections
+and 0 DRC violations, no manual pass in pcbnew, and the ZIPs in `kicad/boards/out/`. That
 took **four layers** — `In1.Cu` is a GND plane, `In2.Cu` a +5V plane — which costs more per
 board than two but is what takes the two rails off the signal layers. Freerouting is not in
 the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR`
-points. `logisim_clean` and `clean` delete `logisim/kicad/`, the `.ses` with it, so routing
-has to be recomputed rather than restored after either.
+points. `kicad_clean` deletes `kicad/boards/`, the `.ses` with it, so routing has to be
+recomputed rather than restored afterwards; that is why the root `clean` does not call it.
 
 The chain takes about 25 minutes, and two things about running it cost a night each:
 
-- **Never run it next to another one.** Two runs write the same `kicad/<board>/` files and
+- **Never run it next to another one.** Two runs write the same `boards/<board>/` files and
   delete each other's sessions; it looks exactly like a board that will not route, and it
   sent me chasing a placement bug that was not there.
 - A long run in the background was killed twice from outside, once in the middle of `alu`,
@@ -540,7 +548,7 @@ What is left:
    another guess. **Do not fabricate the memory board before this is settled.**
 2. **The display and keyboard connectors.** The TTY and keyboard lines reach the backplane
    but no board carries a socket for them: the Arduino bridge is wired to the stack
-   connector by hand, which `logisim/README.md` describes. The clock is done — `io` carries
+   connector by hand, which `kicad/README.md` describes. The clock is done — `io` carries
    the can oscillator (X1), the source jumper (J6) and the external clock header (J7).
 3. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
 

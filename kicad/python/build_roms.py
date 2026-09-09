@@ -9,7 +9,10 @@ never read.
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+# The microprogram is the sequencer's, so it lives with the circuits.
+sys.path.insert(
+    0, str(Path(__file__).resolve().parents[2] / "logisim" / "python")
+)
 
 from kone_microcode import assemble  # noqa: E402
 
