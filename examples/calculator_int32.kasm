@@ -1,5 +1,5 @@
 // An interactive 32 bit signed integer calculator on klib's int32_read and
-// int32_write; README.md documents how a line is read.
+// int32_puts; README.md documents how a line is read.
 
     JMP main
 
@@ -8,8 +8,8 @@
 .include "../klib/io/int32_write.kasm"
 .include "../klib/io/int32_read.kasm"
 
-// main: prompt, read one line, apply it and print the accumulator; every
-// path loops back here
+// main: the first prompt of the run; every later line opens in
+// 'calculator_int32__next', once the result before it has been read
 main:
     LDI 62          // '>'
     CLL disp_putc
@@ -23,6 +23,8 @@ calculator_int32__key:
     LDI 248         // 256 - 8 -> BS, same
     ADD 13
     JA0 calculator_int32__key
+
+calculator_int32__dispatch:
     LDI 208         // 256 - 48; carry set only for chars >= '0'
     ADD 13
     JC0 calculator_int32__operator
@@ -242,8 +244,7 @@ calculator_int32__div_zero:
     CLL disp_putc
     LDI 82          // 'R'
     CLL disp_putc
-    CLL disp_nl
-    JMP main
+    JMP calculator_int32__next
 
 calculator_int32__store:
     LDR 8
@@ -255,9 +256,42 @@ calculator_int32__store:
     LDR 11
     STR 3
 
+// calculator_int32__print: prints the accumulator but leaves its row open --
+// int32_write ends the row, and ending the last one clears the display, which
+// is what used to wipe a result the moment it appeared
 calculator_int32__print:
-    CLL int32_write
-    JMP main
+    LDI 61          // '='
+    CLL disp_putc
+    CLL int32_puts
+
+// calculator_int32__next: the result stays on the display until a key is
+// pressed; that key opens the line under it and is then dispatched as its first
+calculator_int32__next:
+    CLL calculator_int32__read_key
+    STR 14
+    LDI 129         // 256 - 127 -> DEL, nothing to erase -> ignore it
+    ADD 14
+    JA0 calculator_int32__next
+    LDI 248         // 256 - 8 -> BS, same
+    ADD 14
+    JA0 calculator_int32__next
+    CLL calculator_int32__newline
+    LDI 62          // '>'
+    CLL disp_putc
+    LDR 14
+    STR 13
+    JMP calculator_int32__dispatch
+
+// calculator_int32__newline: opens the row the next line goes on, clearing the
+// display when the line and the result under it would no longer fit
+//     clobbers: R13
+calculator_int32__newline:
+    LDM 0x8022
+    STR 13
+    LDI 254         // 256 - 2; carry set only on the last two rows
+    ADD 13
+    JC1 disp_cls    // both end in RET, so both return to this routine's caller
+    JMP disp_nl
 
 // calculator_int32__cancel: the operand was erased away, so take the operator
 // off the display again and read the line from the start; int32_read preserves
