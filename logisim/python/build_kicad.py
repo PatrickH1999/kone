@@ -108,6 +108,7 @@ def bom(path, boards, out):
     footprints in the generated .kicad_pcb, so a board and its section of the
     list cannot drift apart.
     """
+
     def parts_of(board):
         count = {}
         for part in board.parts:
@@ -163,7 +164,9 @@ def bom(path, boards, out):
             "| Part | Package | Function | Count |",
             "| --- | --- | --- | --- |",
         ]
-        for value in sorted(count, key=lambda v: (v not in CHIPS, -count[v], v)):
+        for value in sorted(
+            count, key=lambda v: (v not in CHIPS, -count[v], v)
+        ):
             part, what = describe(value)
             rows.append(
                 f"| `{part}` | {package(value)} | {what} | {count[value]} |"
@@ -338,10 +341,14 @@ def pinout(path, signals, boards):
 def outline(size):
     """Warn when the README's board format no longer states the real outline."""
     readme = Path(__file__).resolve().parents[1] / "README.md"
-    stated = re.search(r"outline, \*\*([\d.]+) x ([\d.]+) mm\*\*", readme.read_text())
+    stated = re.search(
+        r"outline, \*\*([\d.]+) x ([\d.]+) mm\*\*", readme.read_text()
+    )
     if not stated:
         print(f"{readme}: no board format line to check", file=sys.stderr)
-    elif tuple(float(v) for v in stated.groups()) != tuple(round(v, 2) for v in size):
+    elif tuple(float(v) for v in stated.groups()) != tuple(
+        round(v, 2) for v in size
+    ):
         print(
             f"{readme}: board format says {stated.group(1)} x {stated.group(2)} mm, "
             f"boards are {size[0]:.2f} x {size[1]:.2f} mm",
@@ -379,7 +386,9 @@ def stacking(boards, connectors):
     (first, want), *rest = ((n, fixture(b)) for n, b in boards.items())
     for name, got in rest:
         if got != want:
-            sys.exit(f"{name}: connectors or M3 holes do not line up with {first}")
+            sys.exit(
+                f"{name}: connectors or M3 holes do not line up with {first}"
+            )
 
 
 if __name__ == "__main__":

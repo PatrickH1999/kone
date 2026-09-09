@@ -1125,9 +1125,18 @@ class Board:
                     "DIP-14_W7.62mm",
                     "SCHMITT",
                     # the four gates nothing uses keep their inputs tied
-                    {1: "RESRC", 2: "RES", 3: "RES", 4: "NRES",
-                     5: "GND", 9: "GND", 11: "GND", 13: "GND",
-                     7: "GND", 14: "+5V"},
+                    {
+                        1: "RESRC",
+                        2: "RES",
+                        3: "RES",
+                        4: "NRES",
+                        5: "GND",
+                        9: "GND",
+                        11: "GND",
+                        13: "GND",
+                        7: "GND",
+                        14: "+5V",
+                    },
                     (0, 0),
                     "7414 reset",
                 ),
@@ -1833,4 +1842,3 @@ def parse_ses(text, board):
                             )
                         )
     return tracks, vias
-
