@@ -1,7 +1,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "../src/args.h"
+#include "../src/kone/args.h"
 #include "test_common.h"
 
 void test_args_defaults();

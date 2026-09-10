@@ -3,9 +3,9 @@
 
 #include <assert.h>
 
-#include "../src/alu_functions.h"
-#include "../src/cpu_functions.h"
-#include "../src/utility.h"
+#include "../src/kone/alu_functions.h"
+#include "../src/kone/cpu_functions.h"
+#include "../src/kone/utility.h"
 #include "test_common.h"
 
 void test_alu_not(CPU *cpu);

@@ -1,6 +1,6 @@
 #include <assert.h>
 
-#include "../src/utility.h"
+#include "../src/kone/utility.h"
 #include "test_common.h"
 
 void test_addr_convert_8_to_16();

@@ -1,5 +1,5 @@
 // examples/calculator_int32.kasm on IEEE 754 single precision values, built
-// from klib's float32_read and float32_write; README.md documents how a line
+// from klib's float32_read and float32_puts; README.md documents how a line
 // is read.
 //
 // Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
@@ -14,8 +14,8 @@
 .include "../klib/io/float32_write.kasm"
 .include "../klib/io/float32_read.kasm"
 
-// main: prompt, read one line, apply it and print the accumulator; every
-// path loops back here
+// main: the first prompt of the run; every later line opens in
+// 'calculator_float32__next', once the result before it has been read
 main:
     LDI 62          // '>'
     CLL disp_putc
@@ -29,6 +29,8 @@ calculator_float32__key:
     LDI 248         // 256 - 8 -> BS, same
     ADD 13
     JA0 calculator_float32__key
+
+calculator_float32__dispatch:
     LDI 210         // 256 - 46 -> '.', '.5' is a number as well
     ADD 13
     JA0 calculator_float32__number
@@ -141,8 +143,7 @@ calculator_float32__div_zero:
     CLL disp_putc
     LDI 82          // 'R'
     CLL disp_putc
-    CLL disp_nl
-    JMP main
+    JMP calculator_float32__next
 
 calculator_float32__store:
     LDR 8
@@ -154,6 +155,9 @@ calculator_float32__store:
     LDR 11
     STM 0x8044
 
+// calculator_float32__print: prints the accumulator but leaves its row open --
+// float32_write ends the row, and ending the last one clears the display,
+// which is what used to wipe a result the moment it appeared
 calculator_float32__print:
     LDM 0x8041
     STR 0
@@ -163,8 +167,38 @@ calculator_float32__print:
     STR 2
     LDM 0x8044
     STR 3
-    CLL float32_write
-    JMP main
+    LDI 61          // '='
+    CLL disp_putc
+    CLL float32_puts
+
+// calculator_float32__next: the result stays on the display until a key is
+// pressed; that key opens the line under it and is then dispatched as its first
+calculator_float32__next:
+    CLL calculator_float32__read_key
+    STR 14
+    LDI 129         // 256 - 127 -> DEL, nothing to erase -> ignore it
+    ADD 14
+    JA0 calculator_float32__next
+    LDI 248         // 256 - 8 -> BS, same
+    ADD 14
+    JA0 calculator_float32__next
+    CLL calculator_float32__newline
+    LDI 62          // '>'
+    CLL disp_putc
+    LDR 14
+    STR 13
+    JMP calculator_float32__dispatch
+
+// calculator_float32__newline: opens the row the next line goes on, clearing
+// the display when the line and the result under it would no longer fit
+//     clobbers: R13
+calculator_float32__newline:
+    LDM 0x8022
+    STR 13
+    LDI 254         // 256 - 2; carry set only on the last two rows
+    ADD 13
+    JC1 disp_cls    // both end in RET, so both return to this routine's caller
+    JMP disp_nl
 
 // calculator_float32__cancel: the operand was erased away, so take the operator
 // off the display again and read the line from the start

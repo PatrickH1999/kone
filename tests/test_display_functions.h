@@ -3,8 +3,8 @@
 
 #include <assert.h>
 
-#include "../src/display_functions.h"
-#include "../src/cpu_functions.h"
+#include "../src/kone/display_functions.h"
+#include "../src/kone/cpu_functions.h"
 #include "test_common.h"
 
 void test_display_reset();

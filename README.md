@@ -18,6 +18,7 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 ## Table of contents:
 
 - [Start](#start)
+- [Folder structure](#folder-structure)
 - [Make targets](#make-targets)
 - [`kone` usage](#kone-usage)
 - [`kasm` usage](#kasm-usage)
@@ -44,7 +45,19 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
     - [`math`](#math)
     - [`mem`](#mem)
     - [`str`](#str)
-- [Logisim circuits and PCBs](#logisim-circuits-and-pcbs)
+- [Circuits and boards](#circuits-and-boards)
+
+## Folder structure
+- __bin__: `kone`, `kasm`, `kone` binaries (*.bin), tests (test_*)
+- __examples__: `kasm` examples
+- __kicad__: PCB circuit diagrams
+- __klib__: `kasm` standard library
+- __logisim__: logic diagrams
+- __src__: source code
+    - __kone__: the virtual machine
+    - __kasm__: the assembler
+- __tests__: unit tests of the virtual machine, the assembler and `klib`
+- __tools__: development tools
 
 ## Make targets
 `make` also builds the __kasm__ assembler. Other useful targets are:
@@ -55,10 +68,12 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make debug`: build with debugging symbols and no optimization
  - `make kasm`: build only the assembler
  - `make logisim_<target>`: anything in `logisim/`, forwarded to its own makefile (see [`logisim/README.md`](logisim/README.md))
+ - `make kicad_<target>`: anything in `kicad/`, forwarded to its own makefile (see [`kicad/README.md`](kicad/README.md))
+ - `make format`: clang-format over the C sources, `ruff format` (or `black`) over the python; a missing formatter is reported rather than fatal
  - `make hooks`: install the pre-commit hook, which runs `make format` and re-stages what it changed
  - `make install`: install `kone` and `kasm` to `$(HOME)/.local/bin` (Note that `$(HOME)/.local/bin` needs to be in your `$PATH` variable to enable the `kone` and `kasm` commands. Override default target path with `PREFIX=...`)
 
-A C test is `tests/test_<module>.c` and is picked up by the wildcard, no makefile edit needed. A `klib` test is a kasm program in `tests/klib/` that prints one `PASS:<case>` or `FAIL:<case>` row per case and then a summary row, `ALL PASS` or `<n> FAILED`, and halts; the harness runs it on the vm and waits up to 20 s for that summary. The summary must be the last thing the test prints and must **not** end its row: the display holds four rows, and padding the last one out lands on the last cell, which is what clears the grid. For the same reason a case name should stay under 15 characters, or `PASS:` plus the name wraps and the report shows it cut in half. A `test_<name>.in` beside it is piped in as keystrokes, and a `test_<name>.expect` lists display rows that have to match exactly, which is how output that cannot be read back from inside the vm is checked; those rows are looked for in the last complete frame, so a test clears the display and prints them as its last three rows, right above the summary.
+A C test is `tests/test_<module>.c` and is picked up by the wildcard, no makefile edit needed; the assembler's own group is `tests/kasm/test_kasm.c`. A `klib` test is a kasm program in `tests/klib/` that prints one `PASS:<case>` or `FAIL:<case>` row per case and then a summary row, `ALL PASS` or `<n> FAILED`, and halts; the harness runs it on the vm and waits up to 20 s for that summary. The summary must be the last thing the test prints and must **not** end its row: the display holds four rows, and padding the last one out lands on the last cell, which is what clears the grid. For the same reason a case name should stay under 15 characters, or `PASS:` plus the name wraps and the report shows it cut in half. The case list is scraped from the frames the display emitted, so a test that prints its rows faster than the 20 Hz refresh reports only its summary row; the verdict comes from that row either way. A `test_<name>.in` beside it is piped in as keystrokes, and a `test_<name>.expect` lists display rows that have to match exactly, which is how output that cannot be read back from inside the vm is checked; those rows are looked for in the last complete frame, so a test clears the display and prints them as its last three rows, right above the summary.
 
 ## `kone` usage
 The virtual machine loads a boot file into memory and runs it until it is interrupted (`Ctrl-C`): A kone program never halts on its own. It takes the following arguments:
@@ -224,7 +239,7 @@ The display is 20 columns by 4 rows, which the interpreter does not try to work 
 An interactive 32 bit floating point calculator, the same program as `calculator_int32` below but on IEEE 754 single precision values, built from klib's `io/disp`, `math/int32`, `math/float32`, `io/float32_read`, and `io/float32_write`. Magnitudes run from about 1.2e-38 to 3.4e38 and six significant digits are printed, so `1` followed by `/3` comes out as `0.333333`. A number may carry a decimal point and an exponent (`1.5e-7`) as well as a leading `-`, and a line that starts with a digit or a `.` replaces the accumulator. Dividing by zero would give an infinity, which klib does not carry through its arithmetic, so it prints `ERR` and keeps the accumulator just like the integer version does. Backspace walks back through the number being typed and then through the operator, so a line can always be taken back to the bare prompt. Type, e.g., `1.5`, then `*2.0`, then `+0.25`.
 
 ### `calculator_int32`
-An interactive 32 bit signed integer decimal calculator built from klib's `io/disp`, `math/int32`, `io/int32_read`, and `io/int32_write`, covering the range -2147483648 to 2147483647. A line that starts with a digit replaces the accumulator and starts a new calculation, a line that starts with `+`, `-`, `*` or `/` applies that operator and the number behind it to the accumulator. A leading `-` is always the operator and never a sign, so a negative accumulator is entered as `0` and then `-5`. Backspace walks back through the number being typed and then through the operator, so a line can always be taken back to the bare prompt. Type, e.g., `1000`, then `/8`.
+An interactive 32 bit signed integer decimal calculator built from klib's `io/disp`, `math/int32`, `io/int32_read`, and `io/int32_write`, covering the range -2147483648 to 2147483647. A line that starts with a digit replaces the accumulator and starts a new calculation, a line that starts with `+`, `-`, `*` or `/` applies that operator and the number behind it to the accumulator. A leading `-` is always the operator and never a sign, so a negative accumulator is entered as `0` and then `-5`. Backspace walks back through the number being typed and then through the operator, so a line can always be taken back to the bare prompt. A result stays on the display until the next key is pressed, which opens the line under it, or clears the display once the four rows no longer hold a line and its result. Type, e.g., `1000`, then `/8`.
 
 ### `count`
 Counts a single byte up in `R0` forever and prints it as a decimal number, one per row, from `0` to `255` and then round again. The counting carries no klib at all: it is one `ADD` against a register holding 1, and the wrap back to `0` is the ISA's own 8 bit overflow, with the carry left where it falls. Only the printing borrows from klib, and only `klib/io/disp.kasm`. The digits are recovered without a division: `put_place` subtracts a place value -- 100, then 10 -- for as long as it fits, which on this ISA is adding `256 - 100` and reading the carry, and what is left over is the ones digit. A place whose digit and every digit before it are zero prints nothing, so the number carries no leading zeros. Add `-vvv` to watch `R0` in the register dump as well.
@@ -283,5 +298,5 @@ The kone ISA has no register indirect addressing: `LDM` and `STM` take an absolu
 
 - `str_eq`: compares two null terminated strings and returns 0 or 1 in `R0`. It reads them through `mem_peek`, so `klib/mem.kasm` has to be included alongside `klib/str.kasm`.
 
-## Logisim circuits and PCBs
-The machine also exists as hardware: `logisim/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips (the register file, the ALU and the whole CPU) and turns the same circuits into six stackable KiCad boards with gerbers, an EEPROM image per memory and a parts list to order from. Nothing has been built yet, and one board carries a known defect -- see [ISSUES.md](ISSUES.md) before ordering. It has its own makefile and its own documentation: **[`logisim/README.md`](logisim/README.md)**. From here, every one of its targets is reachable with a `logisim_` prefix, `make logisim_circ` and `make logisim_test` to begin with.
+## Circuits and boards
+The machine also exists as hardware, in two directories with a makefile and a README each. `logisim/` generates [Logisim Evolution](https://github.com/logisim-evolution/) circuits built from 74xx-series chips -- the register file, the ALU and the whole CPU -- and boots programs on them headlessly: **[`logisim/README.md`](logisim/README.md)**. `kicad/` turns those same circuits into six stackable KiCad boards with gerbers, an EEPROM image per memory and a parts list to order from: **[`kicad/README.md`](kicad/README.md)**. Nothing has been built yet, and the `memory` board carries a known defect, so hold that one back when ordering -- [`kicad/README.md`](kicad/README.md) says what it is. From here their targets are reachable with a `logisim_` or a `kicad_` prefix, `make logisim_circ` and `make kicad_boards` to begin with.
