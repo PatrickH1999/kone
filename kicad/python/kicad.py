@@ -763,7 +763,7 @@ CONN_X = 20.0  # the connector row, identical on every board
 CONN_PITCH = 45.0
 HOLE_INSET = 6.0  # M3 holes, one per corner
 HOLE_KEEPOUT = 7.0  # nothing routes inside this, washer room
-CAP_ROOM = 16.0  # under an IC: its cap, and the row's routing channel             # board grid per IC, room for its decoupling cap
+CAP_ROOM = 16.0  # under an IC: its cap, and the row's routing channel
 SCH_CELL = (63.5, 50.8)  # schematic grid, room for pin labels
 # KiCad 10 numbering: copper is even, F.Cu 0, B.Cu 2, inner layers from 4.
 # The two inner ones are solid planes, which is what makes 391 nets routable

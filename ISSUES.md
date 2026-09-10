@@ -3,17 +3,14 @@
 Open points, kept short; the design limits that are not going to change are in
 [README.md](README.md) instead.
 
-- [ ] __The SRAM sits on the main bus.__ On the memory board the 62256's data
-  pins are its data in and data out merged, and data in is `BUS`, which the
-  datapath's mux drives at all times; the RAM is output-enabled whenever it is
-  not being written. The two fight on every cycle that is not a memory write.
-  Logisim has no conflict there, because data in and data out are separate nets
-  and a mux picks the ROM or the RAM. The fix is a 74245 between `BUS` and the
-  RAM's data pins, enabled from the write strobe. Putting one into `memory()`
-  breaks the write path in simulation, and neither tying `DIR` high with a rail
-  nor with a constant, nor holding the transceiver enabled, changes that.
-  **Do not have the memory board assembled until this is settled**; the other
-  five are not affected.
+- [ ] __The SRAM sits on the main bus.__ Described under "Assembly" in
+  [kicad/README.md](kicad/README.md), which is where a reader of the released
+  repo meets it. The fix is a 74245 between `BUS` and the RAM's data pins,
+  enabled from the write strobe. Putting one into `memory()` breaks the write
+  path in simulation, and neither tying `DIR` high with a rail nor with a
+  constant, nor holding the transceiver enabled, changes that. **Do not have
+  the memory board assembled until this is settled**; the other five are not
+  affected.
 
 - [ ] __No connectors for the display and the keyboard.__ Their lines reach the
   backplane, but no board carries a socket, so the Arduino bridge is wired to
@@ -45,6 +42,13 @@ Open points, kept short; the design limits that are not going to change are in
 
 - [ ] __`basic`: trailing tokens are ignored.__ Only `LET` reads an operator, so
   `PRINT A * B` prints `A` and says nothing about the `* B` behind it.
+
+- [ ] __klib test cases go unreported.__ The harness scrapes `PASS:<case>` rows
+  out of the display frames, and the display redraws at 20 Hz while the cpu runs
+  flat out, so a test whose cases print in under a frame shows none of them:
+  `mem`, `str_eq`, `int32_sub` and `float32_mod` report only their summary row.
+  The verdict is unaffected -- it is read from that row -- but the report says
+  nothing about what those four checked.
 
 - [ ] __`kone -l` at `-v3`__ writes a few hundred MB per second, which is easy
   to point at a small filesystem by accident.

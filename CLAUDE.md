@@ -82,10 +82,11 @@ print('\n'.join(l.rstrip() for l in last.splitlines() if l.strip()))
 | `klib/<class>/` | one routine per file; `klib/<class>.kasm` umbrella `.include`s them |
 | `examples/` | `*.kasm` → `bin/*.bin`, auto-discovered by wildcard |
 | `tests/` | C unit tests, one `test_<module>.{c,h}` per `src/kone/<module>.c` |
+| `tests/kasm/` | `test_kasm.{c,h}`, the assembler's own group |
 | `tests/klib/` | klib tests as kasm programs, plus optional `.in` / `.expect` |
 | `logisim/` | the machine as circuits: own `Makefile` and `README.md`, the generator in `python/`, the harness in `java/` |
 | `kicad/` | the machine as boards: own `Makefile` and `README.md`, the second backend in `python/` |
-| `tools/` | `bin2bits.sh` and `hooks/pre-commit`, which `make hooks` installs |
+| `tools/` | `bin2bits.sh`, `test.mk` (the shared test report), and `hooks/pre-commit`, which `make hooks` installs |
 
 A new klib file must be `.include`d from its group file (`klib/math/int32.kasm`,
 `klib/math/float32.kasm`, `klib/io.kasm`, `klib/mem.kasm`, `klib/str.kasm`) or it is
@@ -121,9 +122,11 @@ signature, or a name.
 - this file: working conventions and the traps that cost time, not reference material.
 
 A rule shared by a group is stated once in `README.md` and pointed at from the files, as the
-float32 routines do, rather than repeated per file. This file stays on `development` and is
-not merged into `release`, so anything a reader of the released repo needs — the klib test
-protocol, for one — belongs in `README.md`, not only here.
+float32 routines do, rather than repeated per file. This file and `ISSUES.md` both stay on
+`development` and are deleted from `release`, so anything a reader of the released repo
+needs — the klib test protocol, or the warning not to fabricate the memory board — belongs
+in `README.md` or `kicad/README.md`, not only here, and neither of the two may be linked
+from a released file.
 
 **kasm** — labels at column 0, instructions indented 4, inline `//` comments starting at
 column 21. Entry label `routine`, internal labels `routine__sub` (double underscore).
@@ -279,8 +282,8 @@ so a new test file states its cases and nothing else. An example's own scratch g
   `DISP_POLL_RATE` (2000 Hz); the keyboard at `KEYBOARD_POLL_RATE` (20 Hz). Each frame
   emits `\033[3J\033[H\033[2J`, which is what the klib test harness splits on.
 - `kone.c` mmaps `sizeof(CPU)` for the `Display` — an over-allocation, harmless.
-- `ISSUES.md` lists the open items; design limits that will not change belong in
-  `README.md` instead.
+- `ISSUES.md` lists the open items and is development-only; design limits that will not
+  change belong in `README.md` instead.
 - A BASIC program line is a fixed 40-byte record, which is what bounds expression length
   (five terms) and string literals (29 chars). Extending either means widening the slot and
   moving the program area, not touching the parser.

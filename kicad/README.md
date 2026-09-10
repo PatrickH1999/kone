@@ -164,6 +164,14 @@ is installed.
 The six boards come out of `make kicad_gerbers` as ZIPs in `boards/out/`, one
 per board, four layers each and all the same outline. What to do with them:
 
+**Hold the `memory` board back.** On it the 62256's data pins are its data in
+and data out merged, and data in is `BUS`, which the datapath's mux drives at
+all times: the two fight on every cycle that is not a memory write. Logisim has
+no conflict there, because data in and data out are separate nets and a mux
+picks the ROM or the RAM. The board wants a 74245 between the bus and the chip,
+enabled from the write strobe, and putting one in breaks the write path in
+simulation, so it is not settled. The other five boards are unaffected.
+
 **Stacking order does not matter.** Every board carries all four backplane
 connectors, and a pin whose signal a board has no use for is a pass-through:
 the pad is there, carrying the backplane net, with nothing else on that board
