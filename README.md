@@ -192,7 +192,7 @@ The statements, which are stored behind a line number. A `<term>` is a literal, 
 
 | Statement | Description |
 | --- | --- |
-| `LET <var> = <term> [<op> <term>]...` | works out the expression and assigns it; `<op>` is `+`, `-`, `*`, `/` or `MOD` |
+| `LET <var> = <term> [<op> <term>]...` | works out the expression and assigns it; `<op>` is `+`, `-`, `*`, `/` or `MOD`; `LET` itself may be left out, so `20 A = A + 1` is the same statement |
 | `PRINT "<text>"` | prints a string literal, at most 29 chars |
 | `PRINT <term>` | prints a value with six significant digits |
 | `PRINT "<text>"; <term>` | prints both on one row |

@@ -17,11 +17,12 @@
 //     0x8240 - 0x8253 the values a LET expression is reduced in, five of
 //                     four bytes
 //     0x8254 - 0x8257 the operators between them
-//     0x8258 - 0x825C the term count and the indices the two passes walk
+//     0x8258 - 0x825C the term count, the indices the two passes walk and
+//                     the operator being applied
 //     0x8290 - 0x829D the parser and run flags, a byte each
 //     0x829E - 0x82A6 the line numbers a search or a run works with
-//     0x82A7 - 0x82AC the operator, the comparison, and where the parser and
-//                     a listing stand
+//     0x82A8 - 0x82AC the comparison, and where the parser and a listing
+//                     stand
 //     0x82AD - 0x82BB the number being read out of a line
 //     0x82BC - 0x82BF the kind of the term being read, the FOR frame being
 //                     worked on, the function a term stands for, and the
@@ -656,6 +657,21 @@ basic__number__done:
     STR 2
     LDM 0x82B7
     STR 3
+    RET
+
+// basic__target: reads the line number a GOTO, a GOSUB or a THEN jumps
+// to. Only two bytes of it are kept, so it is held to what a line number
+// can be the same way basic__line holds the one a line is stored under
+//     out:      value -> R0 (low byte), R1 (high byte)
+//     clobbers: R0 - R13
+basic__target:
+    CLL basic__number
+    LDR 2
+    ORR 3
+    JA1 basic__fail
+    LDR 0
+    ORR 1
+    JA0 basic__fail     // 0 marks a free slot
     RET
 
 // basic__fnumber: reads a value out of the line as a single precision
@@ -1378,8 +1394,7 @@ basic__stmt:
     STR 3
     CLL basic__match
     JA1 basic__p_return
-    CLL basic__fail
-    RET
+    JMP basic__p_assign
 
 basic__p_end:
     LDI 5
@@ -1487,7 +1502,7 @@ basic__p_next:
 basic__p_gosub:
     LDI 11
     STM 0x8202
-    CLL basic__number
+    CLL basic__target
     LDR 0
     STM 0x8203
     LDR 1
@@ -1504,7 +1519,7 @@ basic__p_return:
 basic__p_goto:
     LDI 4
     STM 0x8202
-    CLL basic__number
+    CLL basic__target
     LDR 0
     STM 0x8203
     LDR 1
@@ -1517,6 +1532,24 @@ basic__p_let:
     STM 0x8202
     CLL basic__var
     STM 0x8203
+    JMP basic__p_let__assign
+
+// basic__p_assign: <var> = ..., a LET with the keyword left out. The word
+// basic__stmt has already read is the target, so it has to be a single
+// letter; anything else is the word that matched no statement
+basic__p_assign:
+    LDM 0x8230
+    STR 1
+    JA0 basic__fail
+    LDM 0x8231
+    JA1 basic__fail
+    LDI 1
+    STM 0x8202
+    LDI 191         // the letter becomes its index
+    ADD 1
+    STM 0x8203
+
+basic__p_let__assign:
     CLL basic__skip
     LDM 0x8290
     STR 0
@@ -1736,7 +1769,7 @@ basic__p_if__op:
     STR 3
     CLL basic__match
     JA0 basic__fail
-    CLL basic__number
+    CLL basic__target
     LDR 0
     STM 0x8210
     LDR 1
