@@ -1378,8 +1378,7 @@ basic__stmt:
     STR 3
     CLL basic__match
     JA1 basic__p_return
-    CLL basic__fail
-    RET
+    JMP basic__p_assign
 
 basic__p_end:
     LDI 5
@@ -1517,6 +1516,24 @@ basic__p_let:
     STM 0x8202
     CLL basic__var
     STM 0x8203
+    JMP basic__p_let__assign
+
+// basic__p_assign: <var> = ..., a LET with the keyword left out. The word
+// basic__stmt has already read is the target, so it has to be a single
+// letter; anything else is the word that matched no statement
+basic__p_assign:
+    LDM 0x8230
+    STR 1
+    JA0 basic__fail
+    LDM 0x8231
+    JA1 basic__fail
+    LDI 1
+    STM 0x8202
+    LDI 191         // the letter becomes its index
+    ADD 1
+    STM 0x8203
+
+basic__p_let__assign:
     CLL basic__skip
     LDM 0x8290
     STR 0
