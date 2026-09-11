@@ -1,5 +1,8 @@
 anaconda_projects
-compile_commands.json
-
 bin/
+CLAUDE.md
+.claude/
+compile_commands.json
+ISSUES.md
 obj/
+.ruff_cache/
