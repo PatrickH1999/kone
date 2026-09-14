@@ -1,7 +1,7 @@
 // basic: a BASIC interpreter with the kone keyboard as its terminal and the
 // kone display as its screen, in the shape of the classic home computer
-// BASICs. README.md documents the language it takes; this header maps the
-// memory behind it.
+// BASICs. The wiki's BASIC page documents the language it takes; this header
+// maps the memory behind it.
 //
 // The kone ISA has no register indirect addressing and kasm cannot emit data,
 // so every table below is written at startup and reached through klib's

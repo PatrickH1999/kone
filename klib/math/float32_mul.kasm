@@ -16,7 +16,7 @@
 // top 25 bit of the product in R8 - R11 plus 8 guard bits in R13.
 //
 // A zero operand yields a signed zero; the rest follows the group rules
-// (see README.md).
+// (see the wiki's klib page).
 float32_mul:
     CLL float32_unpack
 

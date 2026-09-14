@@ -14,7 +14,7 @@
 //
 // A zero operand comes back as the other operand unchanged and an exact
 // cancellation yields +0; rounding, overflow and exponent 255 follow the rules
-// the whole float32 group shares (see README.md).
+// the whole float32 group shares (see the wiki's klib page).
 //
 // This file also holds 'float32_unpack' and 'float32_pack' (see below), which
 // every other float32 routine in klib/math/ uses as well.

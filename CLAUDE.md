@@ -4,8 +4,9 @@
 written so the machine can later be built from 74xx-series logic chips — no IC that
 resembles a full CPU is allowed, so every ISA decision has to stay buildable from gates.
 `kasm` is its two-pass assembler; `klib/` is an assembly standard library; `examples/` are
-kasm programs run on the VM. `README.md` is the canonical user-facing spec (ISA tables,
-device contract, klib index) — keep it in sync with any change to those.
+kasm programs run on the VM. The wiki (`../kone.wiki`, a separate repo) is the canonical user-facing spec (ISA tables,
+device contract, klib index, examples, BASIC) — keep it in sync with any change to those.
+`README.md` holds only Start, Folder structure, Make targets, `kone` and `kasm` usage.
 
 ## Hard rules
 
@@ -114,23 +115,24 @@ unstaged half into the commit.
 **Comments** — explain only what the code does not. Do not restate an instruction, a
 signature, or a name.
 
-**Where a fact belongs** — say it once, in one of three places:
+**Where a fact belongs** — say it once, in one of four places:
 
-- `README.md`: the user- and contributor-facing what and why — language, usage, per-example
-  description, klib index, how a test is written and run.
+- the wiki: the user- and contributor-facing what and why — ISA, devices, kasm language,
+  per-example description, BASIC, klib index, how a test is written and run.
+- `README.md`: build, folder structure, make targets, `kone`/`kasm` options, the wiki link.
 - a code header: the calling convention, the memory map, any non-obvious mechanism.
 - this file: working conventions and the traps that cost time, not reference material.
 
-A rule shared by a group is stated once in `README.md` and pointed at from the files, as the
+A rule shared by a group is stated once in the wiki and pointed at from the files, as the
 float32 routines do, rather than repeated per file. This file and `ISSUES.md` both stay on
 `development` and are deleted from `release`, so anything a reader of the released repo
 needs — the klib test protocol, or the warning not to fabricate the memory board — belongs
-in `README.md` or `kicad/README.md`, not only here, and neither of the two may be linked
+in the wiki, `README.md` or `kicad/README.md`, not only here, and neither of the two may be linked
 from a released file.
 
 **kasm** — labels at column 0, instructions indented 4, inline `//` comments starting at
 column 21. Entry label `routine`, internal labels `routine__sub` (double underscore).
-File header at most 3–4 lines of prose; if `README.md` already describes the routine, omit
+File header at most 3–4 lines of prose; if the wiki already describes the routine, omit
 the prose entirely. A memory map or record layout is exempt — it has no other home, which
 is why `examples/basic.kasm` and `klib/io/disp.kasm` carry long ones. Keep the `in: / out: / clobbers:` block on klib routines — it is
 the calling contract, not prose.
@@ -267,7 +269,7 @@ Four rows is what the display holds, and the test protocol lives with it:
 - A `.expect` row has to be on screen at the end, so a test that uses one clears the display
   and prints its checked rows as the last three, right above the summary.
 - `PASS:` plus a case name over 15 characters wraps, and the report shows the name cut in
-  half. The verdict is unaffected — it comes from the summary row. The protocol is also written up in `README.md`,
+  half. The verdict is unaffected — it comes from the summary row. The protocol is also written up in the wiki's Building page,
 so a new test file states its cases and nothing else. An example's own scratch goes **above
 `0x803F`**, clear of klib and in the same range the klib tests use.
 
@@ -283,7 +285,7 @@ so a new test file states its cases and nothing else. An example's own scratch g
   emits `\033[3J\033[H\033[2J`, which is what the klib test harness splits on.
 - `kone.c` mmaps `sizeof(CPU)` for the `Display` — an over-allocation, harmless.
 - `ISSUES.md` lists the open items and is development-only; design limits that will not
-  change belong in `README.md` instead.
+  change belong in the wiki instead.
 - A BASIC program line is a fixed 40-byte record, which is what bounds expression length
   (five terms) and string literals (29 chars). Extending either means widening the slot and
   moving the program area, not touching the parser.

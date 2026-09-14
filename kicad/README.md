@@ -316,7 +316,8 @@ character twice. A key struck while the
 program is not polling `R16` is lost rather than buffered, as it is on the vm;
 a ring buffer in the bridge is a deliberate deviation, not a fix.
 
-The grid the bridge owes the program is the vm's, in the root `README.md`,
+The grid the bridge owes the program is the vm's, on the wiki's
+[Devices](https://github.com/PatrickH1999/kone/wiki/Devices) page,
 down to a full row wrapping onto the next cleared one and a full last row
 clearing the display. klib's `disp_putc` counts on it: it keeps its own column
 and row pointer and never reads the display back. An HD44780's DDRAM rows are
