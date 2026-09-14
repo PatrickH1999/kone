@@ -7,7 +7,8 @@ operation out of the same bits the decoder reads, so no separate encoding
 exists. Every other opcode leaves OUT undefined; the CPU does not latch A then.
 
 L is the ALU's left input (register I, the copy of the accumulator), R the right
-one (the selected register), exactly as README.md describes them.
+one (the selected register), exactly as the wiki's Architecture page
+describes them.
 
 Shifts and rotations are wiring, not chips: they are L, renumbered into the
 mux inputs.
@@ -24,9 +25,9 @@ ROW = (700, 1500, 2300)  # operators, unary muxes, result muxes and flags
 COL = 400  # chip pitch within a row
 X0 = 200
 
-# Opcode bits the ALU uses, from README.md "Instruction set": bit 7 tells the
-# two-operand ops (1CCC 0000) from the one-operand ops (0000 CCCC), bits 5-4
-# pick among ORR/AND/XOR/ADD, bits 2-0 among the one-operand ops.
+# Opcode bits the ALU uses, from the wiki's Instruction-Set page: bit 7 tells
+# the two-operand ops (1CCC 0000) from the one-operand ops (0000 CCCC), bits
+# 5-4 pick among ORR/AND/XOR/ADD, bits 2-0 among the one-operand ops.
 SEL_BINARY, SEL_OP, SEL_UNARY = "P7", ("P4", "P5"), ("P0", "P1", "P2")
 
 

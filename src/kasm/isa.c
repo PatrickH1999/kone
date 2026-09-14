@@ -2,7 +2,7 @@
 
 #include <string.h>
 
-// Opcodes and operand classes follow README.md ("Instruction Set"); only
+// Opcodes and operand classes follow the wiki's Instruction-Set page; only
 // control-flow instructions set takes_label.
 static const Instruction ISA[] = {
     // no operand

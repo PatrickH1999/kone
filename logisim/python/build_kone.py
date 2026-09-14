@@ -14,8 +14,8 @@ Memory is split at 0x8000: the program sits in ROM below, RAM covers the half
 above, which is where klib scratch, program data and the stack live. Writes
 below 0x8000 are dropped -- the one place this machine is not the VM.
 
-R16-R19 are device registers, as README.md describes them: they are not in the
-register file but in io, which reads and clears them the way
+R16-R19 are device registers, as the wiki's Devices page describes them: they
+are not in the register file but in io, which reads and clears them the way
 keyboard_push_cpu() and display_fetch() do.
 """
 

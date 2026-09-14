@@ -16,7 +16,7 @@
 // R8 - R11.
 //
 // Dividing by zero yields a signed infinity, 0 / 0 included where a NaN
-// belongs; the rest follows the group rules (see README.md).
+// belongs; the rest follows the group rules (see the wiki's klib page).
 float32_div:
     CLL float32_unpack
 

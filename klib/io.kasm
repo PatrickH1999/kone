@@ -1,7 +1,7 @@
 // io: every display and keyboard routine of klib in one include; see the files
 // in klib/io/ for their calling conventions. The readers and writers need
 // klib/math.kasm alongside this file, which it does not pull in itself because
-// includes are not idempotent (see README.md).
+// includes are not idempotent (see the wiki's klib page).
 
 .include "io/disp.kasm"
 .include "io/int32_write.kasm"

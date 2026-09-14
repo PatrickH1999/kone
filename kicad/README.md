@@ -127,11 +127,11 @@ a third of its connections, and taking them off the signal layers is the
 difference between sixty connections left open and none.
 
 A DIP pad is 1.4 mm around a 0.8 mm drill rather than the usual 1.6 mm, because
-2.54 - 1.4 leaves 1.14 mm between two pins -- room for a 0.25 mm track with the
+2.54 - 1.4 leaves 1.14 mm between two pins -- room for a 0.2 mm track with the
 widest clearance the router is given (0.35 mm) to pass straight through a chip.
-At 1.6 mm that gap is 0.94 mm,
-the router runs out of vertical channels, and a bus bit stays open however long
-it tries. Pins of a header take the plane solid instead of through a thermal
+At 1.6 mm that gap is 0.94 mm, and with the 0.25 mm tracks the boards started
+with, the router ran out of vertical channels and a bus bit stayed open however
+long it tried. Pins of a header take the plane solid instead of through a thermal
 relief: in a 2.54 mm grid their neighbours leave no room for the two spokes DRC
 asks for.
 
@@ -316,7 +316,8 @@ character twice. A key struck while the
 program is not polling `R16` is lost rather than buffered, as it is on the vm;
 a ring buffer in the bridge is a deliberate deviation, not a fix.
 
-The grid the bridge owes the program is the vm's, in the root `README.md`,
+The grid the bridge owes the program is the vm's, on the wiki's
+[Devices](https://github.com/PatrickH1999/kone/wiki/Devices) page,
 down to a full row wrapping onto the next cleared one and a full last row
 clearing the display. klib's `disp_putc` counts on it: it keeps its own column
 and row pointer and never reads the display back. An HD44780's DDRAM rows are

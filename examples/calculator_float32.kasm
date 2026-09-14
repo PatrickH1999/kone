@@ -1,6 +1,6 @@
 // examples/calculator_int32.kasm on IEEE 754 single precision values, built
-// from klib's float32_read and float32_puts; README.md documents how a line
-// is read.
+// from klib's float32_read and float32_puts; the wiki's Examples page
+// documents how a line is read.
 //
 // Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
 //     0x8040          the operator of the line being read

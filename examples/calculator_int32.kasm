@@ -1,5 +1,5 @@
 // An interactive 32 bit signed integer calculator on klib's int32_read and
-// int32_puts; README.md documents how a line is read.
+// int32_puts; the wiki's Examples page documents how a line is read.
 
     JMP main
 

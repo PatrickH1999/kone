@@ -1,5 +1,5 @@
-// Archimedes' polygon, see README.md. Doubling the corner count of a polygon
-// with the side s gives
+// Archimedes' polygon, see the wiki's Examples page. Doubling the corner
+// count of a polygon with the side s gives
 //     s' = s / sqrt(2 + 2 * sqrt(1 - (s/2)^2))
 // written so that no two nearly equal values are subtracted; half the
 // perimeter is h * s for a polygon of 2h corners.

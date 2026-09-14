@@ -1,7 +1,7 @@
 """Concrete Logisim components.
 
 Port offsets are Logisim Evolution 4.1's own, read out of the running
-simulator; tools/README.md says how they were obtained. Every port_spec()
+simulator; logisim/README.md says how they were obtained. Every port_spec()
 returns ports in Logisim's end order, which is what the .circ format keys on.
 """
 
