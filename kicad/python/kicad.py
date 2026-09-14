@@ -227,8 +227,8 @@ class Netlist:
 
 PITCH = 2.54  # DIP pin pitch, and the schematic grid
 # A track has to pass between two pins, so the pad is as small as a
-# 0.8 mm drill allows: 2.54 - 1.4 leaves 1.14 mm, and a 0.25 track with
-# its clearance on both sides needs 0.95 of it.
+# 0.8 mm drill allows: 2.54 - 1.4 leaves 1.14 mm, and a TRACK_WIDTH track
+# with the widest clearance on both sides needs 0.9 of it.
 DIP_PAD = 1.4
 ROW = 7.62  # DIP row spacing, 0.3 inch packages throughout
 

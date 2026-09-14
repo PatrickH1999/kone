@@ -1,10 +1,12 @@
 # Kone
 The goal of this project ('kone' means 'device' or 'gadget' in Finnish) is to design and build a computer using simple logic chips (e.g., from the 74xx series) and other components. Under no circumstances is the use of ICs that resemble a full-blown CPU allowed.
 
+kone is released under the [MIT License](LICENSE).
+
 The architecture, the instruction set, the devices, the assembler, `klib`, the examples and the BASIC interpreter are documented in the **[wiki](https://github.com/PatrickH1999/kone/wiki)**.
 
 ## Start
-This project provides a virtual machine (called `kone`), which is written in the C programming language and follows the __kone__ CPU architecture. To build the virtual machine, run:
+This project provides a virtual machine (called `kone`), which is written in the C programming language and follows the __kone__ CPU architecture. It needs a POSIX system (Linux, macOS) and `gcc` with C2x support. To build the virtual machine, run:
 ```bash
 make
 ```
@@ -13,12 +15,12 @@ Run an example:
 bin/kone -b bin/calculator_int32.bin
 ```
 Try the `kasm` assembler:
-```
+```bash
 bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 ```
 
 ## Folder structure
-- __bin__: `kone`, `kasm`, `kone` binaries (*.bin), tests (test_*)
+- __bin__: `kone`, `kasm`, assembled programs (*.bin), tests (test_*)
 - __examples__: `kasm` examples
 - __kicad__: the machine as six stackable KiCad boards, see [`kicad/README.md`](kicad/README.md). Nothing has been built yet, and the `memory` board carries a known defect, so hold that one back when ordering.
 - __klib__: `kasm` standard library
@@ -34,8 +36,9 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make test`: run the whole test suite, i.e. the three groups below one after the other (a failing group does not keep the others from running)
  - `make test-kone`: run only the C unit tests of the virtual machine
  - `make test-kasm`: run only the C unit test of the assembler
- - `make test-klib`: run only the `klib` tests, i.e. one kasm program per routine, run on the vm
- - `make debug`: build with debugging symbols and no optimization
+ - `make test-klib`: run only the `klib` tests, kasm programs run on the vm
+ - `make debug`: build with debugging symbols and no optimization; runs `make clean` first, so it also uninstalls `kone` and `kasm`
+ - `make clean`: delete `bin/`, `obj/`, the generated Logisim circuits and the installed `kone` and `kasm`
  - `make kasm`: build only the assembler
  - `make logisim_<target>`: anything in `logisim/`, forwarded to its own makefile
  - `make kicad_<target>`: anything in `kicad/`, forwarded to its own makefile
@@ -56,7 +59,7 @@ The virtual machine loads a boot file into memory and runs it until it is interr
     - `3`: additionally the full CPU state (`R0`-`R21`, stack pointer, input buffer, accumulator, flags, instruction register and program counter)
 
    The level can be stacked (`-vvv`), used bare to raise it by one (`-v`, `--verbose`), or set explicitly (`-v2`, `-v 2`, `--verbose=2`, `--verbose 2`).
- - `-l`, `--log`: enables continuous logging mode (default: disabled), where the state is written out at every clock cycle instead of being redrawn in the interactive display. At `-v3` that amounts to a few hundred MB per second, so redirect it to a file with room to spare.
+ - `-l`, `--log`: enables continuous logging mode (default: disabled), where the state is written out after every instruction instead of being redrawn in the interactive display. At `-v3` that amounts to a few hundred MB per second, so redirect it to a file with room to spare.
  - `-h`, `--help`: prints the help page and exits (default: disabled).
 
 ## `kasm` usage

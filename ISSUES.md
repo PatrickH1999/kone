@@ -1,14 +1,16 @@
 # Issues
 
-Open points, kept short; the design limits that are not going to change are in
-[README.md](README.md) instead.
+Open points, kept short; the design limits that are not going to change are on
+the [wiki](https://github.com/PatrickH1999/kone/wiki) instead.
 
 - [ ] __The SRAM sits on the main bus.__ Described under "Assembly" in
   [kicad/README.md](kicad/README.md), which is where a reader of the released
   repo meets it. The fix is a 74245 between `BUS` and the RAM's data pins,
   enabled from the write strobe. Putting one into `memory()` breaks the write
-  path in simulation, and neither tying `DIR` high with a rail nor with a
-  constant, nor holding the transceiver enabled, changes that. **Do not have
+  path in simulation -- `hello` prints one char forever and the klib mem test
+  prints nothing -- and neither tying `DIR` high with a rail nor with a
+  constant, nor holding the transceiver enabled, changes that. It wants a look
+  with the simulator open, not another guess. **Do not have
   the memory board assembled until this is settled**; the other five are not
   affected.
 

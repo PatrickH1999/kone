@@ -132,8 +132,8 @@ from a released file.
 
 **kasm** — labels at column 0, instructions indented 4, inline `//` comments starting at
 column 21. Entry label `routine`, internal labels `routine__sub` (double underscore).
-File header at most 3–4 lines of prose; if the wiki already describes the routine, omit
-the prose entirely. A memory map or record layout is exempt — it has no other home, which
+File header prose says only what the code does not show — the mechanism, the edge cases,
+what the file needs alongside it; if the wiki already describes the routine, omit it. A memory map or record layout is exempt — it has no other home, which
 is why `examples/basic.kasm` and `klib/io/disp.kasm` carry long ones. Keep the `in: / out: / clobbers:` block on klib routines — it is
 the calling contract, not prose.
 
@@ -167,7 +167,7 @@ Includes go **at the top**, right after `JMP main` — deliberate (commit 022096
 - Branches are only `JA0`/`JA1` (accumulator zero / nonzero) and `JC0`/`JC1` (carry).
 - No register-indirect addressing. `LDM`/`STM` take an absolute address only; a computed
   address needs `mem_peek`/`mem_poke`, which patch an `LDM`/`STM` into scratch and `CLL` it.
-- Stack grows **down** from `0xFC3F`. `PSH` pre-decrements; `POP` reads, zeroes the cell,
+- Stack grows **down** from `0xFFAF`. `PSH` pre-decrements; `POP` reads, zeroes the cell,
   increments. `CLL`/`RET` share that stack, so `PSH`/`POP` must balance across a call.
 - Binary is loaded flat at address 0 and PC starts at 0. An invalid opcode exits the VM.
 
@@ -197,8 +197,8 @@ Includes go **at the top**, right after `JMP main` — deliberate (commit 022096
 0x8000-0x803F   klib scratch — full map in klib/io/disp.kasm, extend it there
                 (klib tests keep their own state at 0x8040 and above)
 0x8100+         free for the program (basic.kasm claims 0x8100-0x899B)
-0xFC3F          stack top, grows down
-0xFC40-0xFFFF   reserved display-sized block
+0xFFAF          stack top, grows down
+0xFFB0-0xFFFF   reserved display-sized block
 ```
 
 ## klib calling convention
@@ -510,14 +510,14 @@ header pin means the same signal on every board. What costs time here:
   declares.
 - The `.dsn` boundary is the board outline **inset by 1 mm**, or the router lays tracks along
   the edge and every one of them is a `copper_edge_clearance` error. For the same reason the
-  clearance it is given (0.25 mm) is wider than the rule KiCad checks (0.2 mm): its rounding
+  clearances it is given (0.25-0.35 mm) are wider than the rule KiCad checks (0.2 mm): its rounding
   has to stay inside. It also emits zero-length track fragments, which DRC reports as
   clearance violations, so `parse_ses()` drops points closer together than 0.01 mm.
 
 ## Where this stands
 
 The VM, kasm, klib and the Logisim circuits are done and green: `make test` 3/3,
-`make logisim_test` 5/5 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
+`make logisim_test` 4/4 — `display`, `hello`, `keyboard` and the `mem` klib test all boot on
 `kone.circ` in Logisim's own simulator.
 
 All six boards are generated, ERC clean and fully routed: `make kicad_clean && make
@@ -538,24 +538,8 @@ The chain takes about 25 minutes, and two things about running it cost a night e
   which then reported `no alu.ses; run the router first`. Start it detached
   (`setsid nohup sh -c '...' &`) and read the log rather than the exit code.
 
-What is left:
-
-1. **The SRAM sits on the main bus.** On the board the 62256's data pins are din and dout
-   merged, and din is `BUS` — which the datapath's bus mux drives all the time. The RAM is
-   output-enabled whenever it is not being written, so the two fight. In Logisim there is no
-   conflict, because din and dout are separate nets there and a mux picks `ROMO` or `RAMO`.
-   The fix is a 74245 between `BUS` and the RAM's data pins, enabled from the write strobe,
-   with the RAM keeping `nOE` as it is. Adding it to `memory()` breaks the simulation --
-   `hello` prints one character forever and the klib mem test prints nothing, which is what
-   a broken write path looks like -- and neither tying `DIR` with `Power`, with an explicit
-   `Constant(1)`, nor holding `nOE` low the whole time changes that. Something about the
-   transceiver in that position is wrong and it wants a look with the simulator open, not
-   another guess. **Do not fabricate the memory board before this is settled.**
-2. **The display and keyboard connectors.** The TTY and keyboard lines reach the backplane
-   but no board carries a socket for them: the Arduino bridge is wired to the stack
-   connector by hand, which `kicad/README.md` describes. The clock is done — `io` carries
-   the can oscillator (X1), the source jumper (J6) and the external clock header (J7).
-3. **A bill of materials.** `kicad-cli sch export bom` would do it; there is no target.
+What is left is in `ISSUES.md`. The SRAM item there blocks the memory board: **do not
+fabricate it before that is settled.**
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a
 separate package (`kicad-library`) and are not installed, so the boards carry generated ones.
