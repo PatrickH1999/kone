@@ -1121,6 +1121,7 @@ class Board:
                 "DIP-14_W7.62mm",
             )
             reset = (CONN_X + 4 * CONN_PITCH, conn_y - 60)
+            self.driven.add(self.positions["NRES"])
             for ref, value, footprint, symbol, pins, at, silk in (
                 (
                     "U24",
@@ -1178,6 +1179,26 @@ class Board:
                     {1: "RESRC", 2: "GND"},
                     (14, 30),
                     "RESET",
+                ),
+                # The bridge's two strobes, low while it is absent or still in
+                # its own reset: floating, they set R16 and clear R18 at will.
+                (
+                    "R3",
+                    "10k",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: self.net("DISPCLR"), 2: "GND"},
+                    (16, 44),
+                    "10k",
+                ),
+                (
+                    "R4",
+                    "10k",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: self.net("KBAV"), 2: "GND"},
+                    (16, 52),
+                    "10k",
                 ),
             ):
                 self.parts.append(

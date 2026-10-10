@@ -23,11 +23,14 @@ public class KoneTest {
     /** cycles is a timeout: a case stops as soon as the display says expect. */
     record Case(String program, int cycles, String keys, String expect) {}
 
+    /** What BOOT spends clearing the RAM before the program's first fetch. */
+    static final int BOOT = 100000;
+
     static final Case[] CASES = {
-        new Case("bin/display.bin", 4000, "", " !\"#$%&"),
-        new Case("bin/hello.bin", 20000, "", "Hello, World!"),
-        new Case("bin/keyboard.bin", 10000, "Hi!", "Hi!"),
-        new Case("bin/test_klib_mem.bin", 300000, "", "ALL PASS"),
+        new Case("bin/display.bin", BOOT + 4000, "", " !\"#$%&"),
+        new Case("bin/hello.bin", BOOT + 20000, "", "Hello, World!"),
+        new Case("bin/keyboard.bin", BOOT + 10000, "Hi!", "Hi!"),
+        new Case("bin/test_klib_mem.bin", BOOT + 300000, "", "ALL PASS"),
     };
 
     /** Loader prompts reach the user through a Swing dialog, which is fatal here. */

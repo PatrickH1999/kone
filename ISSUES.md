@@ -3,17 +3,6 @@
 Open points, kept short; the design limits that are not going to change are on
 the [wiki](https://github.com/PatrickH1999/kone/wiki) instead.
 
-- [ ] __The SRAM sits on the main bus.__ Described under "Assembly" in
-  [kicad/README.md](kicad/README.md), which is where a reader of the released
-  repo meets it. The fix is a 74245 between `BUS` and the RAM's data pins,
-  enabled from the write strobe. Putting one into `memory()` breaks the write
-  path in simulation -- `hello` prints one char forever and the klib mem test
-  prints nothing -- and neither tying `DIR` high with a rail nor with a
-  constant, nor holding the transceiver enabled, changes that. It wants a look
-  with the simulator open, not another guess. **Do not have
-  the memory board assembled until this is settled**; the other five are not
-  affected.
-
 - [ ] __No connectors for the display and the keyboard.__ Their lines reach the
   backplane, but no board carries a socket, so the Arduino bridge is wired to
   the stack connector by hand as `kicad/README.md` describes.
@@ -26,7 +15,8 @@ the [wiki](https://github.com/PatrickH1999/kone/wiki) instead.
   working. The reset RC and the 1 MHz clock in particular are reasoned about
   rather than measured: Logisim cannot simulate the one, and nothing adds up
   the propagation delays for the other. J6 exists so the clock can be slowed
-  down.
+  down. `kicad/AUDIT.md` estimates the longest path at about 705 ns of the
+  1000, and the SRAM's data hold after `WE#` rises at a few gate delays.
 
 - [ ] __Device race:__ cpu, display and keyboard run as three forked processes
   over one `mmap`ed `CPU` struct with no locking. The `R18` handshake is the

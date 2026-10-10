@@ -71,8 +71,8 @@ Each of the six blocks of `kone.circ` is a board of its own, generated from the 
 | --- | --- | --- |
 | `regfile` | 86 | 32 registers, their bus drivers and the address decoder tree |
 | `alu` | 27 | adder, logic banks and the result muxes |
-| `io` | 23 | `R16`-`R19` and the two device handshakes |
-| `sequencer` | 20 | microprogram counter and the nine 28C256 holding the microcode |
+| `io` | 24 | `R16`-`R19`, the two device handshakes and the reset |
+| `sequencer` | 22 | microprogram counter and the nine 28C256 holding the microcode |
 | `datapath` | 15 | bus and operand muxes, the latches around the ALU |
 | `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
 
@@ -166,13 +166,13 @@ is installed.
 The six boards come out of `make kicad_gerbers` as ZIPs in `boards/out/`, one
 per board, four layers each and all the same outline. What to do with them:
 
-**Hold the `memory` board back.** On it the 62256's data pins are its data in
-and data out merged, and data in is `BUS`, which the datapath's mux drives at
-all times: the two fight on every cycle that is not a memory write. Logisim has
-no conflict there, because data in and data out are separate nets and a mux
-picks the ROM or the RAM. The board wants a 74245 between the bus and the chip,
-enabled from the write strobe, and putting one in breaks the write path in
-simulation, so it is not settled. The other five boards are unaffected.
+**The `memory` board.** The 62256's data pins are its data in and out on one
+net, `RAMD`, which reaches the bus only through the `ramd` 74245, and only
+during a write; the rest of the time the RAM drives `RAMD` and the mux reads it
+there. Its `WE#` is held to the low half of the clock, so the control ROMs have
+settled before it falls and it rises with the clock before they change. That
+replaces a first version in which the RAM drove the bus on every cycle; see
+`AUDIT.md`.
 
 **Stacking order does not matter.** Every board carries all four backplane
 connectors, and a pin whose signal a board has no use for is a pass-through:
@@ -203,8 +203,11 @@ bridge single-steps the machine.
 so the sequencer gates its next address to zero while `NRES` is low. `io`
 generates that: an RC (R2, C89) holds it down while the rails come up, U24
 squares the edge, and shorting J8 resets by hand. Microaddress 0 is `BOOT`,
-which sets the stack pointer and falls into FETCH -- the same thing
-`cpu_reset()` does in the vm.
+which zeroes every register and the RAM, sets the stack pointer and falls
+into FETCH -- the same thing `cpu_reset()` does in the vm. Neither a 74377
+nor the 62256 powers up at 0, so all of it is written: about 99,000 clocks,
+0.1 s at 1 MHz. Hold J8 for at least one clock; the step it repeats meanwhile
+is harmless.
 
 ## Display and keyboard
 
@@ -308,7 +311,9 @@ way to send the upper half anyway.
 
 Per character out: wait for `DISPNZ`, read the seven `TTYD` lines, write that
 character to the LCD, then raise `DISPCLR` and hold it until `DISPNZ` falls
-before dropping it again.
+before dropping it again. Drop it promptly: while it is high, `R18` loads 0 on
+every clock, the program's next write to it included. R3 and R4 on `io` pull
+`DISPCLR` and `KBAV` low while the bridge is unplugged or in its own reset.
 
 Per key in: translate the USB HID key to ASCII, normalized as above, put the
 code on `KBD0`-`KBD6`, raise `KBAV`, wait for `KBACK`, drop `KBAV`, and wait

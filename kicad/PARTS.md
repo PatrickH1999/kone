@@ -84,7 +84,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
 | `74HC08` | DIP-14 | quad 2-input AND | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 8 |
+| `74HC245` | DIP-20 | octal bus transceiver | 1 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 9 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -106,8 +107,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 25 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
+| `resistor 10k, 1/4W` | - | reset RC, bridge pull-downs | 3 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
-| `resistor 10k, 1/4W` | - | power-on reset RC | 1 |
 | `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
@@ -126,7 +127,7 @@ reprogram, or to swap for another frequency.
 
 | Part | Function | Count |
 | --- | --- | --- |
-| `DIP-20 socket` | per IC | 75 |
+| `DIP-20 socket` | per IC | 76 |
 | `DIP-16 socket` | per IC | 51 |
 | `DIP-14 socket` | per IC, the can oscillator among them | 46 |
 | `DIP-28 socket` | the ten 28C256 and the 62256 | 11 |
@@ -136,7 +137,7 @@ reprogram, or to swap for another frequency.
 | Part | Package | Function | Count |
 | --- | --- | --- | --- |
 | `74HC377` | DIP-20 | octal register, clock enable | 43 |
-| `74HC245` | DIP-20 | octal bus transceiver | 32 |
+| `74HC245` | DIP-20 | octal bus transceiver | 33 |
 | `74HC157` | DIP-16 | quad 2:1 multiplexer | 18 |
 | `74HC32` | DIP-14 | quad 2-input OR | 18 |
 | `74HC153` | DIP-16 | dual 4:1 multiplexer | 16 |
@@ -152,12 +153,12 @@ reprogram, or to swap for another frequency.
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
 | `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 183 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 184 |
 | `Backplane` | 2.54mm | board to board | 24 |
 | `M3 hole, screw and standoff` | - | stacking | 24 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 6 |
 | `pin header 1x02` | - | supply header | 6 |
-| `resistor 10k, 1/4W` | - | power-on reset RC | 1 |
+| `resistor 10k, 1/4W` | - | reset RC, bridge pull-downs | 3 |
 | `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
@@ -167,7 +168,7 @@ reprogram, or to swap for another frequency.
 | `LED 3mm` | - | power indicator | 1 |
 | `pin header 1x02` | - | reset by hand, short to reset | 1 |
 
-182 chips over the six boards. Sockets are worth it for the two
+183 chips over the six boards. Sockets are worth it for the two
 memory types, which are the parts you will want to reprogram.
 `74HC21` and `74HC27` are the two that are thinly stocked; the LS or
 HCT versions drop in.

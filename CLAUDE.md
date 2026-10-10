@@ -126,7 +126,7 @@ signature, or a name.
 A rule shared by a group is stated once in the wiki and pointed at from the files, as the
 float32 routines do, rather than repeated per file. This file and `ISSUES.md` both stay on
 `development` and are deleted from `release`, so anything a reader of the released repo
-needs — the klib test protocol, or the warning not to fabricate the memory board — belongs
+needs — the klib test protocol, for one — belongs
 in the wiki, `README.md` or `kicad/README.md`, not only here, and neither of the two may be linked
 from a released file.
 
@@ -400,7 +400,7 @@ board format, and the Arduino Mega 2560 bridge that runs the USB keyboard and th
 its pin map onto the io board's device signals and the two protocols it implements.
 `build_kicad.py` warns when the outline the README states no longer matches the boards.
 
-All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (23), `sequencer` (20),
+All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (24), `sequencer` (22),
 `datapath` (15) and `memory` (8), each four layers -- signals outside, a GND plane on
 `In1.Cu` and a +5V plane on `In2.Cu` -- with a 100nF per IC, a 100uF bulk cap, the backplane
 connectors it needs and a power header. They are meant to stack, so every board carries the
@@ -538,8 +538,9 @@ The chain takes about 25 minutes, and two things about running it cost a night e
   which then reported `no alu.ses; run the router first`. Start it detached
   (`setsid nohup sh -c '...' &`) and read the log rather than the exit code.
 
-What is left is in `ISSUES.md`. The SRAM item there blocks the memory board: **do not
-fabricate it before that is settled.**
+What is left is in `ISSUES.md`. The SRAM item that held the memory board back is fixed in
+the generator (a 74245 to `RAMD`, a clock-qualified `WE#`) and passes `logisim_test` and the
+board-level lockstep in `kicad/AUDIT.md`; like every board it is unbuilt.
 
 One question for the author is still open: KiCad's own symbol and footprint libraries are a
 separate package (`kicad-library`) and are not installed, so the boards carry generated ones.

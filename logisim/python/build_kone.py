@@ -414,12 +414,15 @@ def memory(program):
     wires(c, 600, y, "BUS", bits("BUS"))
     wires(c, 1000, y, "MEMO", bits("MEMO"))
     wires(c, 1400, y, "MAR", bits("MARL") + bits("MARH"))
+    wires(c, 1800, y, "RAMD", bits("RAMD"))
 
     y += 600
     latch(c, 200, y, "marl", bits("BUS"), bits("MARL"), "nMLW")
     latch(c, 600, y, "marh", bits("BUS"), bits("MARH"), "nMHW")
-    # nRAMWE is for the real SRAM on the board, whose write strobe is active
-    # low; Logisim's RAM takes the active-high one.
+    # nRAMWE is for the real SRAM on the board, which writes on a level, not
+    # an edge: it is held to the second half of the clock, once the control
+    # ROMs have settled, and rises with the clock before anything changes.
+    # Logisim's RAM takes the active-high, edge-triggered RAMWE.
     wire_dip(
         c,
         c.add(Ttl7404(1000, y, label="inv")),
@@ -428,12 +431,12 @@ def memory(program):
             "Y1": "nMLW",
             "A2": "MHW",
             "Y2": "nMHW",
-            "A3": "RAMWE",
+            "A3": "RAMWEC",
             "Y3": "nRAMWE",
-            "A4": Ground,
-            "Y4": None,
-            "A5": Ground,
-            "Y5": None,
+            "A4": "CLK",
+            "Y4": "NCLK",
+            "A5": "RAMWE",
+            "Y5": "nRAMBUS",
             "A6": Ground,
             "Y6": None,
         },
@@ -446,15 +449,28 @@ def memory(program):
             "A1": "MEMW",
             "B1": "MA15",
             "Y1": "RAMWE",
-            "A2": Ground,
-            "B2": Ground,
-            "Y2": None,
+            "A2": "RAMWE",
+            "B2": "NCLK",
+            "Y2": "RAMWEC",
             "A3": Ground,
             "B3": Ground,
             "Y3": None,
             "A4": Ground,
             "B4": Ground,
             "Y4": None,
+        },
+    )
+    # The SRAM's data pins are one bus for in and out, so the main bus reaches
+    # them through a transceiver that only a write opens; otherwise the SRAM
+    # drives RAMD and the mux below picks it up as RAMO.
+    wire_dip(
+        c,
+        c.add(Ttl74245(1800, y, label="ramd")),
+        {
+            "DIR": Power,
+            "nOE": "nRAMBUS",
+            **{f"A{k + 1}": f"BUS{k}" for k in range(8)},
+            **{f"B{k + 1}": f"RAMD{k}" for k in range(8)},
         },
     )
 
@@ -507,7 +523,7 @@ def memory(program):
     )
     for port, net, width in (
         ("addr", "MADDR", 15),
-        ("din", "BUS", 8),
+        ("din", "RAMD", 8),
         ("we", "RAMWE", 1),
         ("clk", "CLK", 1),
     ):
@@ -667,12 +683,14 @@ def io():
             "Y4": "nCLK17",
         },
     )
+    # R18 loads on a write or on DISPCLR, never otherwise: a real device
+    # answers many clocks later, and R18 has to hold until it does.
     wire_dip(
         c,
         c.add(Ttl7408(2200, y, label="and2")),
         {
             "A1": "nW18",
-            "B1": "R18Z",
+            "B1": "NDISPCLR",
             "Y1": "nCLK18",
             "A2": Ground,
             "B2": Ground,
