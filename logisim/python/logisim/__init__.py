@@ -25,7 +25,7 @@ from .core import (
     rotate,
 )
 from .components import *  # noqa: F401,F403
-from .components import stub, wire_dip
+from .components import clock_buffer, stub, wire_dip
 from . import components
 
 __all__ = [
@@ -39,6 +39,7 @@ __all__ = [
     "Wire",
     "on_grid",
     "rotate",
+    "clock_buffer",
     "stub",
     "wire_dip",
 ] + [

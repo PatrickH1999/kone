@@ -69,12 +69,12 @@ Each of the six blocks of `kone.circ` is a board of its own, generated from the 
 
 | Board | ICs | Contents |
 | --- | --- | --- |
-| `regfile` | 86 | 32 registers, their bus drivers and the address decoder tree |
+| `regfile` | 87 | 32 registers, their bus drivers and the address decoder tree |
 | `alu` | 27 | adder, logic banks and the result muxes |
-| `io` | 24 | `R16`-`R19`, the two device handshakes and the reset |
-| `sequencer` | 22 | microprogram counter and the nine 28C256 holding the microcode |
-| `datapath` | 15 | bus and operand muxes, the latches around the ALU |
-| `memory` | 8 | a 28C256 for the program, a 62256 for the RAM, the address split |
+| `io` | 25 | `R16`-`R19`, the two device handshakes and the reset |
+| `sequencer` | 23 | microprogram counter and the nine 28C256 holding the microcode |
+| `datapath` | 16 | bus and operand muxes, the latches around the ALU |
+| `memory` | 10 | a 28C256 for the program, a 62256 behind a 74245 for the RAM, the address split |
 
 One screw terminal on the `io` board feeds the whole stack through the backplane -- there is no regulator on any board, so the supply must be regulated 5 V; `boards/BACKPLANE.md` states the current to plan for. Logisim parts that are not real chips become real ones: a Logisim ROM is a 28C256, its RAM a 62256 on the same 28-pin pinout. The boards plug into a common backplane whose pinout `boards/BACKPLANE.md` lists; it is derived from the top level of `kone.circ`, so a header pin carries the same signal on every board.
 
@@ -197,11 +197,14 @@ grounded, so a programmer filling the rest of the chip with anything is fine.
 `io` feeds the whole stack; there is no regulator anywhere on it. X1, the can
 oscillator, drives `CLK` with the jumper on J6 across 1-2. Across 2-3 the clock
 comes from J7 instead, which is where an external generator or the Arduino
-bridge single-steps the machine.
+bridge single-steps the machine; R5 holds it low while nothing is plugged in.
+Each board takes `CLK` off the backplane once, into a 74HC14 (`clkbuf`) whose
+Schmitt inputs square up the edge, and fans it out to at most eight latches per
+gate, so the backplane line carries five loads instead of 43.
 
 **Reset.** The microprogram counter is a 74377 and comes up wherever it likes,
 so the sequencer gates its next address to zero while `NRES` is low. `io`
-generates that: an RC (R2, C89) holds it down while the rails come up, U24
+generates that: an RC (R2, C89) holds it down while the rails come up, U25
 squares the edge, and shorting J8 resets by hand. Microaddress 0 is `BOOT`,
 which zeroes every register and the RAM, sets the stack pointer and falls
 into FETCH -- the same thing `cpu_reset()` does in the vm. Neither a 74377
@@ -242,7 +245,7 @@ belongs a small controller, and the same one serves the keyboard:
 
 | Side | Wires | To |
 | --- | --- | --- |
-| display | `TTYD0`-`6`, `DISPNZ` in, `DISPCLR` out | 9 pins on the bridge, plus 2 for the LCD's I2C backpack |
+| display | `TTYD0`-`7`, `DISPNZ` in, `DISPCLR` out | 10 pins on the bridge, plus 2 for the LCD's I2C backpack |
 | keyboard | `KBD0`-`6`, `KBAV` out, `KBACK` in | 9 pins, plus 4 SPI lines and an interrupt for the USB host |
 
 The display the machine is built for is a **20x4 HD44780 module** (a Freenove
@@ -272,24 +275,25 @@ direction is the machine's, the mode is the Mega's.
 
 | kone signal | Backplane | Direction | Mega pin | Mega mode |
 | --- | --- | --- | --- | --- |
-| `TTYD0` | BP4.4 | out | 22 | input |
-| `TTYD1` | BP4.5 | out | 23 | input |
-| `TTYD2` | BP4.6 | out | 24 | input |
-| `TTYD3` | BP4.7 | out | 25 | input |
-| `TTYD4` | BP4.8 | out | 26 | input |
-| `TTYD5` | BP4.9 | out | 27 | input |
-| `TTYD6` | BP4.10 | out | 28 | input |
-| `DISPNZ` | BP2.6 | out | 29 | input |
-| `DISPCLR` | BP2.5 | in | 30 | output |
-| `KBD0` | BP2.9 | in | 31 | output |
-| `KBD1` | BP2.10 | in | 32 | output |
-| `KBD2` | BP2.11 | in | 33 | output |
-| `KBD3` | BP2.12 | in | 34 | output |
-| `KBD4` | BP2.13 | in | 35 | output |
-| `KBD5` | BP2.14 | in | 36 | output |
-| `KBD6` | BP2.15 | in | 37 | output |
-| `KBAV` | BP2.8 | in | 38 | output |
-| `KBACK` | BP2.7 | out | 39 | input |
+| `TTYD0` | BP4.12 | out | 22 | input |
+| `TTYD1` | BP4.13 | out | 23 | input |
+| `TTYD2` | BP4.14 | out | 24 | input |
+| `TTYD3` | BP4.15 | out | 25 | input |
+| `TTYD4` | BP4.16 | out | 26 | input |
+| `TTYD5` | BP4.17 | out | 27 | input |
+| `TTYD6` | BP4.18 | out | 28 | input |
+| `TTYD7` | BP4.19 | out | 29 | input |
+| `DISPNZ` | BP2.7 | out | 30 | input |
+| `DISPCLR` | BP2.6 | in | 31 | output |
+| `KBD0` | BP2.10 | in | 32 | output |
+| `KBD1` | BP2.11 | in | 33 | output |
+| `KBD2` | BP2.12 | in | 34 | output |
+| `KBD3` | BP2.13 | in | 35 | output |
+| `KBD4` | BP2.14 | in | 36 | output |
+| `KBD5` | BP2.15 | in | 37 | output |
+| `KBD6` | BP2.16 | in | 38 | output |
+| `KBAV` | BP2.9 | in | 39 | output |
+| `KBACK` | BP2.8 | out | 40 | input |
 | `GND` | BP1.2 | - | GND | - |
 
 Two more wires are worth having: **J7 on the io board is the clock input** and
@@ -302,15 +306,16 @@ way to watch a microstep go by; pull J8 low first and the machine starts from
 BOOT rather than wherever it happened to be. Both headers have `GND` on their
 second pin, so the Mega's ground is already shared.
 
-`KBSET` (BP2.16) stays unconnected: the bridge watches the `KBAV` level rather
-than an edge. The data lines are seven bits wide, so ASCII 0-127 passes and
-nothing above it -- the vm's keyboard takes 32-255, but a real keyboard has no
-way to send the upper half anyway.
+`KBSET` (BP2.17) stays unconnected: the bridge watches the `KBAV` level rather
+than an edge. The keyboard lines are seven bits wide, so ASCII 0-127 passes
+and nothing above it -- the vm's keyboard takes 32-255, but a real keyboard has
+no way to send the upper half anyway. The display lines carry all eight bits.
 
 #### What the bridge does
 
-Per character out: wait for `DISPNZ`, read the seven `TTYD` lines, write that
-character to the LCD, then raise `DISPCLR` and hold it until `DISPNZ` falls
+Per character out: wait for `DISPNZ`, read the eight `TTYD` lines, write that
+character to the LCD -- a space for anything outside 32-126, which the vm shows
+as an empty cell -- then raise `DISPCLR` and hold it until `DISPNZ` falls
 before dropping it again. Drop it promptly: while it is high, `R18` loads 0 on
 every clock, the program's next write to it included. R3 and R4 on `io` pull
 `DISPCLR` and `KBAV` low while the bridge is unplugged or in its own reset.

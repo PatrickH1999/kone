@@ -34,10 +34,12 @@ from them.
 | 5 | memory | The 62256 `WE#` was `NOT(MEMW AND MA15)`, a level straight off the control EEPROMs. It was not qualified by the clock, so it was open to ROM output glitches at every microstep change and raced the bus at the end of the step. | fixed |
 | 6 | io | `DISPCLR` and `KBAV` floated whenever the bridge was unplugged or in its own reset. | fixed |
 | 7 | docs | IC counts: `io` 24 and `sequencer` 22, not 23 and 20. BACKPLANE.md said "ten" 28-pin memories (there are 11) and omitted `io` as the source of `NRES`. | fixed |
-| 8 | io | `TTYD` and `KBD` are 7 bits. A char of 128-255 written to `R19` shows as its low 7 bits on the LCD, where the VM shows a blank cell. | open |
-| 9 | stack | One can oscillator drives `CLK` into 43 74377s across six boards and 24 connector contacts, unbuffered. | open |
-| 10 | stack | The backplane has 2 `GND` pins for 150 signals, and 13 spare pins (`SP147`-`SP159`). | open |
+| 8 | io | `TTYD` was 7 bits. A char of 128-255 written to `R19` showed as its low 7 bits on the LCD, where the VM shows a blank cell. | fixed: `TTYD7` on the backplane, the bridge blanks it |
+| 9 | stack | One can oscillator drove `CLK` into 43 74377s across six boards and 24 connector contacts, unbuffered. | fixed: one 74HC14 per clocked board |
+| 10 | stack | The backplane had 2 `GND` and 2 `+5V` pins for 143 signals. | fixed: `+5V` on pin 1 and `GND` on pins 2 and 40 of every connector, spare pins `GND` |
 | 11 | io | Before the first clock edge, `R18`/`R19` hold their power-up values, so a bridge that is already running can take one junk char. With the Arduino's 1-2 s boot this cannot happen at power-on; it can on a J8 reset only if `R18` happened to be set at that moment. | open |
+| 12 | docs | The bridge pin map in `kicad/README.md` was one pin off on every display line (`TTYD0` on BP4.4, which is `TQ7`). Wiring the bridge from it would have put the ALU's input on the Mega. | fixed, the table is now regenerated from `BACKPLANE.md` |
+| 13 | io | With J6 on 2-3 and nothing on J7, `CLK` floated. | fixed: R5 pulls `EXTCLK` low |
 
 ### 1, 2 -- BOOT
 
@@ -99,39 +101,49 @@ R3 and R4 (10k) pull `DISPCLR` and `KBAV` low on `io`. Otherwise a floating
 at random. `KBD0`-`KBD6` still float with the bridge unplugged; they only
 matter while `KBAV` is high.
 
-### 8-11 -- open questions
+### 8-10, 12, 13 -- second round
 
-- **8**: carrying bit 7 needs one more backplane pin. `backplane()` sorts
-  signals by name, so that moves every pin after `TTYD` and reroutes all six
-  boards. The alternative is to state it as a design limit.
-- **9**: about 43 x 3.5 pF plus traces and connectors, on one HCMOS can.
-  Expect slow, ringing edges at the far end of the stack. A 74HC244 or 74AC
-  buffer per board (or at least on `io`) is the usual answer. Not changed,
-  because it needs placement on all six boards.
-- **10**: the spare pins could become `GND`, giving signal returns through
-  the stack, with no change to signal positions. That still reroutes all six
-  boards.
-- **11**: residual; see the table.
+- **Clock.** Every clocked block has a `clkbuf`: a 7404 in Logisim and a
+  74HC14 on the board (the same pinout, chosen by label in `kicad.py`). Gate 1
+  takes `CLK` off the backplane, and gates 2-6 drive at most eight latches
+  each. The backplane `CLK` now has five loads: one gate on each of
+  `regfile`, `datapath`, `sequencer`, `memory` and `io`. `alu` has no clock.
+  Every 74377 is two Schmitt stages from `CLK`, so the skew between boards is
+  the spread of two HC gates, a few ns, less than the minimum
+  clock-to-output delay of the 74377 that launches the data.
+- **Ground.** 4 `+5V` and 12 `GND` pins, three ground pins per connector.
+  Signal positions moved, so every board was rerouted, and the README's pin
+  map was regenerated.
+- **`TTYD7`.** The bridge writes a space for anything outside 32-126. A test
+  printing `A`, 200, `B` shows `A B`, as the VM does.
+- **Reset reference.** The reset 7414 is now numbered after the chips. It was
+  hard-coded as U24, which the new buffer on `io` would have taken. It is U25
+  now.
+
+### 11 -- still open
+
+The one junk char from a bridge that is already running before the first
+clock edge, explained in the table.
 
 ## Per board
 
 Static checks over the pad netlist, for every board:
 
 - each IC has its datasheet `GND`/`VCC` pin on the planes;
-- one 100 nF per IC (including X1 and U24) plus a 100 uF bulk cap;
+- one 100 nF per IC (including X1 and the reset 7414) plus a 100 uF bulk cap;
 - no input on an undriven net, except `RESRC`, which is the RC;
 - no net with two drivers, except the tri-state 74245 outputs;
-- every 74377 pin 11 on `CLK`;
-- `NRES` from `io` U24 pin 4 reaches `sequencer` through BP3.9.
+- every 74377 pin 11 two 74HC14 stages from `CLK`;
+- `NRES` from `io` U25 pin 4 reaches `sequencer` through the backplane.
 
 | Board | Netlist = generator | Power, decoupling | Inputs, drivers | Function (lockstep) |
 | --- | --- | --- | --- | --- |
-| regfile | pass, 0 diffs | pass, 86/86 | pass | pass |
+| regfile | pass, 0 diffs | pass, 87/87 | pass | pass |
 | alu | pass | pass, 27/27 | pass (74HC21 NC pins 3, 11 on +5V, harmless) | pass |
-| datapath | pass | pass, 15/15 | pass | pass |
-| sequencer | pass | pass, 22/22 | pass | pass after 1, 2 |
-| memory | pass | pass, 9/9 after 4 | pass after 4 | pass after 4, 5 |
-| io | pass after 3 | pass, 24 + X1 | pass after 6 | pass after 3 |
+| datapath | pass | pass, 16/16 | pass | pass |
+| sequencer | pass | pass, 23/23 | pass | pass after 1, 2 |
+| memory | pass | pass, 10/10 | pass after 4 | pass after 4, 5 |
+| io | pass after 3 | pass, 25 + X1 | pass after 6, 13 | pass after 3 |
 
 The "netlist = generator" column is for the boards as they were before this
 audit. `io` differed from the generator only in the one pad the R18 fix
@@ -152,26 +164,28 @@ image by that label. The images are regenerated with the new microcode.
 
 ## Path traces
 
-Pin references are `board Uref pin`, taken from the generated boards.
+Pin references are `board Uref pin`, taken from the boards of the first
+round; the second round added a chip per board, so a U number may have moved.
+Backplane positions are in `boards/BACKPLANE.md`.
 
 - **a) fetch.** `MAR <- PCL/PCH`: microcode `MLW`/`MHW` on `uWE` bits 4/5 go
-  over BP4.24/25 to memory U1 (7404) pins 1/3 -> `nMLW`/`nMHW` -> U3/U4
-  (74377) pin 1. `BUS` reaches their D pins and `CLK` pin 11. Below
+  over the backplane to memory U1 (7404) pins 1/3 -> `nMLW`/`nMHW` -> U3/U4
+  (74377) pin 1. `BUS` reaches their D pins and the buffered clock pin 11. Below
   `0x8000` the 28C256 `prog` is selected by `MA15`=0 on the `mem` 74157
   pin 1. Then `IR0 <- MEM`: datapath U8 `bus0` 74153 (`BSRC` on pins 14/2,
   input 1 = `MEMO`) drives `BUS`. `PC+1` is two ALU `ADD`s through `T`. The
   carry goes alu U1/U2 74283 `C4` -> `COUT` -> U9 74HC21 gate 2 (with `CWR`)
-  -> `C` -> BP1.10 `ALUC` -> datapath U12 `cy` pin 3, loaded by `nCYW`.
+  -> `C` -> `ALUC` -> datapath U12 `cy` pin 3, loaded by `nCYW`.
   `CY` comes back into the `alur` 74153 on input 2 (U4 pin 4) for the high
   byte. Matches `cpu_fetch()`, including the wrap at `0xFFFF`.
-- **b) ALU op.** `T <- A` loads U14 `t` (`nTW`). `RSRC` (`uMISC` bits 0-1,
-  BP3.26/27) selects `REGO`/`LIT`/`CY`/`T2Q`. `AOP` is the opcode byte
-  itself on BP1.27-34: bit 7 selects the result mux, bits 5-4
+- **b) ALU op.** `T <- A` loads U14 `t` (`nTW`). `RSRC` (`uMISC` bits 0-1)
+  selects `REGO`/`LIT`/`CY`/`T2Q`. `AOP` is the opcode byte
+  itself: bit 7 selects the result mux, bits 5-4
   ORR/AND/XOR/ADD, bits 2-0 the unary ops. Only `0xF0` raises `CWR` (U9
   gate 1 = `P7 P6 P5 P4`). `ADD` writes `A` and `CY` together, and three
   more steps fold `CY` into `F` bit 0 (`F AND 0xFE OR CY`), leaving F1-F7
   untouched. Matches `alu_add()` and `cpu_set_flag()`.
-- **c) memory write.** `MAR` as in (a). `MEMW` (`uWE` bit 6, BP4.26) AND
+- **c) memory write.** `MAR` as in (a). `MEMW` (`uWE` bit 6) AND
   `MA15` -> memory U7 `RAMWE`. It opens U6 74245 (`nRAMBUS`) and holds the
   62256 `OE#` high. `WE#` = `NOT(RAMWE AND NCLK)`. Below `0x8000`,
   `RAMWE` = 0 and the write is dropped (the documented ROM-half deviation).
@@ -179,9 +193,8 @@ Pin references are `board Uref pin`, taken from the generated boards.
   `DEVWR` = `RW` AND `DEVSEL` (U7: `ADDR4`, `NADDR3`, `NADDR2`), which is
   R16-R19. Reads return the `dev` mux through the `rego` 74157 on
   `DEVSEL`. Keyboard: `KBSET` = `KBAV AND NOT R16` loads `R17 <- KBD` and
-  `R16 <- 1`, and `KBACK` = `R16Q0` on BP2.7. Display: `R19Q0-6` on BP4.5-11
-  as `TTYD`. `DISPNZ` = `R18 != 0` (U6 7427 + U7 7411 + U9) on BP2.6, and
-  `DISPCLR` (BP2.5) loads `R18 <- 0`. The pin map in `kicad/README.md`
+  `R16 <- 1`, and `KBACK` = `R16Q0`. Display: `R19Q0-7` as `TTYD`. `DISPNZ` = `R18 != 0` (U6 7427 + U7 7411 + U9), and
+  `DISPCLR` loads `R18 <- 0`. The pin map in `kicad/README.md`
   agrees with `BACKPLANE.md`. One deviation: the VM overwrites `R17` when a
   key arrives while `R16` is set, the board holds it until the program
   acknowledges.
@@ -196,7 +209,10 @@ Pin references are `board Uref pin`, taken from the generated boards.
 ## Simulation runs
 
 All runs below are after the fixes, from a random power-up state, with no
-bus conflicts.
+bus conflicts. Every one was run twice: on the first round's netlist, and again
+on the second round's (clock buffers, new backplane, `TTYD7`), with the
+same results. The second round adds a test printing `A`, char 200, `B`,
+which shows `A B` on both the board and the VM.
 
 | Program | Mode | Result |
 | --- | --- | --- |

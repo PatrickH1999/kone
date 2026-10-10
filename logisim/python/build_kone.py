@@ -134,8 +134,8 @@ def gate_and(c, x, y, tag, sel, ins, outs):
 
 
 def latch(c, x, y, tag, d, q, nclken):
-    """One 74377, loaded on the CPU clock while nclken is low."""
-    nets = {"CLK": "CLK", "nCLKen": nclken}
+    """One 74377, loaded on the block's buffered clock while nclken is low."""
+    nets = {"CLK": "CLKB", "nCLKen": nclken}
     for k in range(8):
         nets[f"D{k + 1}"] = d[k]
         nets[f"Q{k + 1}"] = q[k]
@@ -224,6 +224,7 @@ def sequencer(rom, dispatch_a, dispatch_b):
     # until it is released; 0 is BOOT, which is what cpu_reset() does in the vm.
     gate_and(c, 200, y + 1200, "ures", "NRES", bits("UNEXT"), bits("URES"))
     latch(c, 2600, y, "uaddr", bits("URES"), bits("UADDR"), Ground)
+    clock_buffer(c, 6200, y, ["CLKB"])
     wires(c, 3000, y + 400, "UADDR", bits("UADDR"))
     wires(c, 3400, y + 400, "BUS", bits("BUS"))
     wires(c, 3800, y + 400, "WE", keep(WE_BITS, "RW"))
@@ -400,6 +401,7 @@ def datapath():
             "Y6": None,
         },
     )
+    clock_buffer(c, 2200, y, ["CLKB"])
     return c
 
 
@@ -419,6 +421,7 @@ def memory(program):
     y += 600
     latch(c, 200, y, "marl", bits("BUS"), bits("MARL"), "nMLW")
     latch(c, 600, y, "marh", bits("BUS"), bits("MARH"), "nMHW")
+    clock_buffer(c, 2200, y, ["CLKB"])
     # nRAMWE is for the real SRAM on the board, which writes on a level, not
     # an edge: it is held to the second half of the clock, once the control
     # ROMs have settled, and rises with the clock before anything changes.
@@ -433,7 +436,7 @@ def memory(program):
             "Y2": "nMHW",
             "A3": "RAMWEC",
             "Y3": "nRAMWE",
-            "A4": "CLK",
+            "A4": "CLKB",
             "Y4": "NCLK",
             "A5": "RAMWE",
             "Y5": "nRAMBUS",
@@ -525,7 +528,7 @@ def memory(program):
         ("addr", "MADDR", 15),
         ("din", "RAMD", 8),
         ("we", "RAMWE", 1),
-        ("clk", "CLK", 1),
+        ("clk", "CLKB", 1),
     ):
         px, py = ram.port(port)
         stub(c, (px, py), (px - 60, py), net, "east", width=width)
@@ -579,6 +582,10 @@ def io():
     stub(c, pin.port(), (300, 100 + 100 * 7), "DISPCLR", "west")
     pin = c.add(Pin(900, 100 + 100 * 5, "KBACK", output=True))
     stub(c, pin.port(), (700, 100 + 100 * 5), "R16Q0", "east")
+    # Bit 7 of the char is the bridge's to blank: the TTY above takes seven
+    # bits, the vm shows anything past 126 as an empty cell.
+    pin = c.add(Pin(900, 100 + 100 * 6, "TTYD7", output=True))
+    stub(c, pin.port(), (700, 100 + 100 * 6), "R19Q7", "east")
 
     for i, (bus, names) in enumerate(
         (
@@ -768,6 +775,7 @@ def io():
         )
     ):
         latch(c, 1800 + PITCH * i, y, tag, d, q, en)
+    clock_buffer(c, 3800, y, ["CLKB"])
     one = c.add(Power(3400, y, facing="north"))
     stub(c, one.port(), (3400, y + 40), "KBONE", "north")
 

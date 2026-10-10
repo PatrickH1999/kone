@@ -15,7 +15,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC32` | DIP-14 | quad 2-input OR | 16 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 5 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 86 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 87 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -50,7 +51,8 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC377` | DIP-20 | octal register, clock enable | 4 |
 | `74HC157` | DIP-16 | quad 2:1 multiplexer | 2 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 15 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 16 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -65,10 +67,11 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC08` | DIP-14 | quad 2-input AND | 2 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
 | `74HC11` | DIP-14 | triple 3-input AND | 1 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC151` | DIP-16 | 8:1 multiplexer | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
 | `74HC377` | DIP-20 | octal register, clock enable | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 22 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 23 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -84,8 +87,9 @@ is the exception: those parts sit on no board and are kept by hand.
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
 | `74HC04` | DIP-14 | hex inverter | 1 |
 | `74HC08` | DIP-14 | quad 2-input AND | 1 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC245` | DIP-20 | octal bus transceiver | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 9 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 10 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
@@ -100,14 +104,14 @@ is the exception: those parts sit on no board and are kept by hand.
 | `74HC153` | DIP-16 | dual 4:1 multiplexer | 4 |
 | `74HC377` | DIP-20 | octal register, clock enable | 4 |
 | `74HC04` | DIP-14 | hex inverter | 2 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 2 |
 | `74HC11` | DIP-14 | triple 3-input AND | 1 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 1 |
-| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 25 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 26 |
+| `resistor 10k, 1/4W` | - | reset RC, pull-downs | 4 |
 | `Backplane` | 2.54mm | board to board | 4 |
 | `M3 hole, screw and standoff` | - | stacking | 4 |
-| `resistor 10k, 1/4W` | - | reset RC, bridge pull-downs | 3 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 1 |
 | `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
@@ -129,7 +133,7 @@ reprogram, or to swap for another frequency.
 | --- | --- | --- |
 | `DIP-20 socket` | per IC | 76 |
 | `DIP-16 socket` | per IC | 51 |
-| `DIP-14 socket` | per IC, the can oscillator among them | 46 |
+| `DIP-14 socket` | per IC, the can oscillator among them | 51 |
 | `DIP-28 socket` | the ten 28C256 and the 62256 | 11 |
 
 ## Total
@@ -146,19 +150,19 @@ reprogram, or to swap for another frequency.
 | `74HC151` | DIP-16 | 8:1 multiplexer | 9 |
 | `74HC04` | DIP-14 | hex inverter | 8 |
 | `74HC138` | DIP-16 | 3-to-8 decoder | 6 |
+| `74HC14` | DIP-14 | hex Schmitt inverter | 6 |
 | `74HC11` | DIP-14 | triple 3-input AND | 3 |
 | `74HC27` | DIP-14 | triple 3-input NOR | 3 |
 | `74HC283` | DIP-16 | 4-bit binary adder | 2 |
 | `74HC86` | DIP-14 | quad 2-input XOR | 2 |
 | `AS6C62256-55PCN` | DIP-28 | 32K x 8 SRAM | 1 |
-| `74HC14` | DIP-14 | hex Schmitt inverter | 1 |
 | `74HC21` | DIP-14 | dual 4-input AND | 1 |
-| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 184 |
+| `ceramic 100nF, 5.08mm` | - | one per IC, decoupling | 189 |
 | `Backplane` | 2.54mm | board to board | 24 |
 | `M3 hole, screw and standoff` | - | stacking | 24 |
 | `electrolytic 100uF/16V, 2.5mm` | - | bulk, one per board | 6 |
 | `pin header 1x02` | - | supply header | 6 |
-| `resistor 10k, 1/4W` | - | reset RC, bridge pull-downs | 3 |
+| `resistor 10k, 1/4W` | - | reset RC, pull-downs | 4 |
 | `electrolytic 10uF/16V, 2.5mm` | - | power-on reset RC | 1 |
 | `1 MHz can oscillator, DIP-14` | DIP-14 | the clock, in a socket | 1 |
 | `resistor 220R, 1/4W` | - | power LED series resistor | 1 |
@@ -168,7 +172,7 @@ reprogram, or to swap for another frequency.
 | `LED 3mm` | - | power indicator | 1 |
 | `pin header 1x02` | - | reset by hand, short to reset | 1 |
 
-183 chips over the six boards. Sockets are worth it for the two
+188 chips over the six boards. Sockets are worth it for the two
 memory types, which are the parts you will want to reprogram.
 `74HC21` and `74HC27` are the two that are thinly stocked; the LS or
 HCT versions drop in.
@@ -184,7 +188,7 @@ and the two devices, which `README.md` wires up and programs.
 | USB Host Shield, MAX3421E | the USB keyboard | 1 |
 | Freenove I2C LCD2004, 20x4 | the display, HD44780 behind a PCF8574 | 1 |
 | pin header 2x20, stackable | the io board's free stack connector | 2 |
-| jumper wires, female to female | 18 signals, a ground, and J7 and J8 for stepping | 21 |
+| jumper wires, female to female | 19 signals, a ground, and J7 and J8 for stepping | 22 |
 | resistor 4.7k | I2C pull-ups, only if the LCD module has none | 2 |
 
 A USB Host Shield is an Uno shield: on a Mega it has to take SPI from

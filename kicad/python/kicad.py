@@ -343,7 +343,9 @@ LIB_VERSION = 20241209
 # system_nets() reads it off the top level of kone.circ, so a board's header
 # pin means the same thing on every board.
 HEADER_PINS = 40  # one 2x20 connector
-RAILS = ("+5V", "GND", "+5V", "GND")
+# Pin index within every connector -> rail. Each connector carries its own
+# supply and a ground at either end, so no signal is far from its return.
+RAILS = {0: "+5V", 1: "GND", HEADER_PINS - 1: "GND"}
 
 
 def system_nets(top):
@@ -385,13 +387,19 @@ def system_nets(top):
 
 
 def backplane(system):
-    """Every inter-board signal, one entry per bit, at a fixed position."""
+    """Every inter-board signal, one entry per bit, at a fixed position.
+
+    The rails sit where RAILS puts them on every connector, and a pin the
+    signals leave over is one more ground.
+    """
     signals = sorted({v for v in system.values() if v[0] not in ("+5V", "GND")})
-    out = list(RAILS)
+    bits = []
     for net, width in signals:
-        out += [f"{net}{i}" for i in range(width)] if width > 1 else [net]
-    while len(out) % HEADER_PINS:
-        out.append(f"SP{len(out)}")
+        bits += [f"{net}{i}" for i in range(width)] if width > 1 else [net]
+    out = []
+    while bits or len(out) % HEADER_PINS:
+        k = len(out) % HEADER_PINS
+        out.append(RAILS.get(k) or (bits.pop(0) if bits else "GND"))
     return out
 
 
@@ -791,10 +799,13 @@ PLANES = (("GND", "In1.Cu"), ("+5V", "In2.Cu"))
 
 def _order(comp):
     """Placement order: chips that share a label end up side by side, so a
-    register sits next to the driver it feeds and a bus stays local."""
+    register sits next to the driver it feeds and a bus stays local. The
+    clock buffer goes last: the rest of the board keeps the grid it routed
+    with, and regfile does not route with every chip one cell further on."""
     label = comp.get("label") or ""
     digits = "".join(c if c.isdigit() else " " for c in label).split()
     return (
+        label == "clkbuf",
         "".join(c for c in label if not c.isdigit()),
         int(digits[0]) if digits else 0,
         comp.NAME,
@@ -865,9 +876,10 @@ class Board:
                 )
                 for n, pin, kind in pins
             }
-            out.append(
-                (chip.NAME, package(chip), pins, nets, chip.get("label"))
-            )
+            # The clock buffer is a 7404 in Logisim and a 74HC14 on the
+            # board: same pinout, Schmitt inputs for the edge off the stack.
+            value = "7414" if chip.get("label") == "clkbuf" else chip.NAME
+            out.append((value, package(chip), pins, nets, chip.get("label")))
         for mem in sorted(self.netlist.memories, key=_order):
             value, footprint = PARTS[mem.NAME]
             nets = {
@@ -943,9 +955,19 @@ class Board:
         # connector, so a stack goes together in any order; a pin whose signal
         # a board has not got is a pass-through, carrying the backplane net
         # and nothing else on that board.
-        used = dict(enumerate(RAILS))
+        total = (
+            max(self.positions.values(), default=0) // HEADER_PINS + 1
+        ) * HEADER_PINS
+        used = {
+            i: RAILS[i % HEADER_PINS]
+            for i in range(total)
+            if i % HEADER_PINS in RAILS
+        }
         for signal, index in self.positions.items():
-            used.setdefault(index, signal)
+            if signal not in ("+5V", "GND"):
+                used.setdefault(index, signal)
+        for i in range(total):
+            used.setdefault(i, "GND")
         driven = set()
         for pin in self.netlist.circuit.pins():
             label = pin.get("label")
@@ -1124,7 +1146,7 @@ class Board:
             self.driven.add(self.positions["NRES"])
             for ref, value, footprint, symbol, pins, at, silk in (
                 (
-                    "U24",
+                    f"U{len(packages) + 1}",
                     "7414",
                     "DIP-14_W7.62mm",
                     "SCHMITT",
@@ -1250,6 +1272,17 @@ class Board:
                     {1: "EXTCLK", 2: "GND"},
                     (20, 28),
                     "EXT CLK",
+                ),
+                # With the jumper on 2-3 and nothing on J7, CLK would float
+                # and the Schmitt buffers would clock the stack on noise.
+                (
+                    "R5",
+                    "10k",
+                    "R_Axial_P10.16mm",
+                    "R",
+                    {1: "EXTCLK", 2: "GND"},
+                    (0, 42),
+                    "10k",
                 ),
             ):
                 self.parts.append(

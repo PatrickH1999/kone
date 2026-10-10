@@ -400,8 +400,8 @@ board format, and the Arduino Mega 2560 bridge that runs the USB keyboard and th
 its pin map onto the io board's device signals and the two protocols it implements.
 `build_kicad.py` warns when the outline the README states no longer matches the boards.
 
-All six blocks are boards: `regfile` (86 ICs), `alu` (27), `io` (24), `sequencer` (22),
-`datapath` (15) and `memory` (8), each four layers -- signals outside, a GND plane on
+All six blocks are boards: `regfile` (87 ICs), `alu` (27), `io` (25), `sequencer` (23),
+`datapath` (16) and `memory` (10), each four layers -- signals outside, a GND plane on
 `In1.Cu` and a +5V plane on `In2.Cu` -- with a 100nF per IC, a 100uF bulk cap, the backplane
 connectors it needs and a power header. They are meant to stack, so every board carries the
 **same outline** (the size the largest one needs), four M3 holes 6 mm in from the corners and
@@ -486,6 +486,9 @@ header pin means the same signal on every board. What costs time here:
   does not place those either. A session is stale as soon as the **design is newer** than
   it, too: the parts stay where they are when a new backplane signal shifts every connector
   pin onto another net, and the old tracks then join the wrong pins.
+- The clock buffer is a 7404 labelled `clkbuf` in Logisim, which has no 7414, and a 74HC14
+  on the board: `_packages()` swaps the part by that label, the pinout being the same. Every
+  latch hangs off one of those, so the backplane `CLK` sees one gate per board.
 - `BACKPLANE.md` and `PARTS.md` are written from all six boards on every run, not from the
   ones a `--route <board>` invocation happened to touch.
 - A mounting hole is a hole to KiCad but nothing to the router, so `dsn()` puts a keepout

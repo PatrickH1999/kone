@@ -26,7 +26,6 @@ sys.path.insert(
 from kicad import (  # noqa: E402
     Board,
     HEADER_PINS,
-    RAILS,
     backplane,
     parse_ses,
     ses_fits,
@@ -100,7 +99,7 @@ PASSIVES = {
     "Power": ("pin header 1x02", "supply header"),
     "M3": ("M3 hole, screw and standoff", "stacking"),
     "1MHz": ("1 MHz can oscillator, DIP-14", "the clock, in a socket"),
-    "10k": ("resistor 10k, 1/4W", "reset RC, bridge pull-downs"),
+    "10k": ("resistor 10k, 1/4W", "reset RC, pull-downs"),
     "10u": ("electrolytic 10uF/16V, 2.5mm", "power-on reset RC"),
     "RESET": ("pin header 1x02", "reset by hand, short to reset"),
     "CLK SRC": ("pin header 1x03 and jumper", "clock from the can or from J7"),
@@ -235,7 +234,7 @@ def bom(path, boards, out):
         "| USB Host Shield, MAX3421E | the USB keyboard | 1 |",
         "| Freenove I2C LCD2004, 20x4 | the display, HD44780 behind a PCF8574 | 1 |",
         "| pin header 2x20, stackable | the io board's free stack connector | 2 |",
-        "| jumper wires, female to female | 18 signals, a ground, and J7 and J8 for stepping | 21 |",
+        "| jumper wires, female to female | 19 signals, a ground, and J7 and J8 for stepping | 22 |",
         "| resistor 4.7k | I2C pull-ups, only if the LCD module has none | 2 |",
         "",
         "A USB Host Shield is an Uno shield: on a Mega it has to take SPI from",
@@ -265,6 +264,10 @@ def pinout(path, signals, boards):
         "top or the bottom; only pin 1 has to line up, which the square pad",
         "and the dot beside it mark on the silkscreen.",
         "",
+        "Pin 1 of every connector is `+5V`, pins 2 and 40 are `GND`, and so",
+        "is every pin the signals leave over: each connector brings its own",
+        "supply and a return at either end.",
+        "",
         "The `Boards` column says where a signal comes from or goes to, not",
         "which boards carry the pin -- that is all of them.",
         "",
@@ -274,7 +277,7 @@ def pinout(path, signals, boards):
     for i, signal in enumerate(signals):
         on = (
             list(boards)  # the rails, which every board takes off the bus
-            if i < len(RAILS)
+            if signal in ("+5V", "GND")
             else [n for n, board in boards.items() if i in board.driven]
         )
         rows.append(
