@@ -139,40 +139,9 @@ calculator_float32__div:
     CLL float32_div
     JMP calculator_float32__store
 
-// calculator_float32__pow: the exponent is a repeat count, so it is truncated
-// to an integer and a negative one is an error
 calculator_float32__pow:
-    LDR 4
-    STR 0
-    LDR 5
-    STR 1
-    LDR 6
-    STR 2
-    LDR 7
-    STR 3
-    CLL float32_to_int32    // R8 - R11 = exponent
-    LDI 128
-    STR 12
-    LDR 11
-    AND 12
-    JA1 calculator_float32__err
-    LDR 8
-    STR 4
-    LDR 9
-    STR 5
-    LDR 10
-    STR 6
-    LDR 11
-    STR 7
-    LDM 0x8041
-    STR 0
-    LDM 0x8042
-    STR 1
-    LDM 0x8043
-    STR 2
-    LDM 0x8044
-    STR 3
     CLL float32_pow
+    JA1 calculator_float32__err     // undefined, e.g. a root of a negative
     JMP calculator_float32__store
 
 calculator_float32__err:

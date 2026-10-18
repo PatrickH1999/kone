@@ -1,27 +1,47 @@
 // float32_pow: C = A ** B, IEEE 754 single precision, byte order LSB -> MSB
-//     in:       A -> R0 - R3, B -> R4 - R7, an unsigned 32 bit integer
-//     out:      C -> R8 - R11, 1.0 for B = 0
-//     clobbers: R0 - R7, R12 - R15
+//     in:       A -> R0 - R3, B -> R4 - R7
+//     out:      C -> R8 - R11, accumulator -> 0, or 1 if A ** B is undefined
+//     clobbers: R0 - R15
 //
-// B rounds of float32_mul, each truncating, so the cost is the exponent itself
-// and the error grows with it. A and the rounds left are parked on the stack
-// across each call.
+// C = e^(B * ln |A|) through float32_ln and float32_exp. A negative A takes an
+// integer B, the sign of C following its parity; any other B, and one beyond
+// the 32 bit range, is undefined, as is 0 to a negative power. C is not set
+// then. A ** 0 = 1 for every A, 0 ** B = 0 for every positive B.
 float32_pow:
+    LDI 0x7F
+    STR 12
+    LDR 7
+    AND 12
+    ORR 6
+    ORR 5
+    ORR 4
+    JA0 float32_pow__one
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    JA1 float32_pow__nonzero
+    LDI 0x80
+    STR 12
+    LDR 7
+    AND 12
+    JA1 float32_pow__err // 0 to a negative power
     LDI 0
     STR 8
     STR 9
-    LDI 0x80
     STR 10
-    LDI 0x3F
-    STR 11          // C = 1.0
+    STR 11
+    RET
 
-float32_pow__loop:
-    LDR 4
-    ORR 5
-    ORR 6
-    ORR 7
-    JA0 float32_pow__done
-
+float32_pow__nonzero:
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA1 float32_pow__neg
+    LDI 0
+    PSH             // C keeps its sign
     LDR 4
     PSH
     LDR 5
@@ -29,7 +49,7 @@ float32_pow__loop:
     LDR 6
     PSH
     LDR 7
-    PSH
+    PSH             // B
     LDR 0
     PSH
     LDR 1
@@ -37,16 +57,69 @@ float32_pow__loop:
     LDR 2
     PSH
     LDR 3
+    PSH             // A
+    JMP float32_pow__main
+
+float32_pow__neg:
+    LDR 0
     PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH             // A
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // B
+    LDR 4
+    STR 0
+    LDR 5
+    STR 1
+    LDR 6
+    STR 2
+    LDR 7
+    STR 3
+    CLL float32_to_int32 // R8 - R11 = B truncated
     LDR 8
-    STR 4
+    STR 4           // its parity, float32_from_int32 keeps R4
+    LDR 8
+    STR 0
     LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_from_int32
+    POP
+    STR 15
+    POP
+    STR 14
+    POP
+    STR 13
+    POP
+    STR 12          // B
+    LDR 8
+    XOR 12
+    STR 5
+    LDR 9
+    XOR 13
+    ORR 5
     STR 5
     LDR 10
-    STR 6
+    XOR 14
+    ORR 5
+    STR 5
     LDR 11
-    STR 7
-    CLL float32_mul   // R8 - R11 = A * C
+    XOR 15
+    ORR 5
+    JA1 float32_pow__neg_err // B is not an integer
     POP
     STR 3
     POP
@@ -54,32 +127,96 @@ float32_pow__loop:
     POP
     STR 1
     POP
-    STR 0
-    POP
-    STR 7
-    POP
-    STR 6
-    POP
-    STR 5
-    POP
-    STR 4
+    STR 0           // A
+    LDI 1
+    AND 4
+    PSH             // 1 -> C is negated
+    LDR 12
+    PSH
+    LDR 13
+    PSH
+    LDR 14
+    PSH
+    LDR 15
+    PSH             // B
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH             // A
 
-    LDI 255         // B - 1; carry clear only where a byte borrows
-    ADD 4
-    STR 4
-    JC1 float32_pow__loop
-    LDI 255
-    ADD 5
-    STR 5
-    JC1 float32_pow__loop
-    LDI 255
-    ADD 6
-    STR 6
-    JC1 float32_pow__loop
-    LDI 255
-    ADD 7
+float32_pow__main:
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0           // A
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    STR 3           // |A|
+    CLL float32_ln
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    POP
     STR 7
-    JMP float32_pow__loop
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4           // B
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_exp
+    POP
+    JA0 float32_pow__done
+    LDI 0x80
+    XOR 11
+    STR 11
 
 float32_pow__done:
+    LDI 0
+    RET
+
+float32_pow__one:
+    LDI 0x00
+    STR 8
+    LDI 0x00
+    STR 9
+    LDI 0x80
+    STR 10
+    LDI 0x3F
+    STR 11          // 1.0
+    LDI 0
+    RET
+
+float32_pow__neg_err:
+    POP
+    POP
+    POP
+    POP             // A
+
+float32_pow__err:
+    LDI 1
     RET
