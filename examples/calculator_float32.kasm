@@ -5,6 +5,7 @@
 // Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
 //     0x8040          the operator of the line being read
 //     0x8041 - 0x8044 the accumulator
+//     0x8045          chars of a function name on the display, '(' included
 
     JMP main
 
@@ -65,6 +66,12 @@ calculator_float32__number:
     JMP calculator_float32__print
 
 calculator_float32__operator:
+    LDI 148         // 256 - 108 -> 'l'
+    ADD 13
+    JA0 calculator_float32__ln
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 13
+    JA0 calculator_float32__exp
     LDR 13
     STM 0x8040      // float32_read clobbers every register, so park it here
     CLL disp_putc
@@ -143,6 +150,135 @@ calculator_float32__pow:
     CLL float32_pow
     JA1 calculator_float32__err     // undefined, e.g. a root of a negative
     JMP calculator_float32__store
+
+// calculator_float32__ln: 'ln(' and 'exp(' start a function line; the name is
+// echoed as it is typed, and a backspace or any other char takes it back off
+// the display again
+calculator_float32__ln:
+    LDI 108         // 'l'
+    STM 0x8040
+    CLL disp_putc
+    LDI 1
+    STM 0x8045
+    LDI 110         // 'n'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__unname
+    JMP calculator_float32__paren
+
+calculator_float32__exp:
+    LDI 101         // 'e'
+    STM 0x8040
+    CLL disp_putc
+    LDI 1
+    STM 0x8045
+    LDI 120         // 'x'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__unname
+    LDI 112         // 'p'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__unname
+
+// calculator_float32__paren: an argument replaces the accumulator, an empty
+// one -- ')' or Enter straight after '(' -- applies the function to it
+calculator_float32__paren:
+    LDI 40          // '('
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__unname
+    CLL calculator_float32__read_key
+    STR 13
+    LDI 215         // 256 - 41 -> ')'
+    ADD 13
+    JA0 calculator_float32__close
+    LDI 246         // 256 - 10 -> Enter
+    ADD 13
+    JA0 calculator_float32__self
+    LDI 129         // 256 - 127 -> DEL
+    ADD 13
+    JA0 calculator_float32__unname
+    LDI 248         // 256 - 8 -> BS
+    ADD 13
+    JA0 calculator_float32__unname
+    LDR 13
+    STR 17
+    LDI 1
+    STR 16          // hand the char back to float32_read
+    CLL float32_read    // R0 - R3 = argument, ended by ')' or anything else
+    CLL calculator_float32__erased
+    JA1 calculator_float32__unname  // erased back past '('
+    JMP calculator_float32__apply
+
+calculator_float32__close:
+    LDI 41          // ')'
+    CLL disp_putc
+
+calculator_float32__self:
+    LDM 0x8041
+    STR 0
+    LDM 0x8042
+    STR 1
+    LDM 0x8043
+    STR 2
+    LDM 0x8044
+    STR 3
+
+calculator_float32__apply:
+    CLL disp_nl
+    LDM 0x8040
+    STR 13
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 13
+    JA0 calculator_float32__apply_exp
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA1 calculator_float32__err     // ln of a negative
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    JA0 calculator_float32__err     // ln 0
+    CLL float32_ln
+    JMP calculator_float32__store
+
+// calculator_float32__apply_exp: an e^x beyond the range comes back as +inf,
+// which, as with a division by zero, is an error rather than a result
+calculator_float32__apply_exp:
+    CLL float32_exp
+    LDI 0x7F
+    STR 12
+    LDR 11
+    AND 12
+    STR 12
+    LDI 129         // 256 - 0x7F
+    ADD 12
+    JA1 calculator_float32__store
+    LDI 0x80
+    STR 12
+    LDR 10
+    AND 12
+    JA1 calculator_float32__err
+    JMP calculator_float32__store
+
+// calculator_float32__unname: takes the function name back off the display
+// and reads the line from the start
+calculator_float32__unname:
+    LDM 0x8045
+    JA0 calculator_float32__key
+    CLL disp_bs
+    LDM 0x8045
+    STR 12
+    LDI 255         // 256 - 1
+    ADD 12
+    STM 0x8045
+    JMP calculator_float32__unname
 
 calculator_float32__err:
     LDI 69          // 'E'
@@ -232,6 +368,35 @@ calculator_float32__erased:
     RET
 
 calculator_float32__erased_yes:
+    LDI 1
+    RET
+
+// calculator_float32__expect: reads a key and echoes it if it is the next
+// char of a function name
+//     in:       char -> R15
+//     out:      accumulator = 0 if it was, 1 if not
+//     clobbers: R12 - R14
+calculator_float32__expect:
+    CLL calculator_float32__read_key
+    STR 14
+    LDR 15
+    NOT
+    STR 12
+    LDI 1
+    ADD 12
+    ADD 14          // key - char
+    JA1 calculator_float32__expect_no
+    LDR 14
+    CLL disp_putc
+    LDM 0x8045
+    STR 12
+    LDI 1
+    ADD 12
+    STM 0x8045
+    LDI 0
+    RET
+
+calculator_float32__expect_no:
     LDI 1
     RET
 
