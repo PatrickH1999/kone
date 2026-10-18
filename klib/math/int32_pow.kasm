@@ -1,0 +1,83 @@
+// int32_pow: C = A ** B, 32 bit, byte order LSB -> MSB
+//     in:       A -> R0 - R3, B -> R4 - R7, unsigned
+//     out:      C -> R8 - R11, the product wraps like int32_mul's
+//     clobbers: R0 - R7, R12
+//
+// B rounds of int32_mul, so the cost is the exponent itself. A and the rounds
+// left are parked on the stack across each call.
+int32_pow:
+    LDI 1
+    STR 8
+    LDI 0
+    STR 9
+    STR 10
+    STR 11
+
+int32_pow__loop:
+    LDR 4
+    ORR 5
+    ORR 6
+    ORR 7
+    JA0 int32_pow__done
+
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    CLL int32_mul   // R8 - R11 = A * C
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+
+    LDI 255         // B - 1; carry clear only where a byte borrows
+    ADD 4
+    STR 4
+    JC1 int32_pow__loop
+    LDI 255
+    ADD 5
+    STR 5
+    JC1 int32_pow__loop
+    LDI 255
+    ADD 6
+    STR 6
+    JC1 int32_pow__loop
+    LDI 255
+    ADD 7
+    STR 7
+    JMP int32_pow__loop
+
+int32_pow__done:
+    RET

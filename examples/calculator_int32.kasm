@@ -104,6 +104,9 @@ calculator_int32__operator:
     LDI 209         // 256 - 47 -> '/'
     ADD 13
     JA0 calculator_int32__div
+    LDI 162         // 256 - 94 -> '^'
+    ADD 13
+    JA0 calculator_int32__pow
     JMP calculator_int32__print   // unknown operator -> accumulator unchanged
 
 calculator_int32__add:
@@ -126,7 +129,7 @@ calculator_int32__div:
     ORR 5
     ORR 6
     ORR 7
-    JA0 calculator_int32__div_zero
+    JA0 calculator_int32__err
 
     LDI 0
     STR 15          // 1 -> the quotient has to be negated
@@ -237,7 +240,18 @@ calculator_int32__div_go:
     CLL int32_sub   // R8 - R11 = 0 - quotient
     JMP calculator_int32__store
 
-calculator_int32__div_zero:
+// calculator_int32__pow: the exponent is a repeat count, so a negative one is
+// an error
+calculator_int32__pow:
+    LDI 128
+    STR 12
+    LDR 7
+    AND 12
+    JA1 calculator_int32__err
+    CLL int32_pow
+    JMP calculator_int32__store
+
+calculator_int32__err:
     LDI 69          // 'E'
     CLL disp_putc
     LDI 82          // 'R'
