@@ -47,7 +47,6 @@ int main(int argc, char *argv[]) {
 
     pid_t display_pid = fork();
     if (display_pid == 0) {
-        cpu_init(cpu);
         display_reset(display);
         if (!args.log) {
             signal(SIGINT, out_cleanup);
