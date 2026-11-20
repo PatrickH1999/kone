@@ -124,15 +124,55 @@ def fetch(into, last):
 def program():
     code = []
 
-    # cpu_reset(): SP starts below the display-sized block, everything else at
-    # 0, which is where a 74377 powers up.
+    # cpu_reset(): every register and every byte at 0, SP below the 20x4
+    # display-sized block. A 74377 and an SRAM power up at random, so all of
+    # it is written. Step 0 repeats for as long as NRES is held, and clearing
+    # R18 there keeps a random char from reaching the display meanwhile. The
+    # RAM loop counts PC from 0x8000 until it wraps, which leaves PC at 0.
+    sp = 0x10000 - 20 * 4 - 1
+    code += block("BOOT", [u(src="LIT", lit=0, ra=18, w=("RW",))])
+    code += [
+        u(src="LIT", lit=0, ra=r, w=("RW",))
+        for r in range(32)
+        if r not in (18, SPL, SPH, PCH)
+    ]
+    code += [
+        u(src="LIT", lit=sp & 0xFF, ra=SPL, w=("RW",)),
+        u(src="LIT", lit=sp >> 8, ra=SPH, w=("RW",)),
+        u(src="LIT", lit=0x80, ra=PCH, w=("RW",)),
+    ]
+    code += block("boot_page", [u(ra=PCH, w=("MHW",))])
     code += block(
-        "BOOT",
+        "boot_byte",
         [
-            u(src="LIT", lit=0x3F, ra=SPL, w=("RW",)),
-            u(src="LIT", lit=0xFC, ra=SPH, w=("RW",), nxt="FETCH"),
+            u(ra=PCL, w=("MLW", "TW")),
+            u(src="LIT", lit=0, w=("MEMW",)),
+            u(
+                src="ALU",
+                aop=ADD,
+                r="LIT",
+                lit=1,
+                ra=PCL,
+                w=("RW",),
+                cond="NZ",
+                alt="boot_byte",
+            ),
         ],
     )
+    code += [
+        u(ra=PCH, w=("TW",)),
+        u(
+            src="ALU",
+            aop=ADD,
+            r="LIT",
+            lit=1,
+            ra=PCH,
+            w=("RW",),
+            cond="NZ",
+            alt="boot_page",
+            nxt="FETCH",
+        ),
+    ]
     code += block("BAD", [u(nxt="BAD")])  # an opcode the ISA does not define
 
     code += block("FETCH", fetch(IR0, u(ra=IR0, disp="A")))

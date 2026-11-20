@@ -9,6 +9,8 @@ include $(ROOT)/tools/test.mk
 
 BOARDS := regfile alu datapath sequencer memory io
 OUT := boards
+# 3000 px on the long edge of the 302x416 mm outline, both sides.
+RENDER_SIZE := -w 2185 -h 3000
 GERBER_LAYERS := F.Cu,In1.Cu,In2.Cu,B.Cu,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts
 
 # Freerouting is not packaged; drop the jar here (or point the variable at it).
@@ -33,7 +35,7 @@ FREEROUTING_CLEARANCES ?= 0.3 0.35 0.25
 # the logisim makefile bakes into kone.circ's ROM, so the two agree.
 LOGISIM_PROG ?= bin/display.bin
 
-.PHONY: boards clean gerbers roms route
+.PHONY: boards clean gerbers render roms route
 
 # The kasm binaries come from the top-level makefile.
 $(ROOT)/bin/%.bin:
@@ -150,3 +152,31 @@ gerbers: boards
 			"$$b" "$(OUT)/out/$${b}_gerber.zip" \
 			"$$(ls $$d/gerber | wc -l)"; \
 	done
+
+# A ray-traced top and bottom view per board, boards/<board>/<board>.png and
+# <board>_back.png, to populate from. About 40 s an image.
+render: boards
+	@$(TEST_COLORS); \
+	if ! kicad-cli pcb --help 2>&1 | grep -qw render; then \
+		printf "$${bld}$${red}[ FAIL ] $${dflt}kicad-cli has no pcb render$${rst}\n"; \
+		printf "        it came with KiCad 8, this is %s\n" "$$(kicad-cli version)"; \
+		exit 1; \
+	fi; \
+	passed=0; failed=0; \
+	printf "\n"; \
+	for b in $(BOARDS); do \
+		d=$(OUT)/$$b; \
+		if kicad-cli pcb render --side top --quality high $(RENDER_SIZE) \
+				-o $$d/$$b.png $$d/$$b.kicad_pcb > $$d/render.log 2>&1 \
+			&& kicad-cli pcb render --side bottom --quality high $(RENDER_SIZE) \
+				-o $$d/$${b}_back.png $$d/$$b.kicad_pcb >> $$d/render.log 2>&1; then \
+			printf "$$dgrn[ PASS ] $${rst}$${wht}%s: top + bottom$${rst}\n" "$$b"; \
+			passed=$$((passed + 1)); \
+		else \
+			printf "$$dred[ FAIL ] $${rst}$${wht}%s: see $$d/render.log$${rst}\n" "$$b"; \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	printf "\n"; \
+	group=render; \
+	$(TEST_SUMMARY)

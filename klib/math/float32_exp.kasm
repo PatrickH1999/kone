@@ -1,0 +1,649 @@
+// float32_exp: C = e^A, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R15
+//
+// A = k * ln 2 + r with k = round(A / ln 2), so e^A = 2^k * e^r and |r| stays
+// below 0.35, where the series 1 + r + r^2/2! + ... + r^8/8! reaches the last
+// mantissa bit; Horner's rule sums it. 2^k then goes straight into the
+// exponent field: past the top of the range the result is +inf, below the
+// bottom +0. r is computed as (A - k * hi) - k * lo with ln 2 = hi + lo split
+// so that hi has only 16 significant bits and k * hi is exact for every k
+// that matters. k and r are kept on the stack across the calls.
+float32_exp:
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDR 2
+    PSH
+    LDR 3
+    PSH             // A
+    LDI 0x3B
+    STR 4
+    LDI 0xAA
+    STR 5
+    LDI 0xB8
+    STR 6
+    LDI 0x3F
+    STR 7           // 1 / ln 2
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    STR 12
+    LDI 0x3F
+    ORR 12
+    STR 7
+    LDI 0
+    STR 4
+    STR 5
+    STR 6           // 0.5 with the sign of A / ln 2
+    CLL float32_add
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_to_int32 // R8 - R11 = k
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH             // k
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_from_int32
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH             // k as a float
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x72
+    STR 5
+    LDI 0x31
+    STR 6
+    LDI 0x3F
+    STR 7           // hi
+    CLL float32_mul
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    POP
+    STR 11
+    POP
+    STR 10
+    POP
+    STR 9
+    POP
+    STR 8           // k as a float
+    POP
+    STR 15
+    POP
+    STR 14
+    POP
+    STR 13
+    POP
+    STR 12          // k
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0           // A
+    LDR 12
+    PSH
+    LDR 13
+    PSH
+    LDR 14
+    PSH
+    LDR 15
+    PSH             // k
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH             // k as a float
+    CLL float32_sub // R8 - R11 = A - k * hi
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4           // k as a float
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH
+    LDR 4
+    STR 0
+    LDR 5
+    STR 1
+    LDR 6
+    STR 2
+    LDR 7
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0xC0
+    STR 6
+    LDI 0x35
+    STR 7           // lo
+    CLL float32_mul
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0
+    CLL float32_sub // R8 - R11 = r
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH             // r
+    LDI 0x01
+    STR 8
+    LDI 0x0D
+    STR 9
+    LDI 0xD0
+    STR 10
+    LDI 0x37
+    STR 11          // 1/8!
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x01
+    STR 4
+    LDI 0x0D
+    STR 5
+    LDI 0x50
+    STR 6
+    LDI 0x39
+    STR 7           // 1/7!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x61
+    STR 4
+    LDI 0x0B
+    STR 5
+    LDI 0xB6
+    STR 6
+    LDI 0x3A
+    STR 7           // 1/6!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x89
+    STR 4
+    LDI 0x88
+    STR 5
+    LDI 0x08
+    STR 6
+    LDI 0x3C
+    STR 7           // 1/5!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0xAB
+    STR 4
+    LDI 0xAA
+    STR 5
+    LDI 0x2A
+    STR 6
+    LDI 0x3D
+    STR 7           // 1/4!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0xAB
+    STR 4
+    LDI 0xAA
+    STR 5
+    LDI 0x2A
+    STR 6
+    LDI 0x3E
+    STR 7           // 1/3!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x00
+    STR 6
+    LDI 0x3F
+    STR 7           // 1/2!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1/1!
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // r
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1
+    CLL float32_add
+
+    POP
+    POP
+    POP
+    POP             // r
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4           // k
+    LDI 0x01
+    STR 12
+    LDR 10
+    BRL
+    AND 12
+    STR 13
+    LDR 11
+    BSL
+    ORR 13
+    STR 13          // the biased exponent of e^r
+    LDI 0x80
+    STR 12
+    LDR 7
+    AND 12
+    JA1 float32_exp__down
+    LDR 7
+    ORR 6
+    ORR 5
+    JA1 float32_exp__inf
+    LDR 4
+    ADD 13
+    STR 13
+    JC1 float32_exp__inf
+    LDI 1
+    ADD 13
+    JA0 float32_exp__inf // an exponent of 255
+    JMP float32_exp__scale
+
+float32_exp__down:
+    LDR 7
+    AND 6
+    AND 5
+    NOT
+    JA1 float32_exp__zero // k below -256
+    LDR 4
+    ADD 13
+    STR 13
+    JC0 float32_exp__zero // an exponent below 0
+    JA0 float32_exp__zero // or of 0
+
+float32_exp__scale:
+    LDR 13
+    BSR
+    STR 11
+    LDI 0x7F
+    STR 12
+    LDR 10
+    AND 12
+    STR 10
+    LDR 13
+    BRR
+    STR 12
+    LDI 0x80
+    AND 12
+    ORR 10
+    STR 10
+    RET
+
+float32_exp__inf:
+    LDI 0
+    STR 8
+    STR 9
+    LDI 0x80
+    STR 10
+    LDI 0x7F
+    STR 11
+    RET
+
+float32_exp__zero:
+    LDI 0
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    RET

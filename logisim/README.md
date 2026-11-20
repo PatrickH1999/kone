@@ -43,7 +43,7 @@ they do not:
 
 `kone.circ` opens as a block diagram of six subcircuits (`regfile`, `alu`, `sequencer`, `datapath`, `memory` and `io`) joined by named buses, with a clock and three probe pins. It is a microcoded machine: every register the ISA names lives in the register file at the index the VM gives it, seven 256-byte ROMs in `sequencer` hold the microprogram, and two more turn an opcode into its entry point. `R16`-`R19` are device registers in `io`; the Logisim TTY and keyboard they drive sit in the top-level circuit, so a running program's output is on screen without opening a subcircuit. The program sits in a ROM below `0x8000` with RAM above it, which is the one deviation from the VM, whose memory is writable throughout.
 
-To watch it run, open `logisim/kone.circ`, reset with *Simulate -> Reset* and start the clock with *Simulate -> Auto-Tick*. The file opens at Logisim's fastest tick rate, 4 kHz, which is about 2000 CPU cycles a second because a cycle is two ticks, and a kone instruction is some 20 cycles. `display` and `hello` print at once; `count` needs roughly 30 000 cycles per number, so expect a number every few seconds rather than a stream.
+To watch it run, open `logisim/kone.circ`, reset with *Simulate -> Reset* and start the clock with *Simulate -> Auto-Tick*. The file opens at Logisim's fastest tick rate, 4 kHz, which is about 2000 CPU cycles a second because a cycle is two ticks, and a kone instruction is some 20 cycles. `BOOT` clears the RAM first, some 99 000 cycles, so nothing prints for about 50 s; after that `display` and `hello` print at once, and `count` needs roughly 30 000 cycles per number, so expect a number every few seconds rather than a stream.
 
 ## Testing headlessly
 

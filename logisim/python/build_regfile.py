@@ -4,7 +4,8 @@
 One 74377 holds each register and one 74245 puts it on the bus. A two-level
 74138 tree turns ADDR into 32 active-low selects nS0..nS31; a 7404 inverts RD
 and WR, and 7432 gates OR each select with the inverted strobe into the
-active-low enables nOE<i> (74245) and nWE<i> (74377 nCLKen).
+active-low enables nOE<i> (74245) and nWE<i> (74377 nCLKen). A clock buffer
+gives each row of eight registers a CLK of its own.
 
 Logisim Evolution has no bidirectional Pin, so the bus leaves the circuit as
 BUS_IN and BUS_OUT; wire both to the same bus net in the parent.
@@ -88,7 +89,7 @@ def register_slice(c, i, x, y):
     stub(c, split.port("in"), (x + 150, y + 410), "BO", "north", width=8)
 
     stub(c, reg.port("nCLKen"), (x + 10, y + 90), f"nWE{i}", "north")
-    stub(c, reg.port("CLK"), (x + 190, y - 70), "CLK", "south")
+    stub(c, reg.port("CLK"), (x + 190, y - 70), f"CLKB{i // COLUMNS}", "south")
     stub(c, drv.port("nOE"), (x + 160, y + 430), f"nOE{i}", "north")
 
     # DIR high: the register side drives the bus side.
@@ -187,6 +188,9 @@ def control(c):
         px, py = inv.port(pin)
         c.route((px, py), (px, DECODE_Y + dy))
         c.add(Ground(px, DECODE_Y + dy, facing="south" if dy > 0 else "north"))
+
+    # One buffered clock per row of eight registers.
+    clock_buffer(c, 3300, DECODE_Y, [f"CLKB{r}" for r in range(4)])
 
     # ADDR[3:4] picks a group of eight, ADDR[0:2] the register in it.
     decoder(

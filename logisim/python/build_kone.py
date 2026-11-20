@@ -134,8 +134,8 @@ def gate_and(c, x, y, tag, sel, ins, outs):
 
 
 def latch(c, x, y, tag, d, q, nclken):
-    """One 74377, loaded on the CPU clock while nclken is low."""
-    nets = {"CLK": "CLK", "nCLKen": nclken}
+    """One 74377, loaded on the block's buffered clock while nclken is low."""
+    nets = {"CLK": "CLKB", "nCLKen": nclken}
     for k in range(8):
         nets[f"D{k + 1}"] = d[k]
         nets[f"Q{k + 1}"] = q[k]
@@ -224,6 +224,7 @@ def sequencer(rom, dispatch_a, dispatch_b):
     # until it is released; 0 is BOOT, which is what cpu_reset() does in the vm.
     gate_and(c, 200, y + 1200, "ures", "NRES", bits("UNEXT"), bits("URES"))
     latch(c, 2600, y, "uaddr", bits("URES"), bits("UADDR"), Ground)
+    clock_buffer(c, 6200, y, ["CLKB"])
     wires(c, 3000, y + 400, "UADDR", bits("UADDR"))
     wires(c, 3400, y + 400, "BUS", bits("BUS"))
     wires(c, 3800, y + 400, "WE", keep(WE_BITS, "RW"))
@@ -400,6 +401,7 @@ def datapath():
             "Y6": None,
         },
     )
+    clock_buffer(c, 2200, y, ["CLKB"])
     return c
 
 
@@ -414,12 +416,16 @@ def memory(program):
     wires(c, 600, y, "BUS", bits("BUS"))
     wires(c, 1000, y, "MEMO", bits("MEMO"))
     wires(c, 1400, y, "MAR", bits("MARL") + bits("MARH"))
+    wires(c, 1800, y, "RAMD", bits("RAMD"))
 
     y += 600
     latch(c, 200, y, "marl", bits("BUS"), bits("MARL"), "nMLW")
     latch(c, 600, y, "marh", bits("BUS"), bits("MARH"), "nMHW")
-    # nRAMWE is for the real SRAM on the board, whose write strobe is active
-    # low; Logisim's RAM takes the active-high one.
+    clock_buffer(c, 2200, y, ["CLKB"])
+    # nRAMWE is for the real SRAM on the board, which writes on a level, not
+    # an edge: it is held to the second half of the clock, once the control
+    # ROMs have settled, and rises with the clock before anything changes.
+    # Logisim's RAM takes the active-high, edge-triggered RAMWE.
     wire_dip(
         c,
         c.add(Ttl7404(1000, y, label="inv")),
@@ -428,12 +434,12 @@ def memory(program):
             "Y1": "nMLW",
             "A2": "MHW",
             "Y2": "nMHW",
-            "A3": "RAMWE",
+            "A3": "RAMWEC",
             "Y3": "nRAMWE",
-            "A4": Ground,
-            "Y4": None,
-            "A5": Ground,
-            "Y5": None,
+            "A4": "CLKB",
+            "Y4": "NCLK",
+            "A5": "RAMWE",
+            "Y5": "nRAMBUS",
             "A6": Ground,
             "Y6": None,
         },
@@ -446,15 +452,28 @@ def memory(program):
             "A1": "MEMW",
             "B1": "MA15",
             "Y1": "RAMWE",
-            "A2": Ground,
-            "B2": Ground,
-            "Y2": None,
+            "A2": "RAMWE",
+            "B2": "NCLK",
+            "Y2": "RAMWEC",
             "A3": Ground,
             "B3": Ground,
             "Y3": None,
             "A4": Ground,
             "B4": Ground,
             "Y4": None,
+        },
+    )
+    # The SRAM's data pins are one bus for in and out, so the main bus reaches
+    # them through a transceiver that only a write opens; otherwise the SRAM
+    # drives RAMD and the mux below picks it up as RAMO.
+    wire_dip(
+        c,
+        c.add(Ttl74245(1800, y, label="ramd")),
+        {
+            "DIR": Power,
+            "nOE": "nRAMBUS",
+            **{f"A{k + 1}": f"BUS{k}" for k in range(8)},
+            **{f"B{k + 1}": f"RAMD{k}" for k in range(8)},
         },
     )
 
@@ -507,9 +526,9 @@ def memory(program):
     )
     for port, net, width in (
         ("addr", "MADDR", 15),
-        ("din", "BUS", 8),
+        ("din", "RAMD", 8),
         ("we", "RAMWE", 1),
-        ("clk", "CLK", 1),
+        ("clk", "CLKB", 1),
     ):
         px, py = ram.port(port)
         stub(c, (px, py), (px - 60, py), net, "east", width=width)
@@ -563,6 +582,10 @@ def io():
     stub(c, pin.port(), (300, 100 + 100 * 7), "DISPCLR", "west")
     pin = c.add(Pin(900, 100 + 100 * 5, "KBACK", output=True))
     stub(c, pin.port(), (700, 100 + 100 * 5), "R16Q0", "east")
+    # Bit 7 of the char is the bridge's to blank: the TTY above takes seven
+    # bits, the vm shows anything past 126 as an empty cell.
+    pin = c.add(Pin(900, 100 + 100 * 6, "TTYD7", output=True))
+    stub(c, pin.port(), (700, 100 + 100 * 6), "R19Q7", "east")
 
     for i, (bus, names) in enumerate(
         (
@@ -667,12 +690,14 @@ def io():
             "Y4": "nCLK17",
         },
     )
+    # R18 loads on a write or on DISPCLR, never otherwise: a real device
+    # answers many clocks later, and R18 has to hold until it does.
     wire_dip(
         c,
         c.add(Ttl7408(2200, y, label="and2")),
         {
             "A1": "nW18",
-            "B1": "R18Z",
+            "B1": "NDISPCLR",
             "Y1": "nCLK18",
             "A2": Ground,
             "B2": Ground,
@@ -750,6 +775,7 @@ def io():
         )
     ):
         latch(c, 1800 + PITCH * i, y, tag, d, q, en)
+    clock_buffer(c, 3800, y, ["CLKB"])
     one = c.add(Power(3400, y, facing="north"))
     stub(c, one.port(), (3400, y + 40), "KBONE", "north")
 

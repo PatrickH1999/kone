@@ -1368,3 +1368,24 @@ def wire_dip(circuit, chip, nets):
             circuit.route((px, py), to)
             circuit.add(net(*to, facing="south" if below else "north"))
     return chip
+
+
+def clock_buffer(circuit, x, y, outs, clk="CLK"):
+    """One 7404 taking clk off the backplane once: Y1 = NOT clk, and the other
+    five gates turn it back into the clocks named in outs.
+
+    The boards fit a 74HC14 here, the same pinout with Schmitt inputs, so a
+    slow or ringing edge from the stack reaches the latches square.
+    """
+    if not 1 <= len(outs) <= 5:
+        raise ValueError(
+            f"a clock buffer drives 1 to 5 clocks, not {len(outs)}"
+        )
+    nets = {"A1": clk, "Y1": "NCLKIN"}
+    for g in range(2, 7):
+        out = outs[g - 2] if g - 2 < len(outs) else None
+        nets[f"A{g}"] = "NCLKIN" if out else Ground
+        nets[f"Y{g}"] = out
+    return wire_dip(
+        circuit, circuit.add(Ttl7404(x, y, label="clkbuf")), nets
+    )

@@ -1,0 +1,533 @@
+// test_float32_exp: checks klib's float32_exp against known results,
+// each within 4 units in the last place:
+//     exp(00000000) = 3F800000    (e^0 = 1)
+//     exp(3F800000) = 402DF854    (e^1 = 2.71828)
+//     exp(3F316873) = 3FFFF65B    (e^0.693 = 1.99971)
+//     exp(BF800000) = 3EBC5AB2    (e^-1 = 0.367879)
+//     exp(42C80000) = 7F800000    (e^100 = +inf)
+//     exp(C2C80000) = 00000000    (e^-100 = +0)
+//
+// The failure count lives at 0x8040, as float32_exp clobbers R0 - R15.
+
+    JMP main
+
+.include "../../klib/io/disp.kasm"
+.include "../../klib/math/int32.kasm"
+.include "../../klib/math/float32.kasm"
+
+main:
+    LDI 0
+    STM 0x8040      // number of failed cases
+
+    // zero: e^0 = 1
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x00
+    STR 2
+    LDI 0x00
+    STR 3
+    CLL float32_exp
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7
+    CLL check
+    JA0 main__zero_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__zero_name
+main__zero_pass:
+    CLL print_pass
+main__zero_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 122         // 'z'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 114         // 'r'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    CLL disp_nl
+
+    // one: e^1 = 2.71828
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x80
+    STR 2
+    LDI 0x3F
+    STR 3
+    CLL float32_exp
+    LDI 0x54
+    STR 4
+    LDI 0xF8
+    STR 5
+    LDI 0x2D
+    STR 6
+    LDI 0x40
+    STR 7
+    CLL check
+    JA0 main__one_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__one_name
+main__one_pass:
+    CLL print_pass
+main__one_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    CLL disp_nl
+
+    // ln2: e^0.693 = 1.99971
+    LDI 0x73
+    STR 0
+    LDI 0x68
+    STR 1
+    LDI 0x31
+    STR 2
+    LDI 0x3F
+    STR 3
+    CLL float32_exp
+    LDI 0x5B
+    STR 4
+    LDI 0xF6
+    STR 5
+    LDI 0xFF
+    STR 6
+    LDI 0x3F
+    STR 7
+    CLL check
+    JA0 main__ln2_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__ln2_name
+main__ln2_pass:
+    CLL print_pass
+main__ln2_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    CLL disp_nl
+
+    // neg: e^-1 = 0.367879
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0x80
+    STR 2
+    LDI 0xBF
+    STR 3
+    CLL float32_exp
+    LDI 0xB2
+    STR 4
+    LDI 0x5A
+    STR 5
+    LDI 0xBC
+    STR 6
+    LDI 0x3E
+    STR 7
+    CLL check
+    JA0 main__neg_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__neg_name
+main__neg_pass:
+    CLL print_pass
+main__neg_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 103         // 'g'
+    CLL disp_putc
+    CLL disp_nl
+
+    // inf: e^100 = +inf
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0xC8
+    STR 2
+    LDI 0x42
+    STR 3
+    CLL float32_exp
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x7F
+    STR 7
+    CLL check
+    JA0 main__inf_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__inf_name
+main__inf_pass:
+    CLL print_pass
+main__inf_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 105         // 'i'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 102         // 'f'
+    CLL disp_putc
+    CLL disp_nl
+
+    // tiny: e^-100 = +0
+    LDI 0x00
+    STR 0
+    LDI 0x00
+    STR 1
+    LDI 0xC8
+    STR 2
+    LDI 0xC2
+    STR 3
+    CLL float32_exp
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x00
+    STR 6
+    LDI 0x00
+    STR 7
+    CLL check
+    JA0 main__tiny_pass
+    LDM 0x8040
+    STR 15
+    LDI 1
+    ADD 15
+    STM 0x8040      // one more failed case
+    CLL print_fail
+    JMP main__tiny_name
+main__tiny_pass:
+    CLL print_pass
+main__tiny_name:
+    LDI 102         // 'f'
+    CLL disp_putc
+    LDI 108         // 'l'
+    CLL disp_putc
+    LDI 111         // 'o'
+    CLL disp_putc
+    LDI 97          // 'a'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 51          // '3'
+    CLL disp_putc
+    LDI 50          // '2'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 101         // 'e'
+    CLL disp_putc
+    LDI 120         // 'x'
+    CLL disp_putc
+    LDI 112         // 'p'
+    CLL disp_putc
+    LDI 95          // '_'
+    CLL disp_putc
+    LDI 116         // 't'
+    CLL disp_putc
+    LDI 105         // 'i'
+    CLL disp_putc
+    LDI 110         // 'n'
+    CLL disp_putc
+    LDI 121         // 'y'
+    CLL disp_putc
+    CLL disp_nl
+
+main__summary:
+    LDM 0x8040
+    STR 15
+    JA0 main__all_pass
+    LDI 48          // '0'
+    ADD 15          // at most one digit, there are six cases
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 69          // 'E'
+    CLL disp_putc
+    LDI 68          // 'D'
+    CLL disp_putc
+    JMP main__halt
+
+main__all_pass:
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 32          // ' '
+    CLL disp_putc
+    LDI 80          // 'P'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+
+main__halt:
+    JMP main__halt
+
+// check: tells whether the result in R8 - R11 is within 4 units in the last
+// place of the expected value in R4 - R7, by the distance of the two bit
+// patterns; a sign that differs puts them far apart
+//     out:      accumulator = 0 if the two are close
+//     clobbers: R0 - R3, R8 - R13
+check:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL int32_sub   // R8 - R11 = C - E
+    LDI 0x80
+    STR 12
+    LDR 11
+    AND 12
+    JA0 check__abs
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11
+    LDR 4
+    STR 0
+    LDR 5
+    STR 1
+    LDR 6
+    STR 2
+    LDR 7
+    STR 3
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    CLL int32_sub   // R8 - R11 = E - C
+
+check__abs:
+    LDR 11
+    ORR 10
+    ORR 9
+    JA1 check__far
+    LDI 251         // 256 - 5; carry set only for 5 and more
+    ADD 8
+    JC1 check__far
+    LDI 0
+    RET
+
+check__far:
+    LDI 1
+    RET
+
+// print_pass: prints the 'PASS:' prefix; the caller appends the case
+// name and ends the display row
+//     clobbers: R13
+print_pass:
+    LDI 80          // 'P'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 83          // 'S'
+    CLL disp_putc
+    LDI 58          // ':'
+    CLL disp_putc
+    RET
+
+// print_fail: prints the 'FAIL:' prefix; the caller appends the case name
+// and ends the display row
+//     clobbers: R13
+print_fail:
+    LDI 70          // 'F'
+    CLL disp_putc
+    LDI 65          // 'A'
+    CLL disp_putc
+    LDI 73          // 'I'
+    CLL disp_putc
+    LDI 76          // 'L'
+    CLL disp_putc
+    LDI 58          // ':'
+    CLL disp_putc
+    RET

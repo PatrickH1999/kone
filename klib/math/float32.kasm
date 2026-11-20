@@ -12,3 +12,6 @@
 .include "float32_cmp.kasm"
 .include "float32_pow10.kasm"
 .include "float32_sqrt.kasm"
+.include "float32_ln.kasm"
+.include "float32_exp.kasm"
+.include "float32_pow.kasm"

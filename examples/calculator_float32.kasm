@@ -1,10 +1,23 @@
-// examples/calculator_int32.kasm on IEEE 754 single precision values, built
-// from klib's float32_read and float32_puts; the wiki's Examples page
-// documents how a line is read.
+// examples/calculator_int32.kasm on IEEE 754 single precision values, printed
+// by klib's float32_puts; the wiki's Examples page documents the lines it
+// takes. A line is typed into a buffer and only parsed once Enter ends it.
 //
 // Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
-//     0x8040          the operator of the line being read
+//     0x8040          the operator of the line, 'l', 'e' or 's' for ln, exp
+//                     and sqrt
 //     0x8041 - 0x8044 the accumulator
+//     0x8045          chars in the line buffer
+//     0x8046          the parse index into it
+//     0x8047          number: 1 if a leading '-' was read
+//     0x8048          number: 1 once a mantissa digit was read
+//     0x8049          number: mantissa digits kept
+//     0x804A          number: the decimal exponent, two's complement
+//     0x804B          number: 1 if the exponent is negative
+//     0x804C          number: the exponent typed, held to 99
+//     0x804D - 0x8050 number: the mantissa as an integer
+//     0x8051 - 0x8054 number: the value being scaled
+//     0x8055          number: 0x80 while it is scaled down
+//     0x8060 - 0x8072 the line buffer, null terminated once Enter is read
 
     JMP main
 
@@ -12,48 +25,112 @@
 .include "../klib/math/int32.kasm"
 .include "../klib/math/float32.kasm"
 .include "../klib/io/float32_write.kasm"
-.include "../klib/io/float32_read.kasm"
+.include "../klib/mem/mem_peek.kasm"
+.include "../klib/mem/mem_poke.kasm"
 
 // main: the first prompt of the run; every later line opens in
 // 'calculator_float32__next', once the result before it has been read
 main:
     LDI 62          // '>'
     CLL disp_putc
+    LDI 0
+    STM 0x8045
 
 calculator_float32__key:
     CLL calculator_float32__read_key
+    STR 14
+
+// calculator_float32__char: Enter ends the line, a backspace takes the last
+// char back, anything else is echoed and buffered while the row has room
+calculator_float32__char:
+    LDI 246         // 256 - 10 -> Enter
+    ADD 14
+    JA0 calculator_float32__eval
+    LDI 129         // 256 - 127 -> DEL
+    ADD 14
+    JA0 calculator_float32__erase
+    LDI 248         // 256 - 8 -> BS
+    ADD 14
+    JA0 calculator_float32__erase
+    LDM 0x8045
     STR 13
-    LDI 129         // 256 - 127 -> DEL, nothing typed yet -> ignore it
+    LDI 238         // 256 - 18; carry set once '>' and the line fill 19 cells
     ADD 13
-    JA0 calculator_float32__key
-    LDI 248         // 256 - 8 -> BS, same
+    JC1 calculator_float32__key
+    LDI 0x60
     ADD 13
-    JA0 calculator_float32__key
-
-calculator_float32__dispatch:
-    LDI 210         // 256 - 46 -> '.', '.5' is a number as well
-    ADD 13
-    JA0 calculator_float32__number
-    LDI 208         // 256 - 48; carry set only for chars >= '0'
-    ADD 13
-    JC0 calculator_float32__operator
     STR 12
-    LDI 246         // 256 - 10; carry set only for chars > '9'
-    ADD 12
-    JC1 calculator_float32__operator
-
-// calculator_float32__number: the line starts a number, so hand the first char
-// back to the keyboard for float32_read to read (and echo) it, and let the
-// number it returns replace the accumulator
-calculator_float32__number:
-    LDR 13
-    STR 17
+    LDI 0x80
+    STR 13
+    CLL mem_poke
+    LDM 0x8045
+    STR 13
     LDI 1
-    STR 16
-    CLL float32_read
-    CLL calculator_float32__erased
-    JA1 calculator_float32__key     // erased back past the first char
+    ADD 13
+    STM 0x8045
+    LDR 14
+    CLL disp_putc
+    JMP calculator_float32__key
+
+calculator_float32__erase:
+    LDM 0x8045
+    JA0 calculator_float32__key
+    STR 13
+    LDI 255         // 256 - 1
+    ADD 13
+    STM 0x8045
+    CLL disp_bs
+    JMP calculator_float32__key
+
+// calculator_float32__eval: the first char picks the pattern, and any char
+// the pattern has no room for makes the whole line an error
+calculator_float32__eval:
+    LDM 0x8045
+    STR 13
+    LDI 0x60
+    ADD 13
+    STR 12
+    LDI 0x80
+    STR 13
+    LDI 0
+    STR 14
+    CLL mem_poke
+    LDI 0
+    STM 0x8046
     CLL disp_nl
+    CLL calculator_float32__peek
+    JA0 calculator_float32__print   // blank line
+    STR 14
+    STM 0x8040
+    LDI 148         // 256 - 108 -> 'l'
+    ADD 14
+    JA0 calculator_float32__ln
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 14
+    JA0 calculator_float32__exp
+    LDI 141         // 256 - 115 -> 's'
+    ADD 14
+    JA0 calculator_float32__sqrt
+    LDI 213         // 256 - 43 -> '+'
+    ADD 14
+    JA0 calculator_float32__operator
+    LDI 211         // 256 - 45 -> '-'
+    ADD 14
+    JA0 calculator_float32__operator
+    LDI 214         // 256 - 42 -> '*'
+    ADD 14
+    JA0 calculator_float32__operator
+    LDI 209         // 256 - 47 -> '/'
+    ADD 14
+    JA0 calculator_float32__operator
+    LDI 162         // 256 - 94 -> '^'
+    ADD 14
+    JA0 calculator_float32__operator
+
+    CLL calculator_float32__number
+    JA1 calculator_float32__err
+    CLL calculator_float32__peek
+    JA1 calculator_float32__err     // something behind the number
     LDR 0
     STM 0x8041
     LDR 1
@@ -65,14 +142,11 @@ calculator_float32__number:
     JMP calculator_float32__print
 
 calculator_float32__operator:
-    LDR 13
-    STM 0x8040      // float32_read clobbers every register, so park it here
-    CLL disp_putc
-
-    CLL float32_read    // R0 - R3 = operand
-    CLL calculator_float32__erased
-    JA1 calculator_float32__cancel  // erased back past the operator
-    CLL disp_nl
+    CLL calculator_float32__skip
+    CLL calculator_float32__number
+    JA1 calculator_float32__err
+    CLL calculator_float32__peek
+    JA1 calculator_float32__err
 
     LDR 0
     STR 4
@@ -105,7 +179,9 @@ calculator_float32__operator:
     LDI 209         // 256 - 47 -> '/'
     ADD 13
     JA0 calculator_float32__div
-    JMP calculator_float32__print   // unknown operator -> unchanged
+    CLL float32_pow
+    JA1 calculator_float32__err     // undefined, e.g. a root of a negative
+    JMP calculator_float32__store
 
 calculator_float32__add:
     CLL float32_add
@@ -132,11 +208,147 @@ calculator_float32__div:
     ORR 5
     ORR 6
     ORR 12
-    JA0 calculator_float32__div_zero
+    JA0 calculator_float32__err
     CLL float32_div
     JMP calculator_float32__store
 
-calculator_float32__div_zero:
+calculator_float32__ln:
+    CLL calculator_float32__skip
+    LDI 110         // 'n'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    JMP calculator_float32__paren
+
+calculator_float32__sqrt:
+    CLL calculator_float32__skip
+    LDI 113         // 'q'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    LDI 114         // 'r'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    LDI 116         // 't'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    JMP calculator_float32__paren
+
+calculator_float32__exp:
+    CLL calculator_float32__skip
+    LDI 120         // 'x'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    LDI 112         // 'p'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+
+// calculator_float32__paren: an argument replaces the accumulator, an empty
+// one, '()', applies the function to it
+calculator_float32__paren:
+    LDI 40          // '('
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    LDI 41          // ')'
+    STR 15
+    CLL calculator_float32__expect
+    JA0 calculator_float32__self
+    CLL calculator_float32__number
+    JA1 calculator_float32__err
+    LDI 41          // ')'
+    STR 15
+    CLL calculator_float32__expect
+    JA1 calculator_float32__err
+    CLL calculator_float32__peek
+    JA1 calculator_float32__err
+    JMP calculator_float32__apply
+
+calculator_float32__self:
+    CLL calculator_float32__peek
+    JA1 calculator_float32__err
+    LDM 0x8041
+    STR 0
+    LDM 0x8042
+    STR 1
+    LDM 0x8043
+    STR 2
+    LDM 0x8044
+    STR 3
+
+calculator_float32__apply:
+    LDM 0x8040
+    STR 13
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 13
+    JA0 calculator_float32__apply_exp
+    LDI 141         // 256 - 115 -> 's'
+    ADD 13
+    JA0 calculator_float32__apply_sqrt
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA1 calculator_float32__err     // ln of a negative
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    JA0 calculator_float32__err     // ln 0
+    CLL float32_ln
+    JMP calculator_float32__store
+
+// calculator_float32__apply_sqrt: float32_sqrt ignores the sign, so a
+// negative is an error here; -0 is not negative
+calculator_float32__apply_sqrt:
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    JA0 calculator_float32__root
+    LDI 0x80
+    STR 12
+    LDR 3
+    AND 12
+    JA1 calculator_float32__err
+calculator_float32__root:
+    CLL float32_sqrt
+    JMP calculator_float32__store
+
+// calculator_float32__apply_exp: an e^x beyond the range comes back as +inf,
+// which, as with a division by zero, is an error rather than a result
+calculator_float32__apply_exp:
+    CLL float32_exp
+    LDI 0x7F
+    STR 12
+    LDR 11
+    AND 12
+    STR 12
+    LDI 129         // 256 - 0x7F
+    ADD 12
+    JA1 calculator_float32__store
+    LDI 0x80
+    STR 12
+    LDR 10
+    AND 12
+    JA1 calculator_float32__err
+    JMP calculator_float32__store
+
+// calculator_float32__err: a line that fits no pattern and a result that does
+// not exist both leave the accumulator as it was
+calculator_float32__err:
+    LDI 63          // '?'
+    CLL disp_putc
     LDI 69          // 'E'
     CLL disp_putc
     LDI 82          // 'R'
@@ -172,7 +384,7 @@ calculator_float32__print:
     CLL float32_puts
 
 // calculator_float32__next: the result stays on the display until a key is
-// pressed; that key opens the line under it and is then dispatched as its first
+// pressed; that key opens the line under it and is then read as its first
 calculator_float32__next:
     CLL calculator_float32__read_key
     STR 14
@@ -185,9 +397,9 @@ calculator_float32__next:
     CLL calculator_float32__newline
     LDI 62          // '>'
     CLL disp_putc
-    LDR 14
-    STR 13
-    JMP calculator_float32__dispatch
+    LDI 0
+    STM 0x8045
+    JMP calculator_float32__char
 
 // calculator_float32__newline: opens the row the next line goes on, clearing
 // the display when the line and the result under it would no longer fit
@@ -200,31 +412,383 @@ calculator_float32__newline:
     JC1 disp_cls    // both end in RET, so both return to this routine's caller
     JMP disp_nl
 
-// calculator_float32__cancel: the operand was erased away, so take the operator
-// off the display again and read the line from the start
-calculator_float32__cancel:
-    CLL disp_bs
-    JMP calculator_float32__key
-
-// calculator_float32__erased: tells whether float32_read stopped on a
-// backspace, which it does once there is nothing left to erase
-//     in:       terminator -> R14
-//     out:      accumulator = 0 if the number ended some other way
-//     clobbers: R13
-calculator_float32__erased:
-    LDR 14
+// calculator_float32__number: reads '[-] digits [ . digits ] [ (e|E) [+|-]
+// digits ]' at the parse index, a mantissa digit on either side of the point;
+// as in klib's float32_read, the mantissa keeps nine digits, the rest only
+// move the decimal exponent, and the scaling goes in chunks of 10^22
+//     out:      value -> R0 - R3, accumulator = 0, or 1 if there is no number
+//     clobbers: R0 - R15
+calculator_float32__number:
+    LDI 0
+    STM 0x8047
+    STM 0x8048
+    STM 0x8049
+    STM 0x804A
+    STM 0x804B
+    STM 0x804C
+    STM 0x804D
+    STM 0x804E
+    STM 0x804F
+    STM 0x8050
+    CLL calculator_float32__peek
     STR 13
-    LDI 129         // 256 - 127 -> DEL
+    LDI 211         // 256 - 45 -> '-'
     ADD 13
-    JA0 calculator_float32__erased_yes
-    LDI 248         // 256 - 8 -> BS
+    JA1 calculator_float32__number_int
+    LDI 1
+    STM 0x8047
+    CLL calculator_float32__skip
+
+calculator_float32__number_int:
+    CLL calculator_float32__peek
+    CLL calculator_float32__digit
+    JA1 calculator_float32__number_point
+    CLL calculator_float32__accept
+    JA0 calculator_float32__number_int_next
+    LDM 0x804A
+    STR 13
+    LDI 1
     ADD 13
-    JA0 calculator_float32__erased_yes
+    STM 0x804A      // a dropped digit is a power of ten up
+calculator_float32__number_int_next:
+    CLL calculator_float32__skip
+    JMP calculator_float32__number_int
+
+calculator_float32__number_point:
+    CLL calculator_float32__peek
+    STR 13
+    LDI 210         // 256 - 46 -> '.'
+    ADD 13
+    JA1 calculator_float32__number_test
+    CLL calculator_float32__skip
+calculator_float32__number_frac:
+    CLL calculator_float32__peek
+    CLL calculator_float32__digit
+    JA1 calculator_float32__number_test
+    CLL calculator_float32__accept
+    JA1 calculator_float32__number_frac_next
+    LDM 0x804A
+    STR 13
+    LDI 255         // 256 - 1
+    ADD 13
+    STM 0x804A      // a kept digit behind the point is a power of ten down
+calculator_float32__number_frac_next:
+    CLL calculator_float32__skip
+    JMP calculator_float32__number_frac
+
+calculator_float32__number_test:
+    LDM 0x8048
+    JA0 calculator_float32__number_fail
+    CLL calculator_float32__peek
+    STR 13
+    LDI 32          // lower case
+    ORR 13
+    STR 13
+    LDI 155         // 256 - 101 -> 'e'
+    ADD 13
+    JA1 calculator_float32__number_scale
+    CLL calculator_float32__skip
+    CLL calculator_float32__peek
+    STR 13
+    LDI 211         // 256 - 45 -> '-'
+    ADD 13
+    JA1 calculator_float32__number_eplus
+    LDI 1
+    STM 0x804B
+    CLL calculator_float32__skip
+    JMP calculator_float32__number_edigit
+
+calculator_float32__number_eplus:
+    LDI 213         // 256 - 43 -> '+'
+    ADD 13
+    JA1 calculator_float32__number_edigit
+    CLL calculator_float32__skip
+calculator_float32__number_edigit:
+    CLL calculator_float32__peek
+    CLL calculator_float32__digit
+    JA1 calculator_float32__number_fail     // an 'e' needs a digit
+calculator_float32__number_exp:
+    LDM 0x804C
+    STR 13
+    LDI 246         // 256 - 10; carry set once a third digit passes 99
+    ADD 13
+    JC1 calculator_float32__number_esat
+    LDR 13
+    BSL
+    STR 14
+    LDR 13
+    BSL
+    BSL
+    BSL
+    ADD 14
+    ADD 15
+    STM 0x804C      // exponent = exponent * 10 + digit
+    JMP calculator_float32__number_enext
+
+calculator_float32__number_esat:
+    LDI 99
+    STM 0x804C
+calculator_float32__number_enext:
+    CLL calculator_float32__skip
+    CLL calculator_float32__peek
+    CLL calculator_float32__digit
+    JA0 calculator_float32__number_exp
+    LDM 0x804C
+    STR 13
+    LDM 0x804B
+    JA0 calculator_float32__number_eadd
+    LDR 13
+    NOT
+    STR 13
+    LDI 1
+    ADD 13
+    STR 13
+calculator_float32__number_eadd:
+    LDM 0x804A
+    ADD 13
+    STM 0x804A
+
+calculator_float32__number_scale:
+    LDM 0x804D
+    STR 0
+    LDM 0x804E
+    STR 1
+    LDM 0x804F
+    STR 2
+    LDM 0x8050
+    STR 3
+    CLL float32_from_int32
+    LDR 8
+    STM 0x8051
+    LDR 9
+    STM 0x8052
+    LDR 10
+    STM 0x8053
+    LDR 11
+    STM 0x8054
+
+calculator_float32__number_pow:
+    LDM 0x804A
+    JA0 calculator_float32__number_sign
+    STR 14
+    LDI 0x80
+    AND 14
+    STR 15          // 0x80 -> scale down
+    JA0 calculator_float32__number_abs
+    LDR 14
+    NOT
+    STR 14
+    LDI 1
+    ADD 14
+    STR 14          // R14 = |exponent|
+calculator_float32__number_abs:
+    LDI 234         // 256 - 22; carry set once the exponent needs a full chunk
+    ADD 14
+    JC0 calculator_float32__number_chunk
+    LDI 22
+    STR 14
+calculator_float32__number_chunk:
+    LDR 15
+    STM 0x8055
+    JA1 calculator_float32__number_chunk_down
+    LDR 14
+    NOT
+    STR 13
+    LDI 1
+    ADD 13
+    STR 13
+    LDM 0x804A
+    ADD 13
+    STM 0x804A
+    JMP calculator_float32__number_chunk_go
+
+calculator_float32__number_chunk_down:
+    LDM 0x804A
+    ADD 14
+    STM 0x804A
+calculator_float32__number_chunk_go:
+    LDR 14
+    STR 0
+    CLL float32_pow10
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    LDM 0x8051
+    STR 0
+    LDM 0x8052
+    STR 1
+    LDM 0x8053
+    STR 2
+    LDM 0x8054
+    STR 3
+    LDM 0x8055
+    JA1 calculator_float32__number_div
+    CLL float32_mul
+    JMP calculator_float32__number_keep
+
+calculator_float32__number_div:
+    CLL float32_div
+calculator_float32__number_keep:
+    LDR 8
+    STM 0x8051
+    LDR 9
+    STM 0x8052
+    LDR 10
+    STM 0x8053
+    LDR 11
+    STM 0x8054
+    JMP calculator_float32__number_pow
+
+calculator_float32__number_sign:
+    LDM 0x8051
+    STR 0
+    LDM 0x8052
+    STR 1
+    LDM 0x8053
+    STR 2
+    LDM 0x8054
+    STR 3
+    LDM 0x8047
+    JA0 calculator_float32__number_done
+    LDI 0x80
+    ORR 3
+    STR 3
+calculator_float32__number_done:
     LDI 0
     RET
 
-calculator_float32__erased_yes:
+calculator_float32__number_fail:
     LDI 1
+    RET
+
+// calculator_float32__accept: appends a digit to the mantissa while it holds
+// fewer than nine
+//     in:       digit -> R15
+//     out:      accumulator = 0 if the digit was kept, 1 if it was dropped
+//     clobbers: R0 - R12
+calculator_float32__accept:
+    LDI 1
+    STM 0x8048
+    LDM 0x8049
+    STR 12
+    LDI 247         // 256 - 9; carry set once nine digits are kept
+    ADD 12
+    JC1 calculator_float32__accept_drop
+    LDI 1
+    ADD 12
+    STM 0x8049
+    LDM 0x804D
+    STR 0
+    LDM 0x804E
+    STR 1
+    LDM 0x804F
+    STR 2
+    LDM 0x8050
+    STR 3
+    LDI 10
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDR 15
+    STR 4
+    LDI 0
+    STR 5
+    STR 6
+    STR 7
+    CLL int32_add
+    LDR 8
+    STM 0x804D
+    LDR 9
+    STM 0x804E
+    LDR 10
+    STM 0x804F
+    LDR 11
+    STM 0x8050
+    LDI 0
+    RET
+
+calculator_float32__accept_drop:
+    LDI 1
+    RET
+
+// calculator_float32__digit: tells a decimal digit
+//     in:       char -> accumulator
+//     out:      its value -> R15, accumulator = 0 if it is one, 1 if not
+//     clobbers: R12
+calculator_float32__digit:
+    STR 12
+    LDI 208         // 256 - 48; carry set only for chars >= '0'
+    ADD 12
+    JC0 calculator_float32__digit_no
+    STR 15
+    LDI 246         // 256 - 10; carry set only for chars > '9'
+    ADD 15
+    JC1 calculator_float32__digit_no
+    LDI 0
+    RET
+
+calculator_float32__digit_no:
+    LDI 1
+    RET
+
+// calculator_float32__expect: steps over the char at the parse index if it is
+// the one asked for
+//     in:       char -> R15
+//     out:      accumulator = 0 if it was, nonzero if not
+//     clobbers: R12, R13
+calculator_float32__expect:
+    CLL calculator_float32__peek
+    STR 13
+    LDR 15
+    NOT
+    STR 12
+    LDI 1
+    ADD 12
+    ADD 13          // found - asked
+    JA1 calculator_float32__expect_done
+    CLL calculator_float32__skip
+    LDI 0
+calculator_float32__expect_done:
+    RET
+
+// calculator_float32__peek: the char at the parse index, 0 at the end of the
+// line
+//     out:      char -> accumulator
+//     clobbers: R12, R13
+calculator_float32__peek:
+    LDM 0x8046
+    STR 12
+    LDI 0x60
+    ADD 12
+    STR 12
+    LDI 0x80
+    STR 13
+    JMP mem_peek    // its RET returns to this routine's caller
+
+// calculator_float32__skip: moves the parse index on by one char
+//     clobbers: R12
+calculator_float32__skip:
+    LDM 0x8046
+    STR 12
+    LDI 1
+    ADD 12
+    STM 0x8046
     RET
 
 // calculator_float32__read_key: waits for a key press and returns its char

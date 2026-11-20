@@ -1,0 +1,464 @@
+// float32_ln: C = ln |A|, IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R15
+//
+// A = m * 2^e with m in [sqrt(1/2), sqrt(2)), so ln A = e * ln 2 + ln m, and
+// ln m = 2 * (u + u^3/3 + ... + u^11/11) with u = (m - 1) / (m + 1). |u| stays
+// below 0.172, so six terms reach the last mantissa bit; Horner's rule sums
+// them in u^2. The sign of A is ignored and a zero counts as 2^-127. Every
+// call clobbers the registers, so e and the terms are kept on the stack. ln 2
+// is the constant float32_exp reduces by, so a power of two comes out as an
+// exact multiple of it.
+float32_ln:
+    LDI 0x01
+    STR 12
+    LDR 2
+    BRL
+    AND 12
+    STR 13
+    LDR 3
+    BSL
+    ORR 13
+    PSH             // the biased exponent
+    LDI 0x80
+    ORR 2
+    STR 2
+    LDI 0x3F
+    STR 3           // m = the mantissa, in [1, 2)
+    LDI 0xF3
+    STR 4
+    LDI 0x04
+    STR 5
+    LDI 0xB5
+    STR 6
+    LDI 0x3F
+    STR 7           // sqrt(2)
+    CLL float32_cmp
+    STR 12
+    LDI 254         // 256 - 2 -> m > sqrt(2)
+    ADD 12
+    PSH             // 0 -> m is halved, which takes e + 1
+    JA1 float32_ln__reduced
+    LDI 0x7F
+    STR 12
+    LDR 2
+    AND 12
+    STR 2           // m / 2
+
+float32_ln__reduced:
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1.0
+    CLL float32_sub // R8 - R11 = m - 1, exact
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x00
+    STR 6
+    LDI 0x40
+    STR 7           // 2.0
+    CLL float32_add // R8 - R11 = m + 1
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    POP
+    STR 3
+    POP
+    STR 2
+    POP
+    STR 1
+    POP
+    STR 0
+    CLL float32_div // R8 - R11 = u
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    CLL float32_mul // R8 - R11 = u^2
+    LDR 8
+    PSH
+    LDR 9
+    PSH
+    LDR 10
+    PSH
+    LDR 11
+    PSH
+    LDI 0x8C
+    STR 8
+    LDI 0x2E
+    STR 9
+    LDI 0x3A
+    STR 10
+    LDI 0x3E
+    STR 11          // 2/11
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // u^2
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x39
+    STR 4
+    LDI 0x8E
+    STR 5
+    LDI 0x63
+    STR 6
+    LDI 0x3E
+    STR 7           // 2/9
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // u^2
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x25
+    STR 4
+    LDI 0x49
+    STR 5
+    LDI 0x92
+    STR 6
+    LDI 0x3E
+    STR 7           // 2/7
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // u^2
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0xCD
+    STR 4
+    LDI 0xCC
+    STR 5
+    LDI 0xCC
+    STR 6
+    LDI 0x3E
+    STR 7           // 2/5
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // u^2
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0xAB
+    STR 4
+    LDI 0xAA
+    STR 5
+    LDI 0x2A
+    STR 6
+    LDI 0x3F
+    STR 7           // 2/3
+    CLL float32_add
+
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // u^2
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0x00
+    STR 6
+    LDI 0x40
+    STR 7           // 2
+    CLL float32_add
+
+    POP
+    POP
+    POP
+    POP             // u^2
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4           // u
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    CLL float32_mul // R8 - R11 = ln m
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    POP
+    STR 12
+    POP
+    STR 0
+    LDI 0
+    STR 1
+    STR 2
+    STR 3
+    LDR 12
+    JA1 float32_ln__e
+    LDI 1
+    ADD 0
+    STR 0
+    LDR 26
+    STR 1           // the carry of 255 + 1
+
+float32_ln__e:
+    CLL float32_from_int32 // keeps R4 - R7
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDR 4
+    PSH
+    LDR 5
+    PSH
+    LDR 6
+    PSH
+    LDR 7
+    PSH             // ln m
+    LDI 0x00
+    STR 4
+    LDI 0x00
+    STR 5
+    LDI 0xFE
+    STR 6
+    LDI 0x42
+    STR 7           // 127.0
+    CLL float32_sub // R8 - R11 = e
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDI 0x18
+    STR 4
+    LDI 0x72
+    STR 5
+    LDI 0x31
+    STR 6
+    LDI 0x3F
+    STR 7           // ln 2
+    CLL float32_mul
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    POP
+    STR 7
+    POP
+    STR 6
+    POP
+    STR 5
+    POP
+    STR 4           // ln m
+    CLL float32_add
+    RET
