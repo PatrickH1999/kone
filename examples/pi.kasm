@@ -7,10 +7,7 @@
 // Scratch memory, above the 0x8000 - 0x803F klib maps in klib/io/disp.kasm:
 //     0x8040 - 0x8043 the side s
 //     0x8044 - 0x8047 h, half the corner count
-//     0x8048 - 0x804B the square root's argument
-//     0x804C - 0x804F the square root's running estimate
 //     0x8050          doublings left
-//     0x8051          square root rounds left
 //     0x8054 - 0x8057 1.0
 //     0x8058 - 0x805B 2.0
 //     0x805C - 0x805F 4.0
@@ -107,7 +104,7 @@ pi__loop:
     STR 3
     CLL float32_sub
     CLL pi__c_to_a
-    CLL pi__sqrt    // the center's distance from the edge
+    CLL float32_sqrt // the center's distance from the edge
 
     CLL pi__c_to_a
     CLL pi__c_to_b
@@ -123,7 +120,7 @@ pi__loop:
     STR 3
     CLL float32_add
     CLL pi__c_to_a
-    CLL pi__sqrt
+    CLL float32_sqrt
 
     CLL pi__c_to_b
     LDM 0x8040
@@ -185,89 +182,6 @@ pi__loop:
 
 pi__halt:
     JMP pi__halt
-
-// pi__sqrt: Newton's iteration x = (x + a/x) / 2, run six times from a start
-// of 2, which reaches single precision for the arguments here (all of them
-// lie between 0.75 and 4)
-//     in:       a -> R0 - R3
-//     out:      sqrt(a) -> R8 - R11
-//     clobbers: R0 - R15, 0x8048 - 0x8051
-pi__sqrt:
-    LDR 0
-    STM 0x8048
-    LDR 1
-    STM 0x8049
-    LDR 2
-    STM 0x804A
-    LDR 3
-    STM 0x804B
-    LDM 0x8058
-    STM 0x804C
-    LDM 0x8059
-    STM 0x804D
-    LDM 0x805A
-    STM 0x804E
-    LDM 0x805B
-    STM 0x804F      // the first estimate is 2
-    LDI 6
-    STM 0x8051
-
-pi__sqrt__loop:
-    LDM 0x8048
-    STR 0
-    LDM 0x8049
-    STR 1
-    LDM 0x804A
-    STR 2
-    LDM 0x804B
-    STR 3
-    LDM 0x804C
-    STR 4
-    LDM 0x804D
-    STR 5
-    LDM 0x804E
-    STR 6
-    LDM 0x804F
-    STR 7
-    CLL float32_div // a / x
-
-    CLL pi__c_to_b
-    LDM 0x804C
-    STR 0
-    LDM 0x804D
-    STR 1
-    LDM 0x804E
-    STR 2
-    LDM 0x804F
-    STR 3
-    CLL float32_add // x + a / x
-
-    CLL pi__c_to_a
-    LDM 0x8058
-    STR 4
-    LDM 0x8059
-    STR 5
-    LDM 0x805A
-    STR 6
-    LDM 0x805B
-    STR 7
-    CLL float32_div
-    LDR 8
-    STM 0x804C
-    LDR 9
-    STM 0x804D
-    LDR 10
-    STM 0x804E
-    LDR 11
-    STM 0x804F
-
-    LDM 0x8051
-    STR 12
-    LDI 255
-    ADD 12
-    STM 0x8051
-    JA1 pi__sqrt__loop
-    RET             // R8 - R11 still hold the estimate
 
 // pi__int_to_float: the single precision value of a small integer
 //     in:       n -> accumulator (0 - 255)

@@ -1,0 +1,177 @@
+// float32_sqrt: C = sqrt(|A|), IEEE 754 single precision, byte order LSB -> MSB
+//     in:       A -> R0 - R3
+//     out:      C -> R8 - R11
+//     clobbers: R0 - R15, 0x8038 - 0x803F (shared with float32_mod)
+//
+// Newton's iteration x = (x + A/x) / 2 from x = A/2. From the first step on
+// the estimate falls towards the root, so the loop stops once a step no longer
+// lowers it; a fixed epsilon would stop too early on small A and never on
+// large ones. A zero yields itself, the sign of A is ignored, and an A/2 below
+// the smallest normal starts from A instead. Needs the whole float32 group.
+float32_sqrt:
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    STR 3           // |A|
+    STR 13
+    LDI 0x80
+    STR 12
+    LDR 2
+    AND 12
+    ORR 13
+    JA1 float32_sqrt__nonzero
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    RET             // +0
+
+float32_sqrt__nonzero:
+    LDR 0
+    STM 0x8038
+    LDR 1
+    STM 0x8039
+    LDR 2
+    STM 0x803A
+    LDR 3
+    STM 0x803B      // A
+    LDI 0
+    STR 4
+    STR 5
+    STR 6
+    LDI 0x40
+    STR 7
+    CLL float32_div // A / 2.0
+    LDR 11
+    ORR 10
+    JA1 float32_sqrt__start
+    LDM 0x8038      // A / 2 flushed to zero
+    STR 8
+    LDM 0x8039
+    STR 9
+    LDM 0x803A
+    STR 10
+    LDM 0x803B
+    STR 11
+float32_sqrt__start:
+    CLL float32_sqrt__store
+    CLL float32_sqrt__step
+    CLL float32_sqrt__store
+
+float32_sqrt__loop:
+    CLL float32_sqrt__step
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    LDM 0x803C
+    STR 4
+    LDM 0x803D
+    STR 5
+    LDM 0x803E
+    STR 6
+    LDM 0x803F
+    STR 7
+    CLL float32_cmp
+    STR 12
+    LDI 0xFF
+    ADD 12
+    JA1 float32_sqrt__done  // not below the last estimate
+    CLL float32_sqrt__c_from_a
+    CLL float32_sqrt__store
+    JMP float32_sqrt__loop
+
+float32_sqrt__done:
+    LDR 4
+    STR 8
+    LDR 5
+    STR 9
+    LDR 6
+    STR 10
+    LDR 7
+    STR 11
+    RET
+
+// float32_sqrt__step: R8 - R11 = (x + A/x) / 2 from A and x in memory
+float32_sqrt__step:
+    LDM 0x8038
+    STR 0
+    LDM 0x8039
+    STR 1
+    LDM 0x803A
+    STR 2
+    LDM 0x803B
+    STR 3
+    LDM 0x803C
+    STR 4
+    LDM 0x803D
+    STR 5
+    LDM 0x803E
+    STR 6
+    LDM 0x803F
+    STR 7
+    CLL float32_div
+    LDM 0x803C
+    STR 0
+    LDM 0x803D
+    STR 1
+    LDM 0x803E
+    STR 2
+    LDM 0x803F
+    STR 3
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    CLL float32_add
+    CLL float32_sqrt__c_to_a
+    LDI 0
+    STR 4
+    STR 5
+    STR 6
+    LDI 0x40
+    STR 7
+    JMP float32_div
+
+// float32_sqrt__store: x = R8 - R11
+float32_sqrt__store:
+    LDR 8
+    STM 0x803C
+    LDR 9
+    STM 0x803D
+    LDR 10
+    STM 0x803E
+    LDR 11
+    STM 0x803F
+    RET
+
+float32_sqrt__c_to_a:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    RET
+
+float32_sqrt__c_from_a:
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11
+    RET

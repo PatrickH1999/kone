@@ -33,6 +33,8 @@
 //     0x8034 - 0x8037 mem_poke:       the patched 'STM' and its 'RET'
 //     0x8038 - 0x803B float32_mod:    A
 //     0x803C - 0x803F float32_mod:    B
+//     0x8038 - 0x803F float32_sqrt:   A and the estimate (shared, as neither
+//                                     calls the other)
 //
 // The klib tests keep their own state at 0x8040 and above, so a new routine
 // that needs scratch takes one of the free bytes above rather than growing
