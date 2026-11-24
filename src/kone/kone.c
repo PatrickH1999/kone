@@ -23,8 +23,16 @@ int main(int argc, char *argv[]) {
 
     CPU *cpu = mmap(NULL, sizeof(CPU), PROT_READ | PROT_WRITE,
                     MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (cpu == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
     char *cpu_msg = mmap(NULL, CPU_MSG_SIZE, PROT_READ | PROT_WRITE,
                          MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (cpu_msg == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
     cpu_init(cpu);
     cpu_reset(cpu);
     if (cpu_boot_file(cpu, args.bootfile) != 0) {
@@ -32,8 +40,12 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    Display *display = mmap(NULL, sizeof(CPU), PROT_READ | PROT_WRITE,
+    Display *display = mmap(NULL, sizeof(Display), PROT_READ | PROT_WRITE,
                             MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    if (display == MAP_FAILED) {
+        perror("mmap");
+        exit(EXIT_FAILURE);
+    }
 
     pid_t cpu_pid = fork();
     if (cpu_pid == 0) {
@@ -43,6 +55,7 @@ int main(int argc, char *argv[]) {
             cpu_decode_exec(cpu, cpu_msg, CPU_MSG_SIZE);
             if (args.log) print_out(cpu, cpu_msg, display, &args);
         }
+        exit(0);
     }
 
     pid_t display_pid = fork();
@@ -75,6 +88,7 @@ int main(int argc, char *argv[]) {
     }
 
     waitpid(display_pid, NULL, 0);
+    waitpid(keyboard_pid, NULL, 0);
     waitpid(cpu_pid, NULL, 0);
     return 0;
 }
