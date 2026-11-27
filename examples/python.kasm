@@ -1,0 +1,4137 @@
+// python: a Python REPL with the kone keyboard as its terminal and the kone
+// display as its screen. The wiki's Python page documents the language it
+// takes; this header maps the memory and the bytecode behind it.
+//
+// A line is compiled as it is typed, into bytecode for a small stack machine.
+// A simple statement at the '>>> ' prompt runs at once; a compound one takes
+// '... ' lines up to an empty one and then runs as a whole. The code of a
+// 'def' is kept, everything else is dropped once it ran. The compiler is a
+// recursive descent on the CPU stack; the machine keeps its values on a stack
+// of its own and its calls in frames, so a recursive Python function does not
+// recurse in kasm.
+//
+// kasm cannot emit data, so the text this program prints or matches is stored
+// as 'LDI <char>' instructions right behind a 'CLL py__say' or 'CLL py__is'.
+// Those two read the bytes behind their return address up to the first opcode
+// that is not 'LDI' and return there, so what follows such a string must not
+// start with an 'LDI'.
+//
+// An error, at compile time or at run time, puts back the CPU stack pointer
+// saved at the prompt and starts over from there, however deep it was raised.
+//
+// The memory this program owns, above the klib scratch klib/io/disp.kasm maps:
+//     0x8100 - 0x8150 the line being typed, null terminated
+//     0x8200 - 0x826F the compiler and the machine, see below
+//     0x8300 - 0x83FF the value stack, 63 values of 4 bytes
+//     0x8400 - 0x85FF the block stack, 32 blocks of 16 bytes
+//     0x8600 - 0x89FF the global names, 64 of 16 bytes, null terminated
+//     0x8A00 - 0x8AFF the global values, 4 bytes each
+//     0x8B00 - 0x8BFF the function names, 16 of 16 bytes
+//     0x8C00 - 0x8C3F the functions, 4 bytes each: code address, parameters,
+//                     locals
+//     0x8D00 - 0x8DFF the local names of the 'def' being compiled, 16
+//     0x8E00 - 0x8E7F the names it declared 'global', 8
+//     0x8F00 - 0x9FFF the call frames: return address, the caller's frame,
+//                     then 4 bytes per local
+//     0xA000 - 0xEFFF the bytecode: the kept 'def's from 0xA000 up, then the
+//                     statement being compiled and run
+//
+// The state, a byte each where no range is given:
+//     0x8200          CUR, the char being lexed
+//     0x8201          POS, the index of the char behind it
+//     0x8202          the length of the typed line
+//     0x8203          TOK, the current token
+//     0x8204 - 0x8207 the value of a number token
+//     0x8208 - 0x8209 the start index and the length of a string token
+//     0x820A - 0x820B POS and CUR before the first token of the line
+//     0x820C          the indentation of the line
+//     0x820E          the length of the word being lexed
+//     0x820F          the quote a string started with
+//     0x8210 - 0x821F the word being lexed, null terminated
+//     0x8220 - 0x8221 CP, where the next byte of code goes
+//     0x8222 - 0x8223 the end of the kept code
+//     0x8224          1 while the body of a 'def' is compiled
+//     0x8225 - 0x8227 its function, its locals and its 'global' names
+//     0x8228          the open blocks
+//     0x8229          1 when the next line has to be indented
+//     0x822A          1 while the rest of a block is skipped after an error
+//     0x822B - 0x822C the global names and the functions
+//     0x822D          the parameters of the 'def'
+//     0x822E - 0x822F the CPU stack pointer at the prompt
+//     0x8231          the open 'for' loops
+//     0x8232 - 0x8235 the return address and the state of 'py__say'/'py__is'
+//     0x8236 - 0x8237 a name resolved: 0 global or 1 local, and its index
+//     0x8238 - 0x823D the statements' temporaries
+//     0x8240 - 0x8241 PC
+//     0x8242 - 0x8243 FP, the frame of the running function, 0 outside one
+//     0x8244 - 0x8245 the first free byte of the frame area
+//     0x8246          VSP, the value stack's fill in bytes
+//     0x8248 - 0x824F the machine's temporaries
+//     0x8250 - 0x825F float temporaries, and the number being lexed
+//     0x8260 - 0x826F a name kept while the token behind it is lexed
+//
+// Tokens: 0 the end of the line, 1 a number, 2 a name, 3 a string, an
+// operator char as itself, 128 '**', 129 '//', 130 '==', 131 '!=', 132 '<=',
+// 133 '>=', 134 '+=', 135 '-=', 136 '*=', 137 '/=', and the keywords from 160
+// on: if, elif, else, while, for, in, def, return, break, continue, pass, and,
+// or, not, True, False, None, global.
+//
+// Bytecode, an opcode and its operands:
+//     1 PUSHC f32     2 LOADG g       3 STOREG g      4 LOADL l
+//     5 STOREL l      6 ADD           7 SUB           8 MUL
+//     9 DIV           10 FLOORDIV     11 MOD          12 POW
+//     13 EQ           14 NE           15 LT           16 GT
+//     17 LE           18 GE           19 NEG          20 NOT
+//     21 ABS          22 JMP a16      23 JZ a16       24 JZK a16
+//     25 JNZK a16     26 POP          27 CALL f n     28 RET
+//     29 INT          30 INPUT        31 PRINTV       32 PRINTS n chars
+//     33 PRINTSP      34 PRINTNL      35 PRINTBLANK   36 ECHO
+//     37 HALT         38 FORTEST
+// JZ pops the value it tests, JZK and JNZK leave it for 'and' and 'or'.
+// FORTEST takes i, stop and step and leaves 1 while the loop goes on.
+//
+// A block is 16 bytes: 0 its kind (1 if, 2 else, 3 while, 4 for, 5 def), 1 the
+// indentation of its header, 2 that of its body, 4 - 5 the pending JZ, 6 - 7
+// the JMPs to its end, chained through their operands, 8 - 9 where 'continue'
+// goes.
+//
+// Every value is a float32. None is 0xFFFFFFFF; a name not assigned yet holds
+// 0xFFFFFFFE.
+
+    JMP main
+
+.include "../klib/io/disp.kasm"
+.include "../klib/math.kasm"
+.include "../klib/io/float32_write.kasm"
+.include "../klib/io/float32_read.kasm"
+.include "../klib/mem.kasm"
+.include "../klib/str.kasm"
+
+main:
+    CLL py__init
+
+// py__repl: the prompt. The CPU stack pointer saved here is what every error
+// returns to
+py__repl:
+    LDR 22
+    STM 0x822E
+    LDR 23
+    STM 0x822F
+    LDM 0x8228
+    JA1 py__repl__more
+    CLL py__say
+    LDI 62          // '>'
+    LDI 62          // '>'
+    LDI 62          // '>'
+    LDI 32          // ' '
+    JMP py__repl__read
+py__repl__more:
+    CLL py__say
+    LDI 46          // '.'
+    LDI 46          // '.'
+    LDI 46          // '.'
+    LDI 32          // ' '
+py__repl__read:
+    CLL py__read_line
+    CLL py__line
+    JMP py__repl
+
+// py__init: empties every table and prints the banner
+py__init:
+    LDI 0
+    STM 0x8220
+    STM 0x8222
+    STM 0x8224
+    STM 0x8228
+    STM 0x8229
+    STM 0x822A
+    STM 0x822B
+    STM 0x822C
+    STM 0x8231
+    STM 0x8246
+    LDI 0xA0
+    STM 0x8221
+    STM 0x8223
+    CLL py__say
+    LDI 80          // 'P'
+    LDI 121         // 'y'
+    LDI 116         // 't'
+    LDI 104         // 'h'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 32          // ' '
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 32          // ' '
+    LDI 107         // 'k'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 101         // 'e'
+    CLL disp_nl
+    RET
+
+// py__say: prints the string of 'LDI <char>' behind the call
+//     clobbers: R0, R12 - R14
+py__say:
+    POP
+    STM 0x8232      // the return address, high byte first
+    POP
+    STM 0x8233
+py__say__loop:
+    LDM 0x8233
+    STR 12
+    LDM 0x8232
+    STR 13
+    CLL mem_peek
+    STR 0
+    LDI 192         // 256 - 0x40 -> 'LDI'
+    ADD 0
+    JA1 py__return
+    CLL py__inc
+    CLL mem_peek
+    STR 0
+    CLL py__inc
+    LDR 12
+    STM 0x8233
+    LDR 13
+    STM 0x8232
+    LDR 0
+    CLL disp_putc
+    JMP py__say__loop
+
+// py__return: returns to the address in 0x8232 / 0x8233, which is where
+// 'py__say' and 'py__is' end
+py__return:
+    LDM 0x8233
+    PSH
+    LDM 0x8232
+    PSH
+    LDM 0x8234
+    RET
+
+// py__is: 1 in the accumulator when the word at 0x8210 is the string of
+// 'LDI <char>' behind the call
+//     clobbers: R0, R1, R12 - R14
+py__is:
+    POP
+    STM 0x8232
+    POP
+    STM 0x8233
+    LDI 1
+    STM 0x8234      // equal so far
+    LDI 0x10
+    STM 0x8235      // the next char of the word
+py__is__loop:
+    LDM 0x8233
+    STR 12
+    LDM 0x8232
+    STR 13
+    CLL mem_peek
+    STR 0
+    LDI 192         // 256 - 0x40 -> 'LDI'
+    ADD 0
+    JA1 py__is__end
+    CLL py__inc
+    CLL mem_peek
+    STR 1
+    CLL py__inc
+    LDR 12
+    STM 0x8233
+    LDR 13
+    STM 0x8232
+    LDM 0x8235
+    STR 12
+    LDI 0x82
+    STR 13
+    CLL mem_peek
+    XOR 1
+    JA0 py__is__same
+    LDI 0
+    STM 0x8234
+py__is__same:
+    LDM 0x8235
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8235
+    JMP py__is__loop
+py__is__end:
+    LDM 0x8235
+    STR 12
+    LDI 0x82
+    STR 13
+    CLL mem_peek
+    JA0 py__return
+    LDI 0
+    STM 0x8234      // the word goes on
+    JMP py__return
+
+// py__inc: R12 / R13 += 1
+py__inc:
+    LDI 1
+    ADD 12
+    STR 12
+    JC0 py__inc__done
+    LDI 1
+    ADD 13
+    STR 13
+py__inc__done:
+    RET
+
+// py__ge: 1 in the accumulator if R0 >= R1, unsigned
+//     clobbers: R1
+py__ge:
+    LDR 1
+    JA0 py__ge__yes
+    NOT
+    STR 1
+    LDI 1
+    ADD 1
+    STR 1
+    LDR 0
+    ADD 1
+    JC1 py__ge__yes
+    LDI 0
+    RET
+py__ge__yes:
+    LDI 1
+    RET
+
+// The errors. Each prints its name on a row of its own and goes back to the
+// prompt through 'py__abort'.
+py__e_syntax:
+    CLL py__errrow
+    CLL py__say
+    LDI 83          // 'S'
+    LDI 121         // 'y'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    LDI 97          // 'a'
+    LDI 120         // 'x'
+    JMP py__e_error
+
+py__e_indent:
+    CLL py__errrow
+    CLL py__say
+    LDI 73          // 'I'
+    LDI 110         // 'n'
+    LDI 100         // 'd'
+    LDI 101         // 'e'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    LDI 97          // 'a'
+    LDI 116         // 't'
+    LDI 105         // 'i'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    JMP py__e_error
+
+py__e_memory:
+    CLL py__errrow
+    CLL py__say
+    LDI 77          // 'M'
+    LDI 101         // 'e'
+    LDI 109         // 'm'
+    LDI 111         // 'o'
+    LDI 114         // 'r'
+    LDI 121         // 'y'
+    JMP py__e_error
+
+py__e_name:
+    CLL py__errrow
+    CLL py__say
+    LDI 78          // 'N'
+    LDI 97          // 'a'
+    LDI 109         // 'm'
+    LDI 101         // 'e'
+    JMP py__e_error
+
+py__e_type:
+    CLL py__errrow
+    CLL py__say
+    LDI 84          // 'T'
+    LDI 121         // 'y'
+    LDI 112         // 'p'
+    LDI 101         // 'e'
+    JMP py__e_error
+
+py__e_value:
+    CLL py__errrow
+    CLL py__say
+    LDI 86          // 'V'
+    LDI 97          // 'a'
+    LDI 108         // 'l'
+    LDI 117         // 'u'
+    LDI 101         // 'e'
+    JMP py__e_error
+
+py__e_zerodiv:
+    CLL py__errrow
+    CLL py__say
+    LDI 90          // 'Z'
+    LDI 101         // 'e'
+    LDI 114         // 'r'
+    LDI 111         // 'o'
+    LDI 68          // 'D'
+    LDI 105         // 'i'
+    LDI 118         // 'v'
+    LDI 105         // 'i'
+    LDI 115         // 's'
+    LDI 105         // 'i'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    JMP py__e_error
+
+py__e_recursion:
+    CLL py__errrow
+    CLL py__say
+    LDI 82          // 'R'
+    LDI 101         // 'e'
+    LDI 99          // 'c'
+    LDI 117         // 'u'
+    LDI 114         // 'r'
+    LDI 115         // 's'
+    LDI 105         // 'i'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    JMP py__e_error
+
+py__e_interrupt:
+    LDI 0
+    STR 16          // the key that stopped the run is not input
+    CLL py__errrow
+    CLL py__say
+    LDI 75          // 'K'
+    LDI 101         // 'e'
+    LDI 121         // 'y'
+    LDI 98          // 'b'
+    LDI 111         // 'o'
+    LDI 97          // 'a'
+    LDI 114         // 'r'
+    LDI 100         // 'd'
+    LDI 73          // 'I'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    LDI 101         // 'e'
+    LDI 114         // 'r'
+    LDI 114         // 'r'
+    LDI 117         // 'u'
+    LDI 112         // 'p'
+    LDI 116         // 't'
+    JMP py__abort
+
+py__e_error:
+    CLL py__say
+    LDI 69          // 'E'
+    LDI 114         // 'r'
+    LDI 114         // 'r'
+    LDI 111         // 'o'
+    LDI 114         // 'r'
+    JMP py__abort
+
+// py__errrow: starts the error on a row of its own
+py__errrow:
+    LDM 0x8000
+    JA0 py__errrow__done
+    CLL disp_nl
+py__errrow__done:
+    RET
+
+// py__abort: back to the prompt. An error inside a block skips the rest of
+// it, up to the empty line that would have ended it
+py__abort:
+    CLL disp_nl
+    LDM 0x822E
+    STR 22
+    LDM 0x822F
+    STR 23
+    LDM 0x8228
+    JA0 py__abort__top
+    LDI 1
+    STM 0x822A
+py__abort__top:
+    LDI 0
+    STM 0x8229
+    STM 0x8224
+    CLL py__reset_cp
+    JMP py__repl
+
+// py__reset_cp: drops the code behind the kept 'def's
+py__reset_cp:
+    LDM 0x8222
+    STM 0x8220
+    LDM 0x8223
+    STM 0x8221
+    RET
+
+// py__getc: waits for a key and acknowledges it
+//     out:      char -> accumulator
+py__getc:
+    LDR 16
+    JA0 py__getc
+    LDR 17
+    STM 0x8232
+    LDI 0
+    STR 16
+    LDM 0x8232
+    RET
+
+// py__read_line: reads a line off the keyboard into 0x8100 and echoes it.
+// Backspace takes the last char back, down to the prompt, and ENTER ends it
+//     clobbers: R0, R1, R12 - R14
+py__read_line:
+    LDI 0
+    STM 0x8202
+py__read_line__key:
+    CLL py__getc
+    STR 0
+    LDI 129         // 256 - 127 -> DEL
+    ADD 0
+    JA1 py__read_line__test
+    LDI 8
+    STR 0
+py__read_line__test:
+    LDI 248         // 256 - 8 -> BS
+    ADD 0
+    JA0 py__read_line__bs
+    LDI 246         // 256 - 10 -> ENTER
+    ADD 0
+    JA0 py__read_line__done
+    LDM 0x8202
+    STR 1
+    LDI 176         // 256 - 80 -> the line is full
+    ADD 1
+    JC1 py__read_line__key
+    LDR 1
+    STR 12
+    LDI 0x81
+    STR 13
+    LDR 0
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 1
+    STM 0x8202
+    LDR 0
+    CLL disp_putc
+    JMP py__read_line__key
+py__read_line__bs:
+    LDM 0x8202
+    JA0 py__read_line__key
+    STR 1
+    LDI 255
+    ADD 1
+    STM 0x8202
+    CLL disp_bs
+    JMP py__read_line__key
+py__read_line__done:
+    LDM 0x8202
+    STR 12
+    LDI 0x81
+    STR 13
+    LDI 0
+    STR 14
+    CLL mem_poke
+    CLL disp_nl
+    RET
+
+// py__next: takes the next char of the line into CUR; the end of the line
+// reads as 0 for good
+//     clobbers: R12, R13
+py__next:
+    LDM 0x8201
+    STR 12
+    LDI 0x81
+    STR 13
+    CLL mem_peek
+    STM 0x8200
+    JA0 py__next__end
+    LDI 1
+    ADD 12
+    STM 0x8201
+py__next__end:
+    RET
+
+// py__line: compiles the typed line. The indentation opens and closes blocks;
+// back at the prompt's level a statement runs as soon as it is complete
+py__line:
+    LDI 0
+    STM 0x8201
+    STM 0x820C
+    CLL py__next
+py__line__indent:
+    LDM 0x8200
+    STR 0
+    LDI 224         // 256 - ' '
+    ADD 0
+    JA1 py__line__text
+    LDM 0x820C
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x820C
+    CLL py__next
+    JMP py__line__indent
+
+py__line__text:
+    LDM 0x8200
+    JA0 py__blank
+    STR 0
+    LDI 221         // 256 - '#'
+    ADD 0
+    JA0 py__blank
+    LDM 0x822A
+    JA0 py__line__lex
+    RET             // the rest of a failed block
+
+py__line__lex:
+    LDM 0x8201
+    STM 0x820A
+    LDM 0x8200
+    STM 0x820B
+    CLL py__lex
+    LDM 0x8229
+    JA0 py__line__level
+    LDI 1
+    CLL py__blk_get // the header's indentation
+    STR 0
+    LDM 0x820C
+    STR 1
+    CLL py__ge
+    JA1 py__e_indent // a body has to be indented deeper
+    LDM 0x820C
+    STR 14
+    LDI 2
+    CLL py__blk_put
+    LDI 0
+    STM 0x8229
+    JMP py__line__stmt
+
+py__line__level:
+    LDM 0x8228
+    JA1 py__line__inner
+    LDM 0x820C
+    JA1 py__e_indent
+    JMP py__line__stmt
+
+py__line__inner:
+    LDM 0x820C
+    JA1 py__line__dedent
+    CLL py__line__elseif
+    JA0 py__e_syntax // back at the margin without the empty line
+py__line__dedent:
+    LDI 2
+    CLL py__blk_get // the body's indentation
+    STR 1
+    LDM 0x820C
+    STR 0
+    XOR 1
+    JA0 py__line__stmt
+    CLL py__ge
+    JA1 py__e_indent // deeper than the body
+    LDI 1
+    CLL py__blk_get
+    STR 0
+    LDM 0x820C
+    XOR 0
+    JA1 py__line__close
+    CLL py__line__elseif
+    JA0 py__line__close
+    LDI 0
+    CLL py__blk_get
+    STR 0
+    LDI 255         // 256 - 1 -> an 'if'
+    ADD 0
+    JA0 py__line__stmt // 'elif' and 'else' go on with the 'if'
+py__line__close:
+    CLL py__close
+    LDM 0x8228
+    JA1 py__line__dedent
+    LDM 0x820C
+    JA1 py__e_indent
+py__line__stmt:
+    CLL py__stmt
+    LDM 0x8228
+    JA1 py__line__done
+    JMP py__finish
+py__line__done:
+    RET
+
+// py__line__elseif: 1 in the accumulator when TOK is 'elif' or 'else'
+py__line__elseif:
+    LDM 0x8203
+    STR 0
+    LDI 95          // 256 - 161 -> 'elif'
+    ADD 0
+    JA0 py__line__elseif__yes
+    LDI 94          // 256 - 162 -> 'else'
+    ADD 0
+    JA0 py__line__elseif__yes
+    LDI 0
+    RET
+py__line__elseif__yes:
+    LDI 1
+    RET
+
+// py__blank: an empty line ends every open block and runs what they hold
+py__blank:
+    LDM 0x8228
+    JA0 py__blank__done
+    LDM 0x822A
+    JA1 py__blank__drop
+    LDM 0x8229
+    JA0 py__blank__close
+    CLL py__blank__drop
+    JMP py__e_indent // a header without a body
+py__blank__close:
+    CLL py__close
+    LDM 0x8228
+    JA1 py__blank__close
+    JMP py__finish
+py__blank__drop:
+    LDI 0
+    STM 0x8228
+    STM 0x822A
+    STM 0x8229
+    STM 0x8224
+    STM 0x8231
+    CLL py__reset_cp
+py__blank__done:
+    RET
+
+// py__finish: runs the code compiled since the kept code ended, if any, and
+// drops it again
+py__finish:
+    LDI 0
+    STM 0x8231
+    LDM 0x8220
+    STR 0
+    LDM 0x8222
+    XOR 0
+    STR 0
+    LDM 0x8221
+    STR 1
+    LDM 0x8223
+    XOR 1
+    ORR 0
+    JA0 py__finish__done
+    LDI 37          // HALT
+    CLL py__emit
+    CLL py__run
+    CLL py__reset_cp
+py__finish__done:
+    RET
+
+// py__close: ends the innermost block
+py__close:
+    LDI 0
+    CLL py__blk_get
+    STR 0
+    LDI 251         // 256 - 5 -> 'def'
+    ADD 0
+    JA0 py__close__def
+    LDI 253         // 256 - 3 -> 'while'
+    ADD 0
+    JA0 py__close__loop
+    LDI 252         // 256 - 4 -> 'for'
+    ADD 0
+    JA1 py__close__jz
+    LDM 0x8231
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x8231
+py__close__loop:
+    LDI 8
+    CLL py__blk_get16
+    LDI 22          // JMP back to the test
+    CLL py__emit
+    CLL py__emit2
+py__close__jz:
+    LDI 4
+    CLL py__blk_get16
+    CLL py__patch
+    LDI 6
+    CLL py__blk_get16
+    CLL py__patch
+    JMP py__close__pop
+
+py__close__def:
+    CLL py__emit_none
+    LDI 28          // RET
+    CLL py__emit
+    LDM 0x8225
+    BSL
+    BSL
+    STR 12
+    LDI 0x8C
+    STR 13
+    LDM 0x8222
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDM 0x8223
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDM 0x822D
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDM 0x8226
+    STR 14
+    CLL mem_poke
+    LDM 0x8220
+    STM 0x8222
+    LDM 0x8221
+    STM 0x8223      // the body is kept
+    LDI 0
+    STM 0x8224
+py__close__pop:
+    LDM 0x8228
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x8228
+    RET
+
+// py__blk_at: the address of block A
+//     out:      R12 (low byte), R13 (high byte)
+py__blk_at:
+    STR 12
+    BSR
+    BSR
+    BSR
+    BSR
+    STR 13
+    LDI 0x84
+    ADD 13
+    STR 13
+    LDR 12
+    BSL
+    BSL
+    BSL
+    BSL
+    STR 12
+    RET
+
+// py__blk: the address of the innermost block, as 'py__blk_at'
+py__blk:
+    LDM 0x8228
+    STR 12
+    LDI 255
+    ADD 12
+    JMP py__blk_at
+
+// py__blk_get: byte A of the innermost block
+//     clobbers: R12, R13, R15
+py__blk_get:
+    STR 15
+    CLL py__blk
+    LDR 15
+    ADD 12
+    STR 12
+    CLL mem_peek
+    RET
+
+// py__blk_put: byte A of the innermost block = R14
+//     clobbers: R12, R13, R15
+py__blk_put:
+    STR 15
+    CLL py__blk
+    LDR 15
+    ADD 12
+    STR 12
+    CLL mem_poke
+    RET
+
+// py__blk_get16: R0 / R1 = the 16 bit field at offset A of the innermost block
+//     clobbers: R12, R13, R15
+py__blk_get16:
+    STR 15
+    CLL py__blk
+    LDR 15
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 0
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 1
+    RET
+
+// py__blk_put16: the 16 bit field at offset A of the innermost block = R0 / R1
+//     clobbers: R12 - R15
+py__blk_put16:
+    STR 15
+    CLL py__blk
+    LDR 15
+    ADD 12
+    STR 12
+    LDR 0
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDR 1
+    STR 14
+    CLL mem_poke
+    RET
+
+// py__blk_push: opens a block of kind A for the header on this line and
+// expects the next line to be indented
+//     clobbers: R0, R1, R12 - R15
+py__blk_push:
+    STM 0x823D
+    LDM 0x8228
+    STR 0
+    LDI 224         // 256 - 32 blocks
+    ADD 0
+    JC1 py__e_syntax
+    LDI 1
+    ADD 0
+    STM 0x8228
+    LDM 0x823D
+    STR 14
+    LDI 0
+    CLL py__blk_put
+    LDM 0x820C
+    STR 14
+    LDI 1
+    CLL py__blk_put
+    LDI 0
+    STR 0
+    STR 1
+    LDI 4
+    CLL py__blk_put16
+    LDI 6
+    CLL py__blk_put16
+    LDI 8
+    CLL py__blk_put16
+    LDI 1
+    STM 0x8229
+    RET
+
+// py__emit: puts A at CP and advances it
+//     clobbers: R12 - R14
+py__emit:
+    STR 14
+    LDM 0x8220
+    STR 12
+    LDM 0x8221
+    STR 13
+    CLL mem_poke
+    CLL py__inc
+    LDR 12
+    STM 0x8220
+    LDR 13
+    STM 0x8221
+    LDI 16          // 256 - 0xF0 -> the code area is full
+    ADD 13
+    JA0 py__e_memory
+    RET
+
+// py__emit2: emits R0, then R1
+//     clobbers: R12 - R14
+py__emit2:
+    LDR 0
+    CLL py__emit
+    LDR 1
+    JMP py__emit
+
+// py__emit_jump: emits opcode A with R0 / R1 as its operand
+//     out:      the operand's address -> R0 / R1
+//     clobbers: R2, R3, R12 - R14
+py__emit_jump:
+    CLL py__emit
+    LDM 0x8220
+    STR 2
+    LDM 0x8221
+    STR 3
+    CLL py__emit2
+    LDR 2
+    STR 0
+    LDR 3
+    STR 1
+    RET
+
+// py__emit_const: emits a PUSHC of R8 - R11
+//     clobbers: R12 - R14
+py__emit_const:
+    LDI 1
+    CLL py__emit
+    LDR 8
+    CLL py__emit
+    LDR 9
+    CLL py__emit
+    LDR 10
+    CLL py__emit
+    LDR 11
+    JMP py__emit
+
+py__emit_none:
+    LDI 255
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    JMP py__emit_const
+
+py__emit_one:
+    CLL py__one
+    JMP py__emit_const
+
+py__emit_zero:
+    CLL py__zero
+    JMP py__emit_const
+
+// py__one / py__zero: R8 - R11 = 1.0 / 0.0
+py__one:
+    LDI 0
+    STR 8
+    STR 9
+    LDI 0x80
+    STR 10
+    LDI 0x3F
+    STR 11
+    RET
+
+py__zero:
+    LDI 0
+    STR 8
+    STR 9
+    STR 10
+    STR 11
+    RET
+
+// py__here: R0 / R1 = CP
+py__here:
+    LDM 0x8220
+    STR 0
+    LDM 0x8221
+    STR 1
+    RET
+
+// py__rd16: R2 / R3 = the 16 bit value at R12 / R13, which stay
+//     clobbers: R4, R5
+py__rd16:
+    CLL mem_peek
+    STR 2
+    LDR 12
+    STR 4
+    LDR 13
+    STR 5
+    CLL py__inc
+    CLL mem_peek
+    STR 3
+    LDR 4
+    STR 12
+    LDR 5
+    STR 13
+    RET
+
+// py__wr16: the 16 bit value at R12 / R13, which stay, = R6 / R7
+//     clobbers: R4, R5, R14
+py__wr16:
+    LDR 6
+    STR 14
+    CLL mem_poke
+    LDR 12
+    STR 4
+    LDR 13
+    STR 5
+    CLL py__inc
+    LDR 7
+    STR 14
+    CLL mem_poke
+    LDR 4
+    STR 12
+    LDR 5
+    STR 13
+    RET
+
+// py__patch: points every jump on the chain that starts at R0 / R1 at CP.
+// A pending jump holds the next one on its chain as its operand, 0 the end
+//     clobbers: R0 - R7, R12 - R14
+py__patch:
+    LDM 0x8220
+    STR 6
+    LDM 0x8221
+    STR 7
+py__patch__loop:
+    LDR 0
+    ORR 1
+    JA0 py__patch__done
+    LDR 0
+    STR 12
+    LDR 1
+    STR 13
+    CLL py__rd16
+    CLL py__wr16
+    LDR 2
+    STR 0
+    LDR 3
+    STR 1
+    JMP py__patch__loop
+py__patch__done:
+    RET
+
+// py__tab_at: the address of entry A of the name table at page R6
+//     out:      R12 (low byte), R13 (high byte)
+py__tab_at:
+    STR 12
+    BSR
+    BSR
+    BSR
+    BSR
+    ADD 6
+    STR 13
+    LDR 12
+    BSL
+    BSL
+    BSL
+    BSL
+    STR 12
+    RET
+
+// py__find: the index of the word in the name table at page R6 holding R7
+// names, 255 if it is not there
+//     clobbers: R0 - R5, R8, R12 - R14
+py__find:
+    LDI 0
+    STR 8
+py__find__loop:
+    LDR 8
+    XOR 7
+    JA0 py__find__none
+    LDR 8
+    CLL py__tab_at
+    LDR 12
+    STR 2
+    LDR 13
+    STR 3
+    LDI 0x10
+    STR 0
+    LDI 0x82
+    STR 1
+    CLL str_eq
+    LDR 0
+    JA1 py__find__found
+    LDI 1
+    ADD 8
+    STR 8
+    JMP py__find__loop
+py__find__found:
+    LDR 8
+    RET
+py__find__none:
+    LDI 255
+    RET
+
+// py__add: writes the word as entry A of the name table at page R6
+//     clobbers: R0 - R4, R12 - R14
+py__add:
+    CLL py__tab_at
+    LDR 12
+    STR 2
+    LDR 13
+    STR 3
+    LDI 0x10
+    STR 0
+    LDI 0x82
+    STR 1
+    LDI 16
+    STR 4
+    JMP mem_copy
+
+// py__undef: writes the unassigned marker at R12 / R13 and steps past it
+//     clobbers: R14
+py__undef:
+    LDI 0xFE
+    STR 14
+    CLL mem_poke
+    LDI 0xFF
+    STR 14
+    CLL py__inc
+    CLL mem_poke
+    CLL py__inc
+    CLL mem_poke
+    CLL py__inc
+    CLL mem_poke
+    JMP py__inc
+
+// py__glob: the index of the global named by the word, made if it is new
+//     clobbers: R0 - R9, R12 - R14
+py__glob:
+    LDI 0x86
+    STR 6
+    LDM 0x822B
+    STR 7
+    CLL py__find
+    STR 0
+    LDI 1
+    ADD 0
+    JA0 py__glob__new
+    LDR 0
+    RET
+py__glob__new:
+    LDM 0x822B
+    STR 9
+    LDI 192         // 256 - 64 globals
+    ADD 9
+    JC1 py__e_memory
+    LDR 9
+    CLL py__add
+    LDR 9
+    BSL
+    BSL
+    STR 12
+    LDI 0x8A
+    STR 13
+    CLL py__undef
+    LDR 9
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x822B
+    LDR 9
+    RET
+
+// py__loc_find: the index of the word among the locals, 255 if it is not one
+py__loc_find:
+    LDI 0x8D
+    STR 6
+    LDM 0x8226
+    STR 7
+    JMP py__find
+
+// py__loc: the index of the local named by the word, made if it is new
+//     clobbers: R0 - R9, R12 - R14
+py__loc:
+    CLL py__loc_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA0 py__loc__new
+    LDR 0
+    RET
+py__loc__new:
+    LDM 0x8226
+    STR 9
+    LDI 240         // 256 - 16 locals
+    ADD 9
+    JC1 py__e_syntax
+    LDR 9
+    CLL py__add
+    LDR 9
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8226
+    LDR 9
+    RET
+
+// py__gdecl_find: the index of the word among the 'global' names, 255 if it
+// is not one
+py__gdecl_find:
+    LDI 0x8E
+    STR 6
+    LDM 0x8227
+    STR 7
+    JMP py__find
+
+// py__func: the index of the function named by the word, made if it is new.
+// A new one has code address 0 until its 'def' is done, which is how a call
+// tells that it was never defined
+//     clobbers: R0 - R9, R12 - R14
+py__func:
+    LDI 0x8B
+    STR 6
+    LDM 0x822C
+    STR 7
+    CLL py__find
+    STR 0
+    LDI 1
+    ADD 0
+    JA0 py__func__new
+    LDR 0
+    RET
+py__func__new:
+    LDM 0x822C
+    STR 9
+    LDI 240         // 256 - 16 functions
+    ADD 9
+    JC1 py__e_memory
+    LDR 9
+    CLL py__add
+    LDR 9
+    BSL
+    BSL
+    STR 12
+    LDI 0x8C
+    STR 13
+    LDI 0
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_poke
+    LDR 9
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x822C
+    LDR 9
+    RET
+
+// py__ref_load: where the name in the word is read from, into 0x8236 (0 for a
+// global, 1 for a local) and 0x8237 (its index). Inside a 'def' a name is local
+// once it is a parameter or was assigned above, unless it is declared 'global'
+py__ref_load:
+    LDM 0x8224
+    JA0 py__ref__global
+    CLL py__gdecl_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA1 py__ref__global
+    CLL py__loc_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA0 py__ref__global
+    LDR 0
+py__ref__local:
+    STM 0x8237
+    LDI 1
+    STM 0x8236
+    RET
+
+// py__ref_store: as 'py__ref_load' for a name that is assigned, which makes
+// it a local inside a 'def'
+py__ref_store:
+    LDM 0x8224
+    JA0 py__ref__global
+    CLL py__gdecl_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA1 py__ref__global
+    CLL py__loc
+    JMP py__ref__local
+py__ref__global:
+    CLL py__glob
+    STM 0x8237
+    LDI 0
+    STM 0x8236
+    RET
+
+// py__emit_load / py__emit_store: a LOADG or LOADL, a STOREG or STOREL of the
+// name resolved into 0x8236 / 0x8237
+py__emit_load:
+    LDM 0x8236
+    BSL
+    STR 0
+    LDI 2
+    ADD 0
+    CLL py__emit
+    LDM 0x8237
+    JMP py__emit
+
+py__emit_store:
+    LDM 0x8236
+    BSL
+    STR 0
+    LDI 3
+    ADD 0
+    CLL py__emit
+    LDM 0x8237
+    JMP py__emit
+
+// py__isdigit / py__isalpha / py__isalnum: 1 in the accumulator when the char
+// in R0 is a digit, a letter or '_', or either
+py__isdigit:
+    LDI 208         // 256 - '0'
+    ADD 0
+    JC0 py__isdigit__no
+    LDI 198         // 256 - ('9' + 1)
+    ADD 0
+    JC1 py__isdigit__no
+    LDI 1
+    RET
+py__isdigit__no:
+    LDI 0
+    RET
+
+py__isalpha:
+    LDI 161         // 256 - '_'
+    ADD 0
+    JA0 py__isalpha__yes
+    LDI 191         // 256 - 'A'
+    ADD 0
+    JC0 py__isalpha__no
+    LDI 165         // 256 - ('Z' + 1)
+    ADD 0
+    JC0 py__isalpha__yes
+    LDI 159         // 256 - 'a'
+    ADD 0
+    JC0 py__isalpha__no
+    LDI 133         // 256 - ('z' + 1)
+    ADD 0
+    JC0 py__isalpha__yes
+py__isalpha__no:
+    LDI 0
+    RET
+py__isalpha__yes:
+    LDI 1
+    RET
+
+py__isalnum:
+    CLL py__isalpha
+    JA0 py__isdigit
+    RET
+
+// py__lex: reads the next token into TOK
+py__lex:
+    LDM 0x8200
+    STR 0
+    LDI 224         // 256 - ' '
+    ADD 0
+    JA1 py__lex__token
+    CLL py__next
+    JMP py__lex
+
+py__lex__token:
+    LDR 0
+    JA0 py__lex__end
+    LDI 221         // 256 - '#'
+    ADD 0
+    JA0 py__lex__end
+    CLL py__isdigit
+    JA1 py__lex__num
+    LDI 210         // 256 - '.'
+    ADD 0
+    JA0 py__lex__num
+    CLL py__isalpha
+    JA1 py__lex__word
+    LDI 222         // 256 - '"'
+    ADD 0
+    JA0 py__lex__str
+    LDI 217         // 256 - '''
+    ADD 0
+    JA0 py__lex__str
+    LDI 214         // 256 - '*'
+    ADD 0
+    JA0 py__lex__star
+    LDI 209         // 256 - '/'
+    ADD 0
+    JA0 py__lex__slash
+    LDI 195         // 256 - '='
+    ADD 0
+    JA0 py__lex__eq
+    LDI 196         // 256 - '<'
+    ADD 0
+    JA0 py__lex__lt
+    LDI 194         // 256 - '>'
+    ADD 0
+    JA0 py__lex__gt
+    LDI 213         // 256 - '+'
+    ADD 0
+    JA0 py__lex__plus
+    LDI 211         // 256 - '-'
+    ADD 0
+    JA0 py__lex__minus
+    LDI 223         // 256 - '!'
+    ADD 0
+    JA0 py__lex__bang
+    LDI 219         // 256 - '%'
+    ADD 0
+    JA0 py__lex__single
+    LDI 216         // 256 - '('
+    ADD 0
+    JA0 py__lex__single
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__lex__single
+    LDI 212         // 256 - ','
+    ADD 0
+    JA0 py__lex__single
+    LDI 198         // 256 - ':'
+    ADD 0
+    JA0 py__lex__single
+    JMP py__e_syntax
+
+py__lex__end:
+    LDI 0
+    STM 0x8203
+    RET
+
+py__lex__single:
+    LDR 0
+    STM 0x8203
+    JMP py__next
+
+py__lex__num:
+    CLL py__num
+    LDI 1
+    STM 0x8203
+    RET
+
+py__lex__star:
+    CLL py__next
+    LDM 0x8200
+    STR 0
+    LDI 214         // 256 - '*'
+    ADD 0
+    JA0 py__lex__pow
+    LDI 136         // '*='
+    STR 2
+    LDI 42          // '*'
+    STR 3
+    JMP py__lex__eqpair__test
+py__lex__pow:
+    LDI 128         // '**'
+    STM 0x8203
+    JMP py__next
+
+py__lex__slash:
+    CLL py__next
+    LDM 0x8200
+    STR 0
+    LDI 209         // 256 - '/'
+    ADD 0
+    JA0 py__lex__fdiv
+    LDI 137         // '/='
+    STR 2
+    LDI 47          // '/'
+    STR 3
+    JMP py__lex__eqpair__test
+py__lex__fdiv:
+    LDI 129         // '//'
+    STM 0x8203
+    JMP py__next
+
+py__lex__eq:
+    LDI 130         // '=='
+    STR 2
+    LDI 61          // '='
+    STR 3
+    JMP py__lex__eqpair
+py__lex__lt:
+    LDI 132         // '<='
+    STR 2
+    LDI 60          // '<'
+    STR 3
+    JMP py__lex__eqpair
+py__lex__gt:
+    LDI 133         // '>='
+    STR 2
+    LDI 62          // '>'
+    STR 3
+    JMP py__lex__eqpair
+py__lex__plus:
+    LDI 134         // '+='
+    STR 2
+    LDI 43          // '+'
+    STR 3
+    JMP py__lex__eqpair
+py__lex__minus:
+    LDI 135         // '-='
+    STR 2
+    LDI 45          // '-'
+    STR 3
+    JMP py__lex__eqpair
+
+py__lex__bang:
+    CLL py__next
+    LDM 0x8200
+    STR 0
+    LDI 195         // 256 - '='
+    ADD 0
+    JA1 py__e_syntax
+    LDI 131         // '!='
+    STM 0x8203
+    JMP py__next
+
+// py__lex__eqpair: the token is R2 when an '=' follows the char, R3 when not
+py__lex__eqpair:
+    CLL py__next
+py__lex__eqpair__test:
+    LDM 0x8200
+    STR 0
+    LDI 195         // 256 - '='
+    ADD 0
+    JA0 py__lex__eqpair__two
+    LDR 3
+    STM 0x8203
+    RET
+py__lex__eqpair__two:
+    LDR 2
+    STM 0x8203
+    JMP py__next
+
+// py__lex__str: a string in either quote; its chars stay in the line, which
+// 0x8208 / 0x8209 point into
+py__lex__str:
+    LDR 0
+    STM 0x820F
+    LDM 0x8201
+    STM 0x8208
+    LDI 0
+    STM 0x8209
+py__lex__str__char:
+    CLL py__next
+    LDM 0x8200
+    JA0 py__e_syntax // no closing quote
+    STR 0
+    LDM 0x820F
+    XOR 0
+    JA0 py__lex__str__end
+    LDM 0x8209
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8209
+    JMP py__lex__str__char
+py__lex__str__end:
+    LDI 3
+    STM 0x8203
+    JMP py__next
+
+// py__lex__word: a name or a keyword, at most 15 chars, into the word
+py__lex__word:
+    LDI 0
+    STM 0x820E
+py__lex__word__char:
+    LDM 0x8200
+    STR 0
+    CLL py__isalnum
+    JA0 py__lex__word__end
+    LDM 0x820E
+    STR 1
+    LDI 241         // 256 - 15 -> too long
+    ADD 1
+    JC1 py__e_syntax
+    LDI 0x10
+    ADD 1
+    STR 12
+    LDI 0x82
+    STR 13
+    LDR 0
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 1
+    STM 0x820E
+    CLL py__next
+    JMP py__lex__word__char
+
+py__lex__word__end:
+    LDM 0x820E
+    STR 1
+    LDI 0x10
+    ADD 1
+    STR 12
+    LDI 0x82
+    STR 13
+    LDI 0
+    STR 14
+    CLL mem_poke
+    LDI 160
+    STM 0x8203
+    CLL py__is
+    LDI 105         // 'i'
+    LDI 102         // 'f'
+    JA1 py__lex__word__done
+    LDI 161
+    STM 0x8203
+    CLL py__is
+    LDI 101         // 'e'
+    LDI 108         // 'l'
+    LDI 105         // 'i'
+    LDI 102         // 'f'
+    JA1 py__lex__word__done
+    LDI 162
+    STM 0x8203
+    CLL py__is
+    LDI 101         // 'e'
+    LDI 108         // 'l'
+    LDI 115         // 's'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 163
+    STM 0x8203
+    CLL py__is
+    LDI 119         // 'w'
+    LDI 104         // 'h'
+    LDI 105         // 'i'
+    LDI 108         // 'l'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 164
+    STM 0x8203
+    CLL py__is
+    LDI 102         // 'f'
+    LDI 111         // 'o'
+    LDI 114         // 'r'
+    JA1 py__lex__word__done
+    LDI 165
+    STM 0x8203
+    CLL py__is
+    LDI 105         // 'i'
+    LDI 110         // 'n'
+    JA1 py__lex__word__done
+    LDI 166
+    STM 0x8203
+    CLL py__is
+    LDI 100         // 'd'
+    LDI 101         // 'e'
+    LDI 102         // 'f'
+    JA1 py__lex__word__done
+    LDI 167
+    STM 0x8203
+    CLL py__is
+    LDI 114         // 'r'
+    LDI 101         // 'e'
+    LDI 116         // 't'
+    LDI 117         // 'u'
+    LDI 114         // 'r'
+    LDI 110         // 'n'
+    JA1 py__lex__word__done
+    LDI 168
+    STM 0x8203
+    CLL py__is
+    LDI 98          // 'b'
+    LDI 114         // 'r'
+    LDI 101         // 'e'
+    LDI 97          // 'a'
+    LDI 107         // 'k'
+    JA1 py__lex__word__done
+    LDI 169
+    STM 0x8203
+    CLL py__is
+    LDI 99          // 'c'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    LDI 105         // 'i'
+    LDI 110         // 'n'
+    LDI 117         // 'u'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 170
+    STM 0x8203
+    CLL py__is
+    LDI 112         // 'p'
+    LDI 97          // 'a'
+    LDI 115         // 's'
+    LDI 115         // 's'
+    JA1 py__lex__word__done
+    LDI 171
+    STM 0x8203
+    CLL py__is
+    LDI 97          // 'a'
+    LDI 110         // 'n'
+    LDI 100         // 'd'
+    JA1 py__lex__word__done
+    LDI 172
+    STM 0x8203
+    CLL py__is
+    LDI 111         // 'o'
+    LDI 114         // 'r'
+    JA1 py__lex__word__done
+    LDI 173
+    STM 0x8203
+    CLL py__is
+    LDI 110         // 'n'
+    LDI 111         // 'o'
+    LDI 116         // 't'
+    JA1 py__lex__word__done
+    LDI 174
+    STM 0x8203
+    CLL py__is
+    LDI 84          // 'T'
+    LDI 114         // 'r'
+    LDI 117         // 'u'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 175
+    STM 0x8203
+    CLL py__is
+    LDI 70          // 'F'
+    LDI 97          // 'a'
+    LDI 108         // 'l'
+    LDI 115         // 's'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 176
+    STM 0x8203
+    CLL py__is
+    LDI 78          // 'N'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 101         // 'e'
+    JA1 py__lex__word__done
+    LDI 177
+    STM 0x8203
+    CLL py__is
+    LDI 103         // 'g'
+    LDI 108         // 'l'
+    LDI 111         // 'o'
+    LDI 98          // 'b'
+    LDI 97          // 'a'
+    LDI 108         // 'l'
+    JA1 py__lex__word__done
+    LDI 2           // a name
+    STM 0x8203
+py__lex__word__done:
+    RET
+
+// py__num: lexes a number, digits [. digits] [(e|E) [+|-] digits], into
+// 0x8204 - 0x8207. The digits are folded in as v * 10 + d, nine of them after
+// any leading zeros, and the decimal exponent that is left is applied with
+// klib's float32_pow10 in steps of at most 22
+py__num:
+    LDI 0
+    STM 0x8204
+    STM 0x8205
+    STM 0x8206
+    STM 0x8207
+    STM 0x8258      // the decimal exponent
+    STM 0x825B      // the digits folded in
+    STM 0x825E      // 1 once there was a digit at all
+py__num__int:
+    LDM 0x8200
+    STR 0
+    CLL py__isdigit
+    JA0 py__num__point
+    LDM 0x825B
+    STR 0
+    LDI 247         // 256 - 9 -> no room for another digit
+    ADD 0
+    JC0 py__num__intdigit
+    LDI 1
+    STM 0x825E
+    LDM 0x8258
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8258      // a dropped digit is a power of ten
+    JMP py__num__intnext
+py__num__intdigit:
+    CLL py__num__digit
+py__num__intnext:
+    CLL py__next
+    JMP py__num__int
+
+py__num__point:
+    LDM 0x8200
+    STR 0
+    LDI 210         // 256 - '.'
+    ADD 0
+    JA1 py__num__exp
+    CLL py__next
+py__num__frac:
+    LDM 0x8200
+    STR 0
+    CLL py__isdigit
+    JA0 py__num__exp
+    LDM 0x825B
+    STR 0
+    LDI 247         // 256 - 9
+    ADD 0
+    JC1 py__num__fracnext
+    CLL py__num__digit
+    LDM 0x8258
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x8258      // a digit behind the point is a power of ten down
+py__num__fracnext:
+    CLL py__next
+    JMP py__num__frac
+
+py__num__exp:
+    LDM 0x825E
+    JA0 py__e_syntax // no digit at all
+    LDM 0x8200
+    STR 0
+    LDI 155         // 256 - 'e'
+    ADD 0
+    JA0 py__num__e
+    LDI 187         // 256 - 'E'
+    ADD 0
+    JA1 py__num__scale
+py__num__e:
+    CLL py__next
+    LDI 0
+    STM 0x8259      // 1 for a negative exponent
+    STM 0x825A      // the exponent
+    LDM 0x8200
+    STR 0
+    LDI 211         // 256 - '-'
+    ADD 0
+    JA1 py__num__eplus
+    LDI 1
+    STM 0x8259
+    CLL py__next
+    JMP py__num__efirst
+py__num__eplus:
+    LDI 213         // 256 - '+'
+    ADD 0
+    JA1 py__num__efirst
+    CLL py__next
+py__num__efirst:
+    LDM 0x8200
+    STR 0
+    CLL py__isdigit
+    JA0 py__e_syntax // an 'e' needs a digit behind it
+py__num__edigit:
+    LDM 0x8200
+    STR 0
+    CLL py__isdigit
+    JA0 py__num__eapply
+    LDI 208         // 256 - '0'
+    ADD 0
+    STR 1
+    LDM 0x825A
+    STR 2
+    LDI 216         // 256 - 40 -> past every float32
+    ADD 2
+    JC1 py__num__esat
+    LDR 2
+    BSL
+    STR 3
+    LDR 2
+    BSL
+    BSL
+    BSL
+    ADD 3
+    ADD 1
+    STM 0x825A      // exponent * 10 + digit
+    JMP py__num__enext
+py__num__esat:
+    LDI 40
+    STM 0x825A
+py__num__enext:
+    CLL py__next
+    JMP py__num__edigit
+py__num__eapply:
+    LDM 0x825A
+    STR 0
+    LDM 0x8259
+    JA0 py__num__eadd
+    LDR 0
+    NOT
+    STR 0
+    LDI 1
+    ADD 0
+    STR 0
+py__num__eadd:
+    LDM 0x8258
+    ADD 0
+    STM 0x8258
+
+py__num__scale:
+    LDM 0x8258
+    JA0 py__num__done
+    STR 0
+    LDI 0x80
+    STR 1
+    LDR 0
+    AND 1
+    JA1 py__num__down
+    LDI 234         // 256 - 22
+    ADD 0
+    JC0 py__num__up
+    LDI 22
+    STR 0
+py__num__up:
+    LDR 0
+    STM 0x825D
+    NOT
+    STR 1
+    LDI 1
+    ADD 1
+    STR 1
+    LDM 0x8258
+    ADD 1
+    STM 0x8258
+    LDM 0x825D
+    STR 0
+    CLL py__num__pow
+    CLL float32_mul
+    JMP py__num__store
+
+py__num__down:
+    LDR 0
+    NOT
+    STR 0
+    LDI 1
+    ADD 0
+    STR 0
+    LDI 234         // 256 - 22
+    ADD 0
+    JC0 py__num__downn
+    LDI 22
+    STR 0
+py__num__downn:
+    LDR 0
+    STM 0x825D
+    LDM 0x8258
+    ADD 0
+    STM 0x8258
+    LDM 0x825D
+    STR 0
+    CLL py__num__pow
+    CLL float32_div
+py__num__store:
+    LDR 8
+    STM 0x8204
+    LDR 9
+    STM 0x8205
+    LDR 10
+    STM 0x8206
+    LDR 11
+    STM 0x8207
+    JMP py__num__scale
+py__num__done:
+    RET
+
+// py__num__pow: R4 - R7 = 10 ** R0, R0 - R3 = the number so far
+//     clobbers: R0 - R15
+py__num__pow:
+    CLL float32_pow10
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    JMP py__num__load
+
+// py__num__load: R0 - R3 = the number so far
+py__num__load:
+    LDM 0x8204
+    STR 0
+    LDM 0x8205
+    STR 1
+    LDM 0x8206
+    STR 2
+    LDM 0x8207
+    STR 3
+    RET
+
+// py__num__digit: v = v * 10 + the digit in CUR; leading zeros are not
+// counted against the nine digits
+//     clobbers: R0 - R15
+py__num__digit:
+    LDI 1
+    STM 0x825E
+    LDM 0x8200
+    STR 0
+    LDI 208         // 256 - '0'
+    ADD 0
+    STM 0x825D
+    STR 0
+    LDM 0x825B
+    ORR 0
+    JA0 py__num__digit__done
+    LDM 0x825B
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x825B
+    CLL py__num__load
+    LDI 0
+    STR 4
+    STR 5
+    LDI 0x20
+    STR 6
+    LDI 0x41
+    STR 7           // 10.0
+    CLL float32_mul
+    LDR 8
+    STM 0x8204
+    LDR 9
+    STM 0x8205
+    LDR 10
+    STM 0x8206
+    LDR 11
+    STM 0x8207
+    LDM 0x825D
+    STR 0
+    LDI 0
+    STR 1
+    STR 2
+    STR 3
+    CLL float32_from_int32
+    LDR 8
+    STR 4
+    LDR 9
+    STR 5
+    LDR 10
+    STR 6
+    LDR 11
+    STR 7
+    CLL py__num__load
+    CLL float32_add
+    LDR 8
+    STM 0x8204
+    LDR 9
+    STM 0x8205
+    LDR 10
+    STM 0x8206
+    LDR 11
+    STM 0x8207
+py__num__digit__done:
+    RET
+
+// py__expect: TOK has to be A; lexes past it
+py__expect:
+    STR 0
+    LDM 0x8203
+    XOR 0
+    JA1 py__e_syntax
+    JMP py__lex
+
+// py__colon: a header ends in ':' and nothing behind it
+py__colon:
+    LDI 58          // ':'
+    CLL py__expect
+// py__end: TOK has to be the end of the line
+py__end:
+    LDM 0x8203
+    JA1 py__e_syntax
+    RET
+
+// py__isname: TOK has to be a name
+py__isname:
+    LDM 0x8203
+    STR 0
+    LDI 254         // 256 - 2 -> a name
+    ADD 0
+    JA1 py__e_syntax
+    RET
+
+// py__stmt: compiles one statement; TOK holds its first token
+py__stmt:
+    LDM 0x8203
+    STR 0
+    LDI 96          // 256 - 160 -> 'if'
+    ADD 0
+    JA0 py__s_if
+    LDI 95          // 'elif'
+    ADD 0
+    JA0 py__s_elif
+    LDI 94          // 'else'
+    ADD 0
+    JA0 py__s_else
+    LDI 93          // 'while'
+    ADD 0
+    JA0 py__s_while
+    LDI 92          // 'for'
+    ADD 0
+    JA0 py__s_for
+    LDI 90          // 'def'
+    ADD 0
+    JA0 py__s_def
+    LDI 89          // 'return'
+    ADD 0
+    JA0 py__s_return
+    LDI 88          // 'break'
+    ADD 0
+    JA0 py__s_break
+    LDI 87          // 'continue'
+    ADD 0
+    JA0 py__s_continue
+    LDI 86          // 'pass'
+    ADD 0
+    JA0 py__s_pass
+    LDI 79          // 'global'
+    ADD 0
+    JA0 py__s_global
+    LDI 254         // a name
+    ADD 0
+    JA0 py__s_name
+    JMP py__s_expr
+
+// py__s_if: the condition, then a JZ past the body that the block keeps
+py__s_if:
+    CLL py__lex
+    CLL py__expr
+    CLL py__colon
+    LDI 0
+    STR 0
+    STR 1
+    LDI 23          // JZ
+    CLL py__emit_jump
+    LDR 0
+    STM 0x8238
+    LDR 1
+    STM 0x8239
+    LDI 1
+    CLL py__blk_push
+    LDM 0x8238
+    STR 0
+    LDM 0x8239
+    STR 1
+    LDI 4
+    JMP py__blk_put16
+
+py__s_elif:
+    CLL py__s_branch
+    CLL py__lex
+    CLL py__expr
+    CLL py__colon
+    LDI 0
+    STR 0
+    STR 1
+    LDI 23          // JZ
+    CLL py__emit_jump
+    LDI 4
+    CLL py__blk_put16
+    LDI 1
+    STM 0x8229
+    RET
+
+py__s_else:
+    CLL py__s_branch
+    LDI 0
+    STR 0
+    STR 1
+    LDI 4
+    CLL py__blk_put16
+    LDI 2           // an 'else' takes no further branch
+    STR 14
+    LDI 0
+    CLL py__blk_put
+    CLL py__lex
+    CLL py__colon
+    LDI 1
+    STM 0x8229
+    RET
+
+// py__s_branch: 'elif' and 'else' have to go on with an 'if' at their own
+// indentation. The branch before them ends in a JMP to the end of the 'if',
+// and its pending JZ lands behind that
+py__s_branch:
+    LDM 0x8228
+    JA0 py__e_syntax
+    LDI 0
+    CLL py__blk_get
+    STR 0
+    LDI 255         // 256 - 1 -> an 'if'
+    ADD 0
+    JA1 py__e_syntax
+    LDI 1
+    CLL py__blk_get
+    STR 0
+    LDM 0x820C
+    XOR 0
+    JA1 py__e_syntax
+    LDI 6
+    CLL py__blk_get16
+    LDI 22          // JMP
+    CLL py__emit_jump
+    LDI 6
+    CLL py__blk_put16
+    LDI 4
+    CLL py__blk_get16
+    JMP py__patch
+
+// py__s_while: the test, a JZ out of the loop, and the test is where both the
+// loop and a 'continue' go back to
+py__s_while:
+    CLL py__here
+    LDR 0
+    STM 0x823A
+    LDR 1
+    STM 0x823B
+    CLL py__lex
+    CLL py__expr
+    CLL py__colon
+    LDI 0
+    STR 0
+    STR 1
+    LDI 23          // JZ
+    CLL py__emit_jump
+    LDR 0
+    STM 0x8238
+    LDR 1
+    STM 0x8239
+    LDI 3
+// py__s_loop_push: opens a loop block of kind A with its JZ in 0x8238 /
+// 0x8239 and its 'continue' target in 0x823A / 0x823B
+py__s_loop_push:
+    CLL py__blk_push
+    LDM 0x8238
+    STR 0
+    LDM 0x8239
+    STR 1
+    LDI 4
+    CLL py__blk_put16
+    LDM 0x823A
+    STR 0
+    LDM 0x823B
+    STR 1
+    LDI 8
+    JMP py__blk_put16
+
+// py__s_for: 'for <name> in range(...)'. The counter, the limit and the step
+// live in three hidden variables, so the loop variable only ever takes the
+// values the range yields:
+//         start -> i, stop -> limit, step -> step
+//         JMP test
+//     next:  i + step -> i
+//     test:  FORTEST i limit step, JZ out
+//         i -> <name>, body, JMP next
+py__s_for:
+    CLL py__lex
+    CLL py__isname
+    CLL py__ref_store
+    LDM 0x8236
+    STM 0x823C
+    LDM 0x8237
+    STM 0x823D
+    CLL py__lex
+    LDI 165         // 'in'
+    CLL py__expect
+    CLL py__isname
+    CLL py__is
+    LDI 114         // 'r'
+    LDI 97          // 'a'
+    LDI 110         // 'n'
+    LDI 103         // 'g'
+    LDI 101         // 'e'
+    JA0 py__e_syntax
+    CLL py__lex
+    LDI 40          // '('
+    CLL py__expect
+    CLL py__expr
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')' -> range(stop)
+    ADD 0
+    JA0 py__s_for__one
+    LDI 44          // ','
+    CLL py__expect
+    LDI 0
+    CLL py__s_for__store
+    CLL py__expr
+    LDI 1
+    CLL py__s_for__store
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')' -> range(start, stop)
+    ADD 0
+    JA0 py__s_for__unit
+    LDI 44          // ','
+    CLL py__expect
+    CLL py__expr
+    JMP py__s_for__step
+py__s_for__one:
+    LDI 1
+    CLL py__s_for__store
+    CLL py__emit_zero
+    LDI 0
+    CLL py__s_for__store
+py__s_for__unit:
+    CLL py__emit_one
+py__s_for__step:
+    LDI 2
+    CLL py__s_for__store
+    LDI 41          // ')'
+    CLL py__expect
+    CLL py__colon
+    LDI 0
+    STR 0
+    STR 1
+    LDI 22          // JMP
+    CLL py__emit_jump
+    LDR 0
+    STM 0x8238
+    LDR 1
+    STM 0x8239
+    CLL py__here
+    LDR 0
+    STM 0x823A
+    LDR 1
+    STM 0x823B
+    LDI 0
+    CLL py__s_for__load
+    LDI 2
+    CLL py__s_for__load
+    LDI 6           // ADD
+    CLL py__emit
+    LDI 0
+    CLL py__s_for__store
+    LDM 0x8238
+    STR 0
+    LDM 0x8239
+    STR 1
+    CLL py__patch
+    LDI 0
+    CLL py__s_for__load
+    LDI 1
+    CLL py__s_for__load
+    LDI 2
+    CLL py__s_for__load
+    LDI 38          // FORTEST
+    CLL py__emit
+    LDI 0
+    STR 0
+    STR 1
+    LDI 23          // JZ
+    CLL py__emit_jump
+    LDR 0
+    STM 0x8238
+    LDR 1
+    STM 0x8239
+    LDI 0
+    CLL py__s_for__load
+    LDM 0x823C
+    STM 0x8236
+    LDM 0x823D
+    STM 0x8237
+    CLL py__emit_store
+    LDM 0x8231
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8231
+    LDI 4
+    JMP py__s_loop_push
+
+// py__s_for__name: points the word at hidden variable A (0 counter, 1 limit,
+// 2 step) of the loop at the current 'for' depth. Its name starts with char 1,
+// which no typed name can, and the same depth reuses the same three
+py__s_for__name:
+    STR 1
+    LDM 0x8231
+    STR 0
+    BSL
+    ADD 0
+    ADD 1
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8211
+    LDI 1
+    STM 0x8210
+    LDI 0
+    STM 0x8212
+    JMP py__ref_store
+
+py__s_for__store:
+    CLL py__s_for__name
+    JMP py__emit_store
+
+py__s_for__load:
+    CLL py__s_for__name
+    JMP py__emit_load
+
+// py__s_def: 'def <name>(<params>):' at the prompt's level only. The body is
+// compiled where the kept code ends and stays there once the block closes
+py__s_def:
+    LDM 0x8228
+    JA1 py__e_syntax
+    CLL py__lex
+    CLL py__isname
+    CLL py__func
+    STM 0x8225
+    LDI 0
+    STM 0x8226
+    STM 0x8227
+    STM 0x822D
+    CLL py__lex
+    LDI 40          // '('
+    CLL py__expect
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__s_def__close
+py__s_def__param:
+    CLL py__isname
+    CLL py__loc_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA1 py__e_syntax // the same parameter twice
+    CLL py__loc
+    LDM 0x822D
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x822D
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__s_def__close
+    LDI 44          // ','
+    CLL py__expect
+    JMP py__s_def__param
+py__s_def__close:
+    CLL py__lex
+    CLL py__colon
+    LDI 1
+    STM 0x8224
+    LDI 5
+    JMP py__blk_push
+
+py__s_return:
+    LDM 0x8224
+    JA0 py__e_syntax // outside a function
+    CLL py__lex
+    LDM 0x8203
+    JA1 py__s_return__value
+    CLL py__emit_none
+    JMP py__s_return__emit
+py__s_return__value:
+    CLL py__expr
+    CLL py__end
+py__s_return__emit:
+    LDI 28          // RET
+    JMP py__emit
+
+// py__s_loop: the address of the innermost loop block
+//     out:      R12 (low byte), R13 (high byte)
+py__s_loop:
+    LDM 0x8228
+    STR 8
+py__s_loop__next:
+    LDR 8
+    JA0 py__e_syntax // not in a loop
+    LDI 255
+    ADD 8
+    STR 8
+    CLL py__blk_at
+    CLL mem_peek
+    STR 0
+    LDI 253         // 256 - 3 -> 'while'
+    ADD 0
+    JA0 py__s_loop__found
+    LDI 252         // 256 - 4 -> 'for'
+    ADD 0
+    JA1 py__s_loop__next
+py__s_loop__found:
+    RET
+
+// py__s_break: a JMP out of the loop, chained with the block's other ones
+py__s_break:
+    CLL py__lex
+    CLL py__end
+    CLL py__s_loop
+    LDI 6
+    ADD 12
+    STR 12
+    CLL py__rd16
+    LDR 12
+    STM 0x8238
+    LDR 13
+    STM 0x8239
+    LDR 2
+    STR 0
+    LDR 3
+    STR 1
+    LDI 22          // JMP
+    CLL py__emit_jump
+    LDM 0x8238
+    STR 12
+    LDM 0x8239
+    STR 13
+    LDR 0
+    STR 6
+    LDR 1
+    STR 7
+    JMP py__wr16
+
+py__s_continue:
+    CLL py__lex
+    CLL py__end
+    CLL py__s_loop
+    LDI 8
+    ADD 12
+    STR 12
+    CLL py__rd16
+    LDR 2
+    STR 0
+    LDR 3
+    STR 1
+    LDI 22          // JMP
+    CLL py__emit
+    JMP py__emit2
+
+py__s_pass:
+    CLL py__lex
+    JMP py__end
+
+// py__s_global: names that a 'def' assigns as globals
+py__s_global:
+    LDM 0x8224
+    JA0 py__e_syntax
+py__s_global__name:
+    CLL py__lex
+    CLL py__isname
+    CLL py__gdecl_find
+    STR 0
+    LDI 1
+    ADD 0
+    JA1 py__s_global__next
+    LDM 0x8227
+    STR 9
+    LDI 248         // 256 - 8 names
+    ADD 9
+    JC1 py__e_syntax
+    LDI 0x8E
+    STR 6
+    LDR 9
+    CLL py__add
+    LDR 9
+    STR 0
+    LDI 1
+    ADD 0
+    STM 0x8227
+py__s_global__next:
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 212         // 256 - ','
+    ADD 0
+    JA0 py__s_global__name
+    JMP py__end
+
+// py__s_name: a line that starts with a name is an assignment when '=' or an
+// augmented one follows it; otherwise the line is lexed again as an
+// expression
+py__s_name:
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 195         // 256 - '='
+    ADD 0
+    JA0 py__s_assign
+    LDI 122         // 256 - 134 -> '+='
+    ADD 0
+    JA0 py__s_aug
+    LDI 121         // '-='
+    ADD 0
+    JA0 py__s_aug
+    LDI 120         // '*='
+    ADD 0
+    JA0 py__s_aug
+    LDI 119         // '/='
+    ADD 0
+    JA0 py__s_aug
+    LDM 0x820A
+    STM 0x8201
+    LDM 0x820B
+    STM 0x8200
+    CLL py__lex
+    JMP py__s_expr
+
+py__s_assign:
+    CLL py__ref_store
+    LDM 0x8236
+    PSH
+    LDM 0x8237
+    PSH
+    CLL py__lex
+    CLL py__expr
+    CLL py__end
+    POP
+    STM 0x8237
+    POP
+    STM 0x8236
+    JMP py__emit_store
+
+// py__s_aug: '+=' to '/=' are tokens 134 - 137, 128 above ADD to DIV
+py__s_aug:
+    LDI 128
+    ADD 0
+    PSH
+    CLL py__ref_store
+    CLL py__emit_load
+    LDM 0x8236
+    PSH
+    LDM 0x8237
+    PSH
+    CLL py__lex
+    CLL py__expr
+    CLL py__end
+    POP
+    STM 0x8237
+    POP
+    STM 0x8236
+    POP
+    CLL py__emit
+    JMP py__emit_store
+
+// py__s_expr: an expression on its own. At the prompt its value is echoed
+// unless it is None, inside a block it is dropped
+py__s_expr:
+    CLL py__expr
+    CLL py__end
+    LDM 0x8228
+    JA1 py__s_expr__drop
+    LDI 36          // ECHO
+    JMP py__emit
+py__s_expr__drop:
+    LDI 26          // POP
+    JMP py__emit
+
+// py__expr: compiles an expression. TOK holds its first token on the way in
+// and the first one behind it on the way out; what an operator still needs
+// while its right operand is compiled waits on the CPU stack
+py__expr:
+    CLL py__and
+py__expr__or:
+    LDM 0x8203
+    STR 0
+    LDI 84          // 256 - 172 -> 'or'
+    ADD 0
+    JA1 py__expr__done
+    LDI 0
+    STR 0
+    STR 1
+    LDI 25          // JNZK: a true left side is the value
+    CLL py__emit_jump
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDI 26          // POP
+    CLL py__emit
+    CLL py__lex
+    CLL py__and
+    POP
+    STR 1
+    POP
+    STR 0
+    CLL py__patch
+    JMP py__expr__or
+py__expr__done:
+    RET
+
+py__and:
+    CLL py__not
+py__and__loop:
+    LDM 0x8203
+    STR 0
+    LDI 85          // 256 - 171 -> 'and'
+    ADD 0
+    JA1 py__and__done
+    LDI 0
+    STR 0
+    STR 1
+    LDI 24          // JZK: a false left side is the value
+    CLL py__emit_jump
+    LDR 0
+    PSH
+    LDR 1
+    PSH
+    LDI 26          // POP
+    CLL py__emit
+    CLL py__lex
+    CLL py__not
+    POP
+    STR 1
+    POP
+    STR 0
+    CLL py__patch
+    JMP py__and__loop
+py__and__done:
+    RET
+
+py__not:
+    LDM 0x8203
+    STR 0
+    LDI 83          // 256 - 173 -> 'not'
+    ADD 0
+    JA1 py__cmp
+    CLL py__lex
+    CLL py__not
+    LDI 20          // NOT
+    JMP py__emit
+
+// py__cmp: one comparison at most; a chain like a < b < c is a syntax error
+py__cmp:
+    CLL py__arith
+    CLL py__cmp__op
+    JA0 py__cmp__done
+    PSH
+    CLL py__lex
+    CLL py__arith
+    POP
+    CLL py__emit
+    CLL py__cmp__op
+    JA1 py__e_syntax
+py__cmp__done:
+    RET
+
+// py__cmp__op: the opcode of the comparison in TOK, 0 if it is none
+py__cmp__op:
+    LDM 0x8203
+    STR 0
+    LDI 126         // 256 - 130 -> '=='
+    ADD 0
+    JA0 py__cmp__eq
+    LDI 125         // '!='
+    ADD 0
+    JA0 py__cmp__ne
+    LDI 196         // 256 - '<'
+    ADD 0
+    JA0 py__cmp__lt
+    LDI 194         // 256 - '>'
+    ADD 0
+    JA0 py__cmp__gt
+    LDI 124         // '<='
+    ADD 0
+    JA0 py__cmp__le
+    LDI 123         // '>='
+    ADD 0
+    JA0 py__cmp__ge
+    LDI 0
+    RET
+py__cmp__eq:
+    LDI 13
+    RET
+py__cmp__ne:
+    LDI 14
+    RET
+py__cmp__lt:
+    LDI 15
+    RET
+py__cmp__gt:
+    LDI 16
+    RET
+py__cmp__le:
+    LDI 17
+    RET
+py__cmp__ge:
+    LDI 18
+    RET
+
+py__arith:
+    CLL py__term
+py__arith__loop:
+    LDM 0x8203
+    STR 0
+    LDI 213         // 256 - '+'
+    ADD 0
+    JA0 py__arith__add
+    LDI 211         // 256 - '-'
+    ADD 0
+    JA1 py__arith__done
+    LDI 7           // SUB
+    JMP py__arith__op
+py__arith__add:
+    LDI 6           // ADD
+py__arith__op:
+    PSH
+    CLL py__lex
+    CLL py__term
+    POP
+    CLL py__emit
+    JMP py__arith__loop
+py__arith__done:
+    RET
+
+py__term:
+    CLL py__unary
+py__term__loop:
+    LDM 0x8203
+    STR 0
+    LDI 214         // 256 - '*'
+    ADD 0
+    JA0 py__term__mul
+    LDI 209         // 256 - '/'
+    ADD 0
+    JA0 py__term__div
+    LDI 127         // 256 - 129 -> '//'
+    ADD 0
+    JA0 py__term__fdiv
+    LDI 219         // 256 - '%'
+    ADD 0
+    JA1 py__term__done
+    LDI 11          // MOD
+    JMP py__term__op
+py__term__mul:
+    LDI 8           // MUL
+    JMP py__term__op
+py__term__div:
+    LDI 9           // DIV
+    JMP py__term__op
+py__term__fdiv:
+    LDI 10          // FLOORDIV
+py__term__op:
+    PSH
+    CLL py__lex
+    CLL py__unary
+    POP
+    CLL py__emit
+    JMP py__term__loop
+py__term__done:
+    RET
+
+py__unary:
+    LDM 0x8203
+    STR 0
+    LDI 211         // 256 - '-'
+    ADD 0
+    JA0 py__unary__neg
+    LDI 213         // 256 - '+'
+    ADD 0
+    JA1 py__power
+    CLL py__lex
+    JMP py__unary
+py__unary__neg:
+    CLL py__lex
+    CLL py__unary
+    LDI 19          // NEG
+    JMP py__emit
+
+// py__power: '**' binds tighter than a unary minus on its left and takes one
+// on its right, and it groups to the right
+py__power:
+    CLL py__primary
+    LDM 0x8203
+    STR 0
+    LDI 128         // 256 - 128 -> '**'
+    ADD 0
+    JA1 py__power__done
+    CLL py__lex
+    CLL py__unary
+    LDI 12          // POW
+    JMP py__emit
+py__power__done:
+    RET
+
+py__primary:
+    LDM 0x8203
+    STR 0
+    LDI 255         // 256 - 1 -> a number
+    ADD 0
+    JA0 py__primary__num
+    LDI 254         // a name
+    ADD 0
+    JA0 py__primary__name
+    LDI 216         // 256 - '('
+    ADD 0
+    JA0 py__primary__paren
+    LDI 82          // 256 - 174 -> 'True'
+    ADD 0
+    JA0 py__primary__true
+    LDI 81          // 'False'
+    ADD 0
+    JA0 py__primary__false
+    LDI 80          // 'None'
+    ADD 0
+    JA1 py__e_syntax
+    CLL py__emit_none
+    JMP py__lex
+py__primary__true:
+    CLL py__emit_one
+    JMP py__lex
+py__primary__false:
+    CLL py__emit_zero
+    JMP py__lex
+py__primary__num:
+    LDM 0x8204
+    STR 8
+    LDM 0x8205
+    STR 9
+    LDM 0x8206
+    STR 10
+    LDM 0x8207
+    STR 11
+    CLL py__emit_const
+    JMP py__lex
+py__primary__paren:
+    CLL py__lex
+    CLL py__expr
+    LDI 41          // ')'
+    JMP py__expect
+
+// py__primary__name: the token behind a name tells a call from a variable, and
+// lexing it may overwrite the word, so the name waits at 0x8260 meanwhile
+py__primary__name:
+    LDI 0x10
+    STR 0
+    LDI 0x82
+    STR 1
+    LDI 0x60
+    STR 2
+    LDI 0x82
+    STR 3
+    LDI 16
+    STR 4
+    CLL mem_copy
+    CLL py__lex
+    LDI 0x60
+    STR 0
+    LDI 0x82
+    STR 1
+    LDI 0x10
+    STR 2
+    LDI 0x82
+    STR 3
+    LDI 16
+    STR 4
+    CLL mem_copy
+    LDM 0x8203
+    STR 0
+    LDI 216         // 256 - '('
+    ADD 0
+    JA0 py__call
+    CLL py__ref_load
+    JMP py__emit_load
+
+// py__call: a call; TOK is its '(' and the word its name. The builtins come
+// first, so a 'def' cannot replace them
+py__call:
+    CLL py__is
+    LDI 112         // 'p'
+    LDI 114         // 'r'
+    LDI 105         // 'i'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    JA1 py__call_print
+    CLL py__is
+    LDI 105         // 'i'
+    LDI 110         // 'n'
+    LDI 112         // 'p'
+    LDI 117         // 'u'
+    LDI 116         // 't'
+    JA1 py__call_input
+    CLL py__is
+    LDI 97          // 'a'
+    LDI 98          // 'b'
+    LDI 115         // 's'
+    JA1 py__call_abs
+    CLL py__is
+    LDI 105         // 'i'
+    LDI 110         // 'n'
+    LDI 116         // 't'
+    JA1 py__call_int
+    CLL py__is
+    LDI 102         // 'f'
+    LDI 108         // 'l'
+    LDI 111         // 'o'
+    LDI 97          // 'a'
+    LDI 116         // 't'
+    JA1 py__call_float
+    CLL py__func
+    PSH             // the function
+    LDI 0
+    PSH             // the arguments so far
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__call__emit
+py__call__arg:
+    CLL py__expr
+    POP
+    STR 0
+    LDI 1
+    ADD 0
+    PSH
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__call__emit
+    LDI 44          // ','
+    CLL py__expect
+    JMP py__call__arg
+py__call__emit:
+    LDI 27          // CALL
+    CLL py__emit
+    POP
+    STR 1
+    POP
+    CLL py__emit
+    LDR 1
+    CLL py__emit
+    JMP py__lex
+
+// py__call_print: each argument is printed as it comes, a space between two,
+// and the row ends behind the last; print() on its own prints an empty row.
+// Its value is None
+py__call_print:
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA1 py__call_print__arg
+    LDI 35          // PRINTBLANK
+    CLL py__emit
+    JMP py__call_print__end
+py__call_print__arg:
+    LDM 0x8203
+    STR 0
+    LDI 253         // 256 - 3 -> a string
+    ADD 0
+    JA1 py__call_print__expr
+    CLL py__emit_str
+    CLL py__lex
+    JMP py__call_print__next
+py__call_print__expr:
+    CLL py__expr
+    LDI 31          // PRINTV
+    CLL py__emit
+py__call_print__next:
+    LDM 0x8203
+    STR 0
+    LDI 215         // 256 - ')'
+    ADD 0
+    JA0 py__call_print__nl
+    LDI 44          // ','
+    CLL py__expect
+    LDI 33          // PRINTSP
+    CLL py__emit
+    JMP py__call_print__arg
+py__call_print__nl:
+    LDI 34          // PRINTNL
+    CLL py__emit
+py__call_print__end:
+    CLL py__lex
+    JMP py__emit_none
+
+// py__call_input: an optional string prompt; the value read is a number
+py__call_input:
+    CLL py__lex
+    LDM 0x8203
+    STR 0
+    LDI 253         // 256 - 3 -> a string
+    ADD 0
+    JA1 py__call_input__end
+    CLL py__emit_str
+    CLL py__lex
+py__call_input__end:
+    LDI 41          // ')'
+    CLL py__expect
+    LDI 30          // INPUT
+    JMP py__emit
+
+py__call_abs:
+    LDI 21          // ABS
+    JMP py__call_one
+py__call_int:
+    LDI 29          // INT
+    JMP py__call_one
+py__call_float:
+    LDI 0           // every value is a float already
+// py__call_one: a builtin of one argument, whose opcode A follows it
+py__call_one:
+    PSH
+    CLL py__lex
+    CLL py__expr
+    LDI 41          // ')'
+    CLL py__expect
+    POP
+    JA0 py__call_one__done
+    JMP py__emit
+py__call_one__done:
+    RET
+
+// py__emit_str: a PRINTS of the string token
+py__emit_str:
+    LDI 32          // PRINTS
+    CLL py__emit
+    LDM 0x8209
+    CLL py__emit
+    LDM 0x8208
+    STR 0
+    LDM 0x8209
+    STR 1
+py__emit_str__char:
+    LDR 1
+    JA0 py__emit_str__done
+    LDR 0
+    STR 12
+    LDI 0x81
+    STR 13
+    CLL mem_peek
+    CLL py__emit
+    LDI 1
+    ADD 0
+    STR 0
+    LDI 255
+    ADD 1
+    STR 1
+    JMP py__emit_str__char
+py__emit_str__done:
+    RET
+
+// py__run: runs the code from the end of the kept code up to its HALT
+py__run:
+    LDM 0x8222
+    STM 0x8240
+    LDM 0x8223
+    STM 0x8241
+    LDI 0
+    STM 0x8246
+    STM 0x8242
+    STM 0x8243
+    STM 0x8244
+    LDI 0x8F
+    STM 0x8245
+// py__exec: one instruction; the commonest opcodes are tested first
+py__exec:
+    CLL py__fetch
+    STR 0
+    LDI 254         // 256 - 2 -> LOADG
+    ADD 0
+    JA0 py__x_loadg
+    LDI 252         // LOADL
+    ADD 0
+    JA0 py__x_loadl
+    LDI 255         // PUSHC
+    ADD 0
+    JA0 py__x_pushc
+    LDI 253         // STOREG
+    ADD 0
+    JA0 py__x_storeg
+    LDI 251         // STOREL
+    ADD 0
+    JA0 py__x_storel
+    LDI 250         // ADD
+    ADD 0
+    JA0 py__x_add
+    LDI 234         // JMP
+    ADD 0
+    JA0 py__x_jmp
+    LDI 233         // JZ
+    ADD 0
+    JA0 py__x_jz
+    LDI 241         // LT
+    ADD 0
+    JA0 py__x_lt
+    LDI 240         // GT
+    ADD 0
+    JA0 py__x_gt
+    LDI 243         // EQ
+    ADD 0
+    JA0 py__x_eq
+    LDI 249         // SUB
+    ADD 0
+    JA0 py__x_sub
+    LDI 248         // MUL
+    ADD 0
+    JA0 py__x_mul
+    LDI 229         // CALL
+    ADD 0
+    JA0 py__x_call
+    LDI 228         // RET
+    ADD 0
+    JA0 py__x_ret
+    LDI 218         // FORTEST
+    ADD 0
+    JA0 py__x_fortest
+    LDI 225         // PRINTV
+    ADD 0
+    JA0 py__x_printv
+    LDI 224         // PRINTS
+    ADD 0
+    JA0 py__x_prints
+    LDI 223         // PRINTSP
+    ADD 0
+    JA0 py__x_printsp
+    LDI 222         // PRINTNL
+    ADD 0
+    JA0 py__x_printnl
+    LDI 247         // DIV
+    ADD 0
+    JA0 py__x_div
+    LDI 246         // FLOORDIV
+    ADD 0
+    JA0 py__x_fdiv
+    LDI 245         // MOD
+    ADD 0
+    JA0 py__x_mod
+    LDI 244         // POW
+    ADD 0
+    JA0 py__x_pow
+    LDI 242         // NE
+    ADD 0
+    JA0 py__x_ne
+    LDI 239         // LE
+    ADD 0
+    JA0 py__x_le
+    LDI 238         // GE
+    ADD 0
+    JA0 py__x_ge
+    LDI 237         // NEG
+    ADD 0
+    JA0 py__x_neg
+    LDI 236         // NOT
+    ADD 0
+    JA0 py__x_not
+    LDI 235         // ABS
+    ADD 0
+    JA0 py__x_abs
+    LDI 232         // JZK
+    ADD 0
+    JA0 py__x_jzk
+    LDI 231         // JNZK
+    ADD 0
+    JA0 py__x_jnzk
+    LDI 230         // POP
+    ADD 0
+    JA0 py__x_pop
+    LDI 227         // INT
+    ADD 0
+    JA0 py__x_int
+    LDI 226         // INPUT
+    ADD 0
+    JA0 py__x_input
+    LDI 221         // PRINTBLANK
+    ADD 0
+    JA0 py__x_printblank
+    LDI 220         // ECHO
+    ADD 0
+    JA0 py__x_echo
+    RET             // HALT
+
+// py__fetch: the byte at PC, which steps past it
+//     clobbers: R12 - R14
+py__fetch:
+    LDM 0x8240
+    STR 12
+    LDM 0x8241
+    STR 13
+    CLL mem_peek
+    STR 14
+    CLL py__inc
+    LDR 12
+    STM 0x8240
+    LDR 13
+    STM 0x8241
+    LDR 14
+    RET
+
+// py__push: R8 - R11 onto the value stack
+//     clobbers: R12 - R14
+py__push:
+    LDM 0x8246
+    STR 12
+    LDI 0x83
+    STR 13
+    LDR 8
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDR 9
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDR 10
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STR 12
+    LDR 11
+    STR 14
+    CLL mem_poke
+    LDI 1
+    ADD 12
+    STM 0x8246
+    JC1 py__e_recursion // the stack's page is full
+    RET
+
+// py__pop: R0 - R3 = the value taken off the value stack
+//     clobbers: R12, R13
+py__pop:
+    LDM 0x8246
+    STR 12
+    LDI 252         // 256 - 4
+    ADD 12
+    STR 12
+    STM 0x8246
+    LDI 0x83
+    STR 13
+    CLL mem_peek
+    STR 0
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 1
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 2
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 3
+    RET
+
+// py__pop2: the right operand into R4 - R7, the left one into R0 - R3
+//     clobbers: R12, R13
+py__pop2:
+    CLL py__pop
+    LDR 0
+    STR 4
+    LDR 1
+    STR 5
+    LDR 2
+    STR 6
+    LDR 3
+    STR 7
+    JMP py__pop
+
+// py__r0_r8: R8 - R11 = R0 - R3
+py__r0_r8:
+    LDR 0
+    STR 8
+    LDR 1
+    STR 9
+    LDR 2
+    STR 10
+    LDR 3
+    STR 11
+    RET
+
+// py__r8_r0: R0 - R3 = R8 - R11
+py__r8_r0:
+    LDR 8
+    STR 0
+    LDR 9
+    STR 1
+    LDR 10
+    STR 2
+    LDR 11
+    STR 3
+    RET
+
+// py__rd32: R8 - R11 = the value at R12 / R13
+//     clobbers: R12, R13
+py__rd32:
+    CLL mem_peek
+    STR 8
+    CLL py__inc
+    CLL mem_peek
+    STR 9
+    CLL py__inc
+    CLL mem_peek
+    STR 10
+    CLL py__inc
+    CLL mem_peek
+    STR 11
+    RET
+
+// py__wr32: the value at R12 / R13 = R0 - R3
+//     clobbers: R12 - R14
+py__wr32:
+    LDR 0
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDR 1
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDR 2
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDR 3
+    STR 14
+    JMP mem_poke
+
+// py__gaddr: R12 / R13 = the address of global A
+py__gaddr:
+    BSL
+    BSL
+    STR 12
+    LDI 0x8A
+    STR 13
+    RET
+
+// py__laddr: R12 / R13 = the address of local A in the running frame
+py__laddr:
+    BSL
+    BSL
+    STR 12
+    LDI 4           // behind the frame's header
+    ADD 12
+    STR 12
+    LDM 0x8242
+    ADD 12
+    STR 12
+    LDM 0x8243
+    STR 13
+    JC0 py__laddr__done
+    LDI 1
+    ADD 13
+    STR 13
+py__laddr__done:
+    RET
+
+py__x_pushc:
+    CLL py__fetch
+    STR 8
+    CLL py__fetch
+    STR 9
+    CLL py__fetch
+    STR 10
+    CLL py__fetch
+    STR 11
+py__x_push:
+    CLL py__push
+    JMP py__exec
+
+py__x_loadg:
+    CLL py__fetch
+    CLL py__gaddr
+// py__x_load: pushes the value at R12 / R13 unless it was never assigned
+py__x_load:
+    CLL py__rd32
+    LDI 2           // 256 - 0xFE
+    ADD 8
+    JA1 py__x_push
+    LDR 9
+    AND 10
+    AND 11
+    NOT
+    JA1 py__x_push
+    JMP py__e_name
+
+py__x_loadl:
+    CLL py__fetch
+    CLL py__laddr
+    JMP py__x_load
+
+py__x_storeg:
+    CLL py__fetch
+    STM 0x8248
+    CLL py__pop
+    LDM 0x8248
+    CLL py__gaddr
+py__x_store:
+    CLL py__wr32
+    JMP py__exec
+
+py__x_storel:
+    CLL py__fetch
+    STM 0x8248
+    CLL py__pop
+    LDM 0x8248
+    CLL py__laddr
+    JMP py__x_store
+
+py__x_add:
+    CLL py__pop2
+    CLL float32_add
+    JMP py__x_push
+
+py__x_sub:
+    CLL py__pop2
+    CLL float32_sub
+    JMP py__x_push
+
+py__x_mul:
+    CLL py__pop2
+    CLL float32_mul
+    JMP py__x_push
+
+py__x_div:
+    CLL py__pop2
+    CLL py__nonzero
+    CLL float32_div
+    JMP py__x_push
+
+py__x_fdiv:
+    CLL py__pop2
+    CLL py__nonzero
+    CLL float32_div
+    CLL py__r8_r0
+    CLL py__floor
+    JMP py__x_push
+
+// py__x_mod: Python's modulo takes the sign of the divisor, klib's that of
+// the dividend, so a nonzero remainder of the other sign gets the divisor
+// added once
+py__x_mod:
+    CLL py__pop2
+    CLL py__nonzero
+    LDR 4
+    STM 0x825C
+    LDR 5
+    STM 0x825D
+    LDR 6
+    STM 0x825E
+    LDR 7
+    STM 0x825F
+    CLL float32_mod
+    LDI 0x7F
+    STR 12
+    LDR 11
+    AND 12
+    ORR 10
+    ORR 9
+    ORR 8
+    JA0 py__x_push
+    LDM 0x825F
+    XOR 11
+    STR 12
+    LDI 0x80
+    AND 12
+    JA0 py__x_push
+    CLL py__r8_r0
+    LDM 0x825C
+    STR 4
+    LDM 0x825D
+    STR 5
+    LDM 0x825E
+    STR 6
+    LDM 0x825F
+    STR 7
+    CLL float32_add
+    JMP py__x_push
+
+py__x_pow:
+    CLL py__pop2
+    CLL float32_pow
+    JA1 py__e_value // a negative base to a fractional power
+    JMP py__x_push
+
+// py__nonzero: the right operand of a division must not be zero
+//     clobbers: R12
+py__nonzero:
+    LDI 0x7F
+    STR 12
+    LDR 7
+    AND 12
+    ORR 6
+    ORR 5
+    ORR 4
+    JA0 py__e_zerodiv
+    RET
+
+// py__trunc: R8 - R11 = R0 - R3 cut towards zero. From 2 ** 23 up a float32
+// has no fraction left, and klib's float32_to_int32 would saturate
+//     clobbers: R0 - R7, R12 - R15
+py__trunc:
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    STR 12
+    LDI 181         // 256 - 0x4B -> an exponent of 150 or more
+    ADD 12
+    JC1 py__r0_r8
+    CLL float32_to_int32
+    CLL py__r8_r0
+    JMP float32_from_int32
+
+// py__floor: R8 - R11 = the floor of R0 - R3
+//     clobbers: R0 - R15
+py__floor:
+    LDR 0
+    STM 0x8250
+    LDR 1
+    STM 0x8251
+    LDR 2
+    STM 0x8252
+    LDR 3
+    STM 0x8253
+    CLL py__trunc
+    LDI 0x80
+    STR 12
+    LDM 0x8253
+    AND 12
+    JA0 py__floor__done
+    LDR 8
+    STM 0x8254
+    LDR 9
+    STM 0x8255
+    LDR 10
+    STM 0x8256
+    LDR 11
+    STM 0x8257
+    CLL py__x_fsave
+    CLL float32_cmp
+    JA0 py__floor__done // a negative whole number
+    LDM 0x8254
+    STR 0
+    LDM 0x8255
+    STR 1
+    LDM 0x8256
+    STR 2
+    LDM 0x8257
+    STR 3
+    LDI 0
+    STR 4
+    STR 5
+    LDI 0x80
+    STR 6
+    LDI 0x3F
+    STR 7           // 1.0
+    JMP float32_sub
+py__floor__done:
+    RET
+
+// py__x_fsave: R0 - R3 = the cut value, R4 - R7 = the value it was cut from,
+// which 'py__floor' keeps at 0x8250 - 0x8253
+py__x_fsave:
+    LDM 0x8254
+    STR 0
+    LDM 0x8255
+    STR 1
+    LDM 0x8256
+    STR 2
+    LDM 0x8257
+    STR 3
+    LDM 0x8250
+    STR 4
+    LDM 0x8251
+    STR 5
+    LDM 0x8252
+    STR 6
+    LDM 0x8253
+    STR 7
+    RET
+
+py__x_eq:
+    CLL py__x_cmp
+    JA0 py__x_true
+    JMP py__x_false
+py__x_ne:
+    CLL py__x_cmp
+    JA0 py__x_false
+    JMP py__x_true
+py__x_lt:
+    CLL py__x_cmp
+    STR 0
+    LDI 255         // 256 - 1 -> less
+    ADD 0
+    JA0 py__x_true
+    JMP py__x_false
+py__x_gt:
+    CLL py__x_cmp
+    STR 0
+    LDI 254         // 256 - 2 -> greater
+    ADD 0
+    JA0 py__x_true
+    JMP py__x_false
+py__x_le:
+    CLL py__x_cmp
+    STR 0
+    LDI 254
+    ADD 0
+    JA0 py__x_false
+    JMP py__x_true
+py__x_ge:
+    CLL py__x_cmp
+    STR 0
+    LDI 255
+    ADD 0
+    JA0 py__x_false
+    JMP py__x_true
+
+// py__x_cmp: klib's float32_cmp of the two operands, 0 equal, 1 less,
+// 2 greater
+py__x_cmp:
+    CLL py__pop2
+    JMP float32_cmp
+
+py__x_true:
+    CLL py__one
+    JMP py__x_push
+py__x_false:
+    CLL py__zero
+    JMP py__x_push
+
+py__x_neg:
+    CLL py__pop
+    LDI 0x80
+    XOR 3
+    STR 3
+    JMP py__x_move
+py__x_abs:
+    CLL py__pop
+    LDI 0x7F
+    AND 3
+    STR 3
+// py__x_move: pushes R0 - R3
+py__x_move:
+    CLL py__r0_r8
+    JMP py__x_push
+
+py__x_not:
+    CLL py__pop
+    CLL py__truthy
+    JA1 py__x_false
+    JMP py__x_true
+
+py__x_int:
+    CLL py__pop
+    CLL py__trunc
+    JMP py__x_push
+
+// py__truthy: 1 in the accumulator unless R0 - R3 is a zero or None
+//     clobbers: R12
+py__truthy:
+    CLL py__isnone
+    JA1 py__truthy__no
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    JA0 py__truthy__no
+    LDI 1
+    RET
+py__truthy__no:
+    LDI 0
+    RET
+
+// py__isnone: 1 in the accumulator when R0 - R3 is None
+py__isnone:
+    LDR 0
+    AND 1
+    AND 2
+    AND 3
+    NOT
+    JA0 py__isnone__yes
+    LDI 0
+    RET
+py__isnone__yes:
+    LDI 1
+    RET
+
+// py__x_target: the jump target behind the opcode, into 0x8248 / 0x8249
+py__x_target:
+    CLL py__fetch
+    STM 0x8248
+    CLL py__fetch
+    STM 0x8249
+    RET
+
+// py__x_jmp: a loop's way back, which is also where a key stops the run
+py__x_jmp:
+    CLL py__x_target
+    CLL py__brk
+py__x_goto:
+    LDM 0x8248
+    STM 0x8240
+    LDM 0x8249
+    STM 0x8241
+    JMP py__exec
+
+py__x_jz:
+    CLL py__x_target
+    CLL py__pop
+    CLL py__truthy
+    JA0 py__x_goto
+    JMP py__exec
+
+py__x_jzk:
+    CLL py__x_target
+    CLL py__x_top
+    CLL py__truthy
+    JA0 py__x_goto
+    JMP py__exec
+
+py__x_jnzk:
+    CLL py__x_target
+    CLL py__x_top
+    CLL py__truthy
+    JA1 py__x_goto
+    JMP py__exec
+
+// py__x_top: R0 - R3 = the value on top of the stack, which stays there
+py__x_top:
+    CLL py__pop
+    CLL py__r0_r8
+    JMP py__push
+
+py__x_pop:
+    CLL py__pop
+    JMP py__exec
+
+// py__brk: any key stops the run
+py__brk:
+    LDR 16
+    JA1 py__e_interrupt
+    RET
+
+// py__x_call: f and the argument count. A new frame gets the return address,
+// the caller's frame and every local unassigned; the arguments, last one on
+// top of the stack, go into the first locals
+py__x_call:
+    CLL py__fetch
+    STM 0x8248
+    CLL py__fetch
+    STM 0x8249
+    LDM 0x8248
+    BSL
+    BSL
+    STR 12
+    LDI 0x8C
+    STR 13
+    CLL mem_peek
+    STM 0x824A
+    STR 0
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STM 0x824B
+    ORR 0
+    JA0 py__e_name  // called, never defined
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STR 0
+    LDM 0x8249
+    XOR 0
+    JA1 py__e_type  // the wrong number of arguments
+    LDI 1
+    ADD 12
+    STR 12
+    CLL mem_peek
+    STM 0x824C
+    BSL
+    BSL
+    STR 0
+    LDI 4
+    ADD 0
+    STR 0           // the frame's size
+    LDM 0x8244
+    ADD 0
+    STM 0x824D
+    LDM 0x8245
+    STR 1
+    JC0 py__x_call__fits
+    LDI 1
+    ADD 1
+    STR 1
+py__x_call__fits:
+    LDR 1
+    STM 0x824E
+    LDI 96          // 256 - 0xA0 -> past the frame area
+    ADD 1
+    JC1 py__e_recursion
+    LDM 0x8244
+    STR 12
+    LDM 0x8245
+    STR 13
+    LDM 0x8240
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDM 0x8241
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDM 0x8242
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDM 0x8243
+    STR 14
+    CLL mem_poke
+    CLL py__inc
+    LDM 0x8244
+    STM 0x8242
+    LDM 0x8245
+    STM 0x8243
+    LDM 0x824D
+    STM 0x8244
+    LDM 0x824E
+    STM 0x8245
+    LDM 0x824C
+    STM 0x824F
+py__x_call__undef:
+    LDM 0x824F
+    JA0 py__x_call__args
+    CLL py__undef
+    LDM 0x824F
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x824F
+    JMP py__x_call__undef
+py__x_call__args:
+    LDM 0x8249
+    JA0 py__x_call__go
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x8249
+    CLL py__pop
+    LDM 0x8249
+    CLL py__laddr
+    CLL py__wr32
+    JMP py__x_call__args
+py__x_call__go:
+    LDM 0x824A
+    STM 0x8240
+    LDM 0x824B
+    STM 0x8241
+    CLL py__brk
+    JMP py__exec
+
+// py__x_ret: drops the frame and leaves the return value on the stack
+py__x_ret:
+    CLL py__pop
+    LDR 0
+    STM 0x8250
+    LDR 1
+    STM 0x8251
+    LDR 2
+    STM 0x8252
+    LDR 3
+    STM 0x8253
+    LDM 0x8242
+    STR 12
+    STM 0x8244
+    LDM 0x8243
+    STR 13
+    STM 0x8245
+    CLL mem_peek
+    STM 0x8240
+    CLL py__inc
+    CLL mem_peek
+    STM 0x8241
+    CLL py__inc
+    CLL mem_peek
+    STM 0x8242
+    CLL py__inc
+    CLL mem_peek
+    STM 0x8243
+    LDM 0x8250
+    STR 8
+    LDM 0x8251
+    STR 9
+    LDM 0x8252
+    STR 10
+    LDM 0x8253
+    STR 11
+    JMP py__x_push
+
+// py__x_input: klib's float32_read, which echoes the ENTER that ends the
+// number into a cell of its own; the row is ended behind it
+py__x_input:
+    LDI 0
+    STR 16          // a key pressed before the prompt is not an answer
+    CLL float32_read
+    CLL disp_nl
+    JMP py__x_move
+
+py__x_printv:
+    CLL py__pop
+    CLL py__puts
+    JMP py__exec
+
+// py__puts: prints R0 - R3, None as such
+//     clobbers: R0 - R15
+py__puts:
+    CLL py__isnone
+    JA0 float32_puts
+    CLL py__say
+    LDI 78          // 'N'
+    LDI 111         // 'o'
+    LDI 110         // 'n'
+    LDI 101         // 'e'
+    RET
+
+py__x_prints:
+    CLL py__fetch
+    STM 0x8248
+py__x_prints__char:
+    LDM 0x8248
+    JA0 py__exec
+    STR 0
+    LDI 255
+    ADD 0
+    STM 0x8248
+    CLL py__fetch
+    CLL disp_putc
+    JMP py__x_prints__char
+
+py__x_printsp:
+    LDI 32          // ' '
+    CLL disp_putc
+    JMP py__exec
+
+py__x_printblank:
+    LDI 32          // ' '
+    CLL disp_putc
+py__x_printnl:
+    CLL disp_nl
+    JMP py__exec
+
+// py__x_echo: the value of an expression typed at the prompt, unless None
+py__x_echo:
+    CLL py__pop
+    CLL py__isnone
+    JA1 py__exec
+    CLL float32_puts
+    JMP py__x_printnl
+
+// py__x_fortest: 1 while i is short of the limit in the step's direction; a
+// zero step ends the loop at once
+py__x_fortest:
+    CLL py__pop
+    LDR 3
+    STM 0x8248      // the step's sign
+    LDI 0x7F
+    STR 12
+    LDR 3
+    AND 12
+    ORR 2
+    ORR 1
+    ORR 0
+    STM 0x8249      // nonzero for a step that is not zero
+    CLL py__pop2
+    CLL float32_cmp
+    STR 0
+    LDM 0x8249
+    JA0 py__x_false
+    LDI 0x80
+    STR 1
+    LDM 0x8248
+    AND 1
+    JA1 py__x_fortest__down
+    LDI 255         // 256 - 1 -> i < limit
+    ADD 0
+    JA0 py__x_true
+    JMP py__x_false
+py__x_fortest__down:
+    LDI 254         // 256 - 2 -> i > limit
+    ADD 0
+    JA0 py__x_true
+    JMP py__x_false
