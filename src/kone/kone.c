@@ -62,6 +62,8 @@ int main(int argc, char *argv[]) {
     if (display_pid == 0) {
         display_reset(display);
         if (!args.log) {
+            // A line-buffered tty would show each frame half drawn.
+            setvbuf(stdout, NULL, _IOFBF, 1 << 16);
             signal(SIGINT, out_cleanup);
             printf("\033[?25l\033[?1049h"); // hide cursor, switch to alternate
                                             // screen
@@ -71,7 +73,10 @@ int main(int argc, char *argv[]) {
                 display_fetch(cpu, display);
                 sleep_ns(1000000000L / DISP_POLL_RATE);
             }
-            if (!args.log) print_out(cpu, cpu_msg, display, &args);
+            if (!args.log) {
+                print_out(cpu, cpu_msg, display, &args);
+                fflush(stdout);
+            }
         }
         exit(0);
     }

@@ -1,12 +1,16 @@
 CC := gcc
 
-CPPFLAGS := -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE
+# The display grid, that of the 20x4 HD44780 module the machine is built for.
+# klib/io/disp.kasm and the stack top at 0xFFAF assume 20x4 as well.
+DISP_NCOLS := 40
+DISP_NROWS := 24
+
+CPPFLAGS := -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE \
+            -DDISP_NCOLS=$(DISP_NCOLS) -DDISP_NROWS=$(DISP_NROWS)
 
 CFLAGS := -std=c2x -Wall -Wextra -Wpedantic -Wunused-function -O2
 
 DEPFLAGS = -MMD -MP
-
-LDFLAGS :=
 
 TARGET := bin/kone
 
@@ -141,9 +145,6 @@ bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
 
 bin/test_klib_%.bin: tests/klib/test_%.kasm $(KLIB_SRCS) $(KASM)
 	$(KASM) -i $< -o $@
-
-obj bin:
-	mkdir -p $@
 
 obj/%.o: $(KONE_DIR)/%.c | obj bin
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@
