@@ -1386,6 +1386,4 @@ def clock_buffer(circuit, x, y, outs, clk="CLK"):
         out = outs[g - 2] if g - 2 < len(outs) else None
         nets[f"A{g}"] = "NCLKIN" if out else Ground
         nets[f"Y{g}"] = out
-    return wire_dip(
-        circuit, circuit.add(Ttl7404(x, y, label="clkbuf")), nets
-    )
+    return wire_dip(circuit, circuit.add(Ttl7404(x, y, label="clkbuf")), nets)
