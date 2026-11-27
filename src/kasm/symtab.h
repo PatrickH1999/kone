@@ -4,10 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// Maps label names to program addresses.
+// Maps a label to its address, or a -D constant to its value.
 typedef struct {
     char *name;
-    uint16_t addr;
+    uint16_t value;
 } Symbol;
 
 typedef struct {
@@ -19,10 +19,10 @@ typedef struct {
 void symtab_init(SymTab *t);
 void symtab_free(SymTab *t);
 
-// Inserts or overwrites the address for name; copies name.
-void symtab_put(SymTab *t, const char *name, uint16_t addr);
+// Inserts or overwrites the value for name; copies name.
+void symtab_put(SymTab *t, const char *name, uint16_t value);
 
-// Writes the address for name to *out and returns 1, or 0 if not found.
+// Writes the value for name to *out and returns 1, or 0 if not found.
 int symtab_get(const SymTab *t, const char *name, uint16_t *out);
 
 #endif

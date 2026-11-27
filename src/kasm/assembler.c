@@ -1,7 +1,6 @@
 #include "assembler.h"
 
 #include "isa.h"
-#include "symtab.h"
 
 #include <ctype.h>
 #include <errno.h>
@@ -133,6 +132,23 @@ static int parse_uint(const char *s, long *out) {
     return 1;
 }
 
+int assembler_define(SymTab *constants, const char *def) {
+    const char *eq = strchr(def, '=');
+    long value;
+    if (!eq || eq == def || !parse_uint(eq + 1, &value) || value > 0xFFFF)
+        return 0;
+
+    char *name = strndup(def, eq - def);
+    if (!name) die("out of memory");
+    long number;
+    uint16_t existing;
+    int ok =
+        !parse_uint(name, &number) && !symtab_get(constants, name, &existing);
+    if (ok) symtab_put(constants, name, (uint16_t)value);
+    free(name);
+    return ok;
+}
+
 typedef struct {
     char *paths[MAX_INCLUDE_DEPTH]; // canonical paths of the include chain
     int depth;
@@ -241,7 +257,8 @@ static void bytes_push(ByteBuf *b, uint8_t x) {
 // label at pc when define is set. Returns the index of the instruction, or
 // ntok if the line holds only labels.
 static int process_labels(char *tok[MAX_TOKENS], int ntok, uint16_t pc,
-                          SymTab *symbols, int define, const SourceLine *ln) {
+                          SymTab *symbols, const SymTab *constants, int define,
+                          const SourceLine *ln) {
     int i = 0;
     while (i < ntok) {
         size_t wlen = strlen(tok[i]);
@@ -249,6 +266,10 @@ static int process_labels(char *tok[MAX_TOKENS], int ntok, uint16_t pc,
         if (wlen == 1) die_at(ln->file, ln->lineno, "empty label name");
         if (define) {
             tok[i][wlen - 1] = '\0'; // drop trailing ':'
+            uint16_t value;
+            if (symtab_get(constants, tok[i], &value))
+                die_at(ln->file, ln->lineno,
+                       "label '%s' has the name of a -D constant", tok[i]);
             symtab_put(symbols, tok[i], pc);
         }
         i++;
@@ -257,9 +278,16 @@ static int process_labels(char *tok[MAX_TOKENS], int ntok, uint16_t pc,
 }
 
 static uint16_t resolve_operand(const Instruction *instr, const char *operand,
-                                const SymTab *symbols, const SourceLine *ln) {
+                                const SymTab *symbols, const SymTab *constants,
+                                const SourceLine *ln) {
     long value;
-    if (parse_uint(operand, &value)) {
+    uint16_t constant;
+    int is_number = parse_uint(operand, &value);
+    if (!is_number && symtab_get(constants, operand, &constant)) {
+        value = constant;
+        is_number = 1;
+    }
+    if (is_number) {
         if (value > isa_arg_max(instr->arg_kind))
             die_at(ln->file, ln->lineno,
                    "operand %ld out of range for %s (max %u)", value,
@@ -277,7 +305,8 @@ static uint16_t resolve_operand(const Instruction *instr, const char *operand,
     }
 
     die_at(ln->file, ln->lineno,
-           "operand '%s' is neither a valid integer nor a known label",
+           "operand '%s' is neither a valid integer, a -D constant nor "
+           "a known label",
            operand);
     return 0; // unreachable
 }
@@ -285,8 +314,8 @@ static uint16_t resolve_operand(const Instruction *instr, const char *operand,
 // Validates operand count for tok[first..]; encodes into out when emit is
 // set. Returns the instruction's size in bytes.
 static int encode_instruction(char *tok[MAX_TOKENS], int first, int ntok,
-                              const SymTab *symbols, const SourceLine *ln,
-                              int emit, ByteBuf *out) {
+                              const SymTab *symbols, const SymTab *constants,
+                              const SourceLine *ln, int emit, ByteBuf *out) {
     const Instruction *instr = isa_lookup(tok[first]);
     if (!instr) die_at(ln->file, ln->lineno, "unknown opcode '%s'", tok[first]);
 
@@ -299,7 +328,8 @@ static int encode_instruction(char *tok[MAX_TOKENS], int first, int ntok,
     if (emit) {
         bytes_push(out, instr->opcode);
         if (instr->arg_kind != ARG_NONE) {
-            uint16_t v = resolve_operand(instr, tok[first + 1], symbols, ln);
+            uint16_t v =
+                resolve_operand(instr, tok[first + 1], symbols, constants, ln);
             switch (instr->arg_kind) {
             case ARG_REG:
             case ARG_IMM:
@@ -317,7 +347,8 @@ static int encode_instruction(char *tok[MAX_TOKENS], int first, int ntok,
     return isa_instr_size(instr->arg_kind);
 }
 
-uint8_t *assemble_file(const char *input_path, size_t *out_len) {
+uint8_t *assemble_file(const char *input_path, const SymTab *constants,
+                       size_t *out_len) {
     LineList lines;
     lines_init(&lines);
     IncludeStack stack = {.depth = 0};
@@ -337,9 +368,11 @@ uint8_t *assemble_file(const char *input_path, size_t *out_len) {
         if (ntok > MAX_TOKENS)
             die_at(ln->file, ln->lineno, "more than %d tokens on one line",
                    MAX_TOKENS);
-        int first = process_labels(tok, ntok, (uint16_t)pc, &symbols, 1, ln);
+        int first =
+            process_labels(tok, ntok, (uint16_t)pc, &symbols, constants, 1, ln);
         if (first < ntok)
-            pc += encode_instruction(tok, first, ntok, &symbols, ln, 0, NULL);
+            pc += encode_instruction(tok, first, ntok, &symbols, constants, ln,
+                                     0, NULL);
         if (pc > ADDR_SPACE)
             die_at(ln->file, ln->lineno,
                    "program exceeds %d-byte address space", ADDR_SPACE);
@@ -355,9 +388,10 @@ uint8_t *assemble_file(const char *input_path, size_t *out_len) {
         char *tok[MAX_TOKENS];
         int ntok = tokenize(scratch, tok);
 
-        int first = process_labels(tok, ntok, 0, &symbols, 0, ln);
+        int first = process_labels(tok, ntok, 0, &symbols, constants, 0, ln);
         if (first < ntok)
-            encode_instruction(tok, first, ntok, &symbols, ln, 1, &out);
+            encode_instruction(tok, first, ntok, &symbols, constants, ln, 1,
+                               &out);
         free(scratch);
     }
 

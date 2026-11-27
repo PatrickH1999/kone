@@ -3,7 +3,7 @@
 //     three chars      -> column 3
 //     a backspace      -> column 2
 //     a newline        -> column 0
-//     a full row of 20 -> column 0, row 2
+//     a full row       -> column 0, row 2
 //     a clear          -> column 0, row 0
 //
 // The 'x' chars the cases push are what the display rows before the clear are
@@ -40,7 +40,7 @@ main:
     STM 0x8043
 
     // a full row of chars wraps the column pointer back to zero
-    LDI 20
+    LDI DISP_NCOLS
     STR 0
 main__wrap_loop:
     LDI 120         // 'x'

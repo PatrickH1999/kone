@@ -16,7 +16,7 @@ bin/kone -b bin/calculator_int32.bin
 ```
 Try the `kasm` assembler:
 ```bash
-bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
+bin/kasm -D DISP_NCOLS=20 -D DISP_NROWS=4 -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
 ```
 
 ## Folder structure
@@ -53,7 +53,7 @@ The virtual machine loads a boot file into memory and runs it until it is interr
  - `-b BOOTFILE`, `--bootfile BOOTFILE`: path to the binary boot file that is loaded into memory before execution starts. This argument is required and has no default.
  - `-t USEC`, `--clockspeed USEC`: number of microseconds to sleep between clock cycles (default: `0`, run as fast as possible). A value like `-t 100000` is useful for watching an example step through its instructions.
  - `-v [0-3]`, `--verbose [0-3]`: verbosity level of the output (default: `0`). The levels are cumulative:
-    - `0`: only the 20x4 display
+    - `0`: only the display
     - `1`: additionally the cycle counter and the program counter, printed as `[ cycle : PC ]`
     - `2`: additionally the instruction that was just decoded and executed
     - `3`: additionally the full CPU state (`R0`-`R21`, stack pointer, input buffer, accumulator, flags, instruction register and program counter)
@@ -66,6 +66,7 @@ The virtual machine loads a boot file into memory and runs it until it is interr
 The assembler translates a kasm assembly source file into the flat binary that `kone` boots:
  - `-i FILE`, `--input FILE`: input assembly source file (`.kasm`). This argument is required.
  - `-o FILE`, `--output FILE`: output binary file (`.bin`). This argument is required.
+ - `-D NAME=VALUE`, `--define NAME=VALUE`: a constant usable wherever a numeric operand is; repeatable. Anything that includes `klib/io/disp.kasm` needs `-D DISP_NCOLS=... -D DISP_NROWS=...`, matching the grid `kone` was built with (`DISP_NCOLS`/`DISP_NROWS` in the `Makefile`; the hardware is 20x4).
  - `-h`, `--help`: prints the help page and exits.
 
 The language and its limits are on the wiki's [Assembler](https://github.com/PatrickH1999/kone/wiki/Assembler) page.

@@ -35,10 +35,10 @@ static Symbol *symtab_find(const SymTab *t, const char *name) {
     return NULL;
 }
 
-void symtab_put(SymTab *t, const char *name, uint16_t addr) {
+void symtab_put(SymTab *t, const char *name, uint16_t value) {
     Symbol *existing = symtab_find(t, name);
     if (existing) {
-        existing->addr = addr;
+        existing->value = value;
         return;
     }
     if (t->len == t->cap) {
@@ -52,13 +52,13 @@ void symtab_put(SymTab *t, const char *name, uint16_t addr) {
         t->cap = cap;
     }
     t->items[t->len].name = xstrdup(name);
-    t->items[t->len].addr = addr;
+    t->items[t->len].value = value;
     t->len++;
 }
 
 int symtab_get(const SymTab *t, const char *name, uint16_t *out) {
     Symbol *s = symtab_find(t, name);
     if (!s) return 0;
-    *out = s->addr;
+    *out = s->value;
     return 1;
 }

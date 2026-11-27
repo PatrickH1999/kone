@@ -1,7 +1,7 @@
 CC := gcc
 
-# The display grid, that of the 20x4 HD44780 module the machine is built for.
-# klib/io/disp.kasm and the stack top at 0xFFAF assume 20x4 as well.
+# The display grid, for the VM and, through kasm -D, for klib/io/disp.kasm.
+# The hardware is 20x4 regardless: the LCD2004 and the Logisim TTY.
 DISP_NCOLS := 40
 DISP_NROWS := 24
 
@@ -41,6 +41,7 @@ KLIB_TEST_BINS := $(patsubst tests/klib/test_%.kasm, bin/test_klib_%.bin, \
 KLIB_TEST_TIMEOUT := 20
 
 KASM := bin/kasm
+KASMFLAGS := -D DISP_NCOLS=$(DISP_NCOLS) -D DISP_NROWS=$(DISP_NROWS)
 KASM_SRCS := $(wildcard $(KASM_DIR)/*.c) $(wildcard $(KASM_DIR)/*.h)
 KASM_OBJS := obj/assembler.o obj/isa.o obj/symtab.o
 KASM_TEST_BIN := bin/test_kasm
@@ -144,10 +145,10 @@ bin/%: tests/%.c $(TEST_OBJS)
 	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(TEST_OBJS) -o $@
 
 bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
-	$(KASM) -i $< -o $@
+	$(KASM) $(KASMFLAGS) -i $< -o $@
 
 bin/test_klib_%.bin: tests/klib/test_%.kasm $(KLIB_SRCS) $(KASM)
-	$(KASM) -i $< -o $@
+	$(KASM) $(KASMFLAGS) -i $< -o $@
 
 # $(shell mkdir) above runs once, before `debug` deletes both mid-run.
 obj bin:

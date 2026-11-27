@@ -14,6 +14,7 @@
 
 #include "../../src/kasm/assembler.h"
 #include "../../src/kasm/isa.h"
+#include "../../src/kasm/symtab.h"
 #include "../test_common.h"
 
 void test_isa_lookup_known_mnemonic();
@@ -26,5 +27,7 @@ void test_assemble_register_operand();
 void test_assemble_memory_operand_little_endian();
 void test_assemble_label_resolves_to_address();
 void test_assemble_include();
+void test_assembler_define_rejects();
+void test_assemble_constant_operand();
 
 #endif

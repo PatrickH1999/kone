@@ -27,8 +27,12 @@ make logisim_<t>    # forwarded to logisim/Makefile, which owns circ, cpu, test,
 make kicad_<t>      # forwarded to kicad/Makefile, which owns boards, route,
                     # gerbers, roms, clean (see kicad/README.md)
 bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
-bin/kasm -i examples/x.kasm -o bin/x.bin
+bin/kasm -D DISP_NCOLS=20 -D DISP_NROWS=4 -i examples/x.kasm -o bin/x.bin
 ```
+
+`DISP_NCOLS`/`DISP_NROWS` in the `Makefile` set the grid for the VM and, as kasm `-D`, for
+`klib/io/disp.kasm`; the two have to match. Nothing tracks them, so after changing them run
+`make clean-build` or `obj/` and `bin/` keep the old grid. The hardware stays 20x4.
 
 `make clean` deletes everything the build generates, `$(PREFIX)/bin/{kone,kasm}` and
 `kicad/boards/` included — the boards carry the router's `.ses` sessions, about 25 minutes
@@ -174,7 +178,8 @@ Includes go **at the top**, right after `JMP main` — deliberate (commit 022096
 - Two passes, so forward label references are fine.
 - `LDM`/`STM` **do not accept labels** — numeric addresses only. Labels work only as the
   operand of `JMP`, `JC0`, `JC1`, `JA0`, `JA1`, `CLL`.
-- No `.org`, no `.equ`, no `.db`, no data or string emission. Constants go through `LDI`;
+- No `.org`, no `.equ`, no `.db`, no data or string emission. The only named constants are
+  `-D NAME=VALUE` on the command line, usable wherever a literal is. Constants go through `LDI`;
   tables are built at run time (see the keyword table at the top of `examples/basic.kasm`).
 - `.include "path"` (relative to the including file) is the only directive, and it has **no
   include guards** — only circular includes are caught. A file reached twice is assembled
@@ -195,7 +200,7 @@ Includes go **at the top**, right after `JMP main` — deliberate (commit 022096
 0x8000-0x803F   klib scratch — full map in klib/io/disp.kasm, extend it there
                 (klib tests keep their own state at 0x8040 and above)
 0x8100+         free for the program (basic.kasm claims 0x8100-0x899B)
-0xFFAF          stack top, grows down
+0xFFAF          stack top for 20x4, grows down (65536 - cells - 1)
 0xFFB0-0xFFFF   reserved display-sized block
 ```
 
@@ -356,7 +361,8 @@ which is `cpu_decode_exec()`'s switch. What that costs, and what to know before 
 - Memory is ROM below `0x8000` and RAM above it: a **write below 0x8000 is dropped**, which
   the VM would honour. Nothing in `klib` or `examples/` writes there, and `mem_poke`'s
   patched instructions live at `0x8000`, so they still execute from RAM.
-- The display is a Logisim TTY, 20x4 like the vm's. It takes the same handshake (`R19`, then
+- The display is a Logisim TTY, 20x4 like the hardware. Its programs therefore have to be assembled
+  for 20x4. It takes the same handshake (`R19`, then
   `R18`, cleared once the char is taken) and the same backspace, but a full screen scrolls
   instead of clearing the next row and then the whole grid the way `display_push_char()`
   does.

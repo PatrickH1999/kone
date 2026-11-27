@@ -1,6 +1,7 @@
 #include "test_kasm.h"
 
 static char tmpdir[] = "/tmp/kasm_test_XXXXXX";
+static const SymTab no_constants = {0};
 
 static char *tmp_path(char *buf, size_t bufsize, const char *name) {
     snprintf(buf, bufsize, "%s/%s", tmpdir, name);
@@ -17,7 +18,7 @@ static void write_file(const char *path, const char *content) {
 int main() {
     assert(mkdtemp(tmpdir) != NULL);
 
-    TEST_MODULE_BEGIN("kasm", 10);
+    TEST_MODULE_BEGIN("kasm", 12);
     RUN_TEST(test_isa_lookup_known_mnemonic);
     RUN_TEST(test_isa_lookup_unknown_mnemonic);
     RUN_TEST(test_isa_arg_max);
@@ -28,7 +29,9 @@ int main() {
     RUN_TEST(test_assemble_memory_operand_little_endian);
     RUN_TEST(test_assemble_label_resolves_to_address);
     RUN_TEST(test_assemble_include);
-    TEST_MODULE_END("kasm", 10);
+    RUN_TEST(test_assembler_define_rejects);
+    RUN_TEST(test_assemble_constant_operand);
+    TEST_MODULE_END("kasm", 12);
 
     rmdir(tmpdir);
     return TEST_EXIT_CODE;
@@ -68,7 +71,7 @@ void test_assemble_no_operand_opcodes() {
     write_file(path, "NOP\nRET\n");
 
     size_t len;
-    uint8_t *code = assemble_file(path, &len);
+    uint8_t *code = assemble_file(path, &no_constants, &len);
     assert(len == 2);
     assert(code[0] == 0x00);
     assert(code[1] == 0x0A);
@@ -82,7 +85,7 @@ void test_assemble_immediate_operand() {
     write_file(path, "LDI 42\n");
 
     size_t len;
-    uint8_t *code = assemble_file(path, &len);
+    uint8_t *code = assemble_file(path, &no_constants, &len);
     assert(len == 2);
     assert(code[0] == 0x40);
     assert(code[1] == 0x2A);
@@ -96,7 +99,7 @@ void test_assemble_register_operand() {
     write_file(path, "STR 5\n");
 
     size_t len;
-    uint8_t *code = assemble_file(path, &len);
+    uint8_t *code = assemble_file(path, &no_constants, &len);
     assert(len == 2);
     assert(code[0] == 0x90);
     assert(code[1] == 0x05);
@@ -110,7 +113,7 @@ void test_assemble_memory_operand_little_endian() {
     write_file(path, "JMP 0x0200\n");
 
     size_t len;
-    uint8_t *code = assemble_file(path, &len);
+    uint8_t *code = assemble_file(path, &no_constants, &len);
     assert(len == 3);
     assert(code[0] == 0x28);
     assert(code[1] == 0x00); // low byte
@@ -125,7 +128,7 @@ void test_assemble_label_resolves_to_address() {
     write_file(path, "NOP\nNOP\ntarget: LDI 1\nJMP target\n");
 
     size_t len;
-    uint8_t *code = assemble_file(path, &len);
+    uint8_t *code = assemble_file(path, &no_constants, &len);
     // NOP, NOP, LDI 1 (target = 0x0002), JMP 0x0002
     uint8_t expected[] = {0x00, 0x00, 0x40, 0x01, 0x28, 0x02, 0x00};
     assert(len == sizeof expected);
@@ -142,11 +145,48 @@ void test_assemble_include() {
     write_file(main_path, ".include \"include_sub.kasm\"\nNOP\n");
 
     size_t len;
-    uint8_t *code = assemble_file(main_path, &len);
+    uint8_t *code = assemble_file(main_path, &no_constants, &len);
     uint8_t expected[] = {0x40, 0x07, 0x00};
     assert(len == sizeof expected);
     assert(memcmp(code, expected, len) == 0);
     free(code);
     remove(sub_path);
     remove(main_path);
+}
+
+void test_assembler_define_rejects() {
+    SymTab constants;
+    symtab_init(&constants);
+    assert(!assembler_define(&constants, "NCOLS"));
+    assert(!assembler_define(&constants, "=20"));
+    assert(!assembler_define(&constants, "NCOLS="));
+    assert(!assembler_define(&constants, "NCOLS=-1"));
+    assert(!assembler_define(&constants, "NCOLS=0x10000"));
+    assert(!assembler_define(&constants, "0x20=20"));
+    assert(assembler_define(&constants, "NCOLS=20"));
+    assert(!assembler_define(&constants, "NCOLS=24"));
+
+    uint16_t value;
+    assert(symtab_get(&constants, "NCOLS", &value) && value == 20);
+    symtab_free(&constants);
+}
+
+void test_assemble_constant_operand() {
+    char path[PATH_MAX];
+    tmp_path(path, sizeof path, "constant.kasm");
+    write_file(path, "LDI NCOLS\nXOR NCOLS\nLDM SCRATCH\n");
+
+    SymTab constants;
+    symtab_init(&constants);
+    assert(assembler_define(&constants, "NCOLS=20"));
+    assert(assembler_define(&constants, "SCRATCH=0x8040"));
+
+    size_t len;
+    uint8_t *code = assemble_file(path, &constants, &len);
+    uint8_t expected[] = {0x40, 0x14, 0xE0, 0x14, 0x20, 0x40, 0x80};
+    assert(len == sizeof expected);
+    assert(memcmp(code, expected, len) == 0);
+    free(code);
+    symtab_free(&constants);
+    remove(path);
 }
