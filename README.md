@@ -37,8 +37,8 @@ bin/kasm -i examples/calculator_int32.kasm -o bin/calculator_int32.bin
  - `make test-kone`: run only the C unit tests of the virtual machine
  - `make test-kasm`: run only the C unit test of the assembler
  - `make test-klib`: run only the `klib` tests, kasm programs run on the vm
- - `make debug`: build with debugging symbols and no optimization; runs `make clean` first, so it also uninstalls `kone` and `kasm`
- - `make clean`: delete `bin/`, `obj/`, the generated Logisim circuits and the installed `kone` and `kasm`
+ - `make debug`: delete `bin/` and `obj/`, then build with debugging symbols and no optimization
+ - `make clean`: delete everything the build generates -- `bin/`, `obj/`, the Logisim circuits, the KiCad boards and ROM images, the Python and ruff caches -- and the installed `kone` and `kasm`
  - `make kasm`: build only the assembler
  - `make logisim_<target>`: anything in `logisim/`, forwarded to its own makefile
  - `make kicad_<target>`: anything in `kicad/`, forwarded to its own makefile

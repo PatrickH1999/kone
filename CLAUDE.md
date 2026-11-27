@@ -30,12 +30,10 @@ bin/kone -b bin/hello.bin [-t USEC] [-v0..3] [-l]
 bin/kasm -i examples/x.kasm -o bin/x.bin
 ```
 
-`make clean` also deletes `$(PREFIX)/bin/{kone,kasm}` and the generated `.circ` files
-(`make logisim_clean` for only those; it leaves a hand-drawn circuit alone). It does **not**
-touch `kicad/boards/` — that takes `make kicad_clean`, on purpose: the boards carry the
-router's `.ses` sessions, which are not in git and cost about 25 minutes to recompute.
-`make debug`
-depends on `clean`, so it uninstalls as a side effect. `make -n clean` is not a dry run
+`make clean` deletes everything the build generates, `$(PREFIX)/bin/{kone,kasm}` and
+`kicad/boards/` included — the boards carry the router's `.ses` sessions, about 25 minutes
+to recompute. Whatever is not generated has to be tracked. `make debug` cleans only
+`bin/` and `obj/` (`clean-build`), so it keeps the boards. `make -n clean` is not a dry run
 either — the recursive `$(MAKE) -C src/kasm clean` runs for real and takes `bin/kasm` with
 it. kasm emits no depfiles, so any klib edit rebuilds every
 example — intended.
@@ -530,7 +528,7 @@ took **four layers** — `In1.Cu` is a GND plane, `In2.Cu` a +5V plane — which
 board than two but is what takes the two rails off the signal layers. Freerouting is not in
 the repo — v2.4.1 sits at `~/.cache/freerouting/freerouting.jar`, where `FREEROUTING_JAR`
 points. `kicad_clean` deletes `kicad/boards/`, the `.ses` with it, so routing has to be
-recomputed rather than restored afterwards; that is why the root `clean` does not call it.
+recomputed rather than restored afterwards — and the root `clean` calls it.
 
 The chain takes about 25 minutes, and two things about running it cost a night each:
 

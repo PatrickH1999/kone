@@ -53,7 +53,7 @@ PREFIX ?= $(HOME)/.local
 
 $(shell mkdir -p bin obj)
 
-.PHONY: all check clean debug examples format hooks install kasm kone test \
+.PHONY: all check clean clean-build debug examples format hooks install kasm kone test \
         $(TEST_GROUPS)
 
 # Main targets.
@@ -69,15 +69,18 @@ logisim_%:
 kicad_%:
 	@$(MAKE) -C kicad $*
 
-# Deliberately not `kicad_clean`: the boards carry the router's sessions, which
-# cost about 25 minutes to recompute and are not in git. Ask for them by name.
-clean: logisim_clean
-	$(MAKE) -C $(KASM_DIR) clean
-	@targets='bin obj'; $(RM_RF)
+# Takes the routed boards with it, about 25 minutes of Freerouting.
+clean: clean-build logisim_clean kicad_clean
+	@targets='.ruff_cache'; $(RM_RF)
 	rm -f $(PREFIX)/bin/kone $(PREFIX)/bin/kasm
 
+# Only the C build, so a debug build leaves the boards alone.
+clean-build:
+	$(MAKE) -C $(KASM_DIR) clean
+	@targets='bin obj'; $(RM_RF)
+
 debug: CFLAGS += -g -O0 -DDEBUG
-debug: clean all
+debug: clean-build all
 
 examples: $(EXAMPLE_TARGETS)
 
@@ -145,6 +148,10 @@ bin/%.bin: examples/%.kasm $(KLIB_SRCS) $(KASM)
 
 bin/test_klib_%.bin: tests/klib/test_%.kasm $(KLIB_SRCS) $(KASM)
 	$(KASM) -i $< -o $@
+
+# $(shell mkdir) above runs once, before `debug` deletes both mid-run.
+obj bin:
+	mkdir -p $@
 
 obj/%.o: $(KONE_DIR)/%.c | obj bin
 	$(CC) $(CPPFLAGS) $(CFLAGS) $(DEPFLAGS) -c $< -o $@

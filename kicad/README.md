@@ -43,7 +43,7 @@ they do not:
 | `make kicad_gerbers` | `make gerbers` | DRC, then gerbers and drills zipped per board |
 | `make kicad_render` | `make render` | `boards/<board>/<board>.png` and `<board>_back.png`, wants KiCad 8 or later |
 | `make kicad_roms` | `make roms` | one EEPROM image per chip into `roms/` |
-| `make kicad_clean` | `make clean` | the generated files, `boards/` included -- the root `make clean` leaves them alone |
+| `make kicad_clean` | `make clean` | the generated files, `boards/` included; the root `make clean` runs it too |
 
 ## Layout
 
